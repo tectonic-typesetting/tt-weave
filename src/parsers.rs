@@ -3,12 +3,12 @@
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_until, take_while},
-    character::complete::{alpha1, alphanumeric1, char},
-    combinator::recognize,
+    character::complete::{alpha1, alphanumeric1, char, one_of},
+    combinator::{map_res, recognize},
     error::{ErrorKind, ParseError as NomParseError},
-    multi::{many0, many0_count},
-    sequence::pair,
-    Err, Finish, IResult, InputIter, Slice,
+    multi::{many0, many0_count, many1},
+    sequence::{pair, terminated},
+    Err, Finish, IResult, InputIter, InputTakeAtPosition, Slice,
 };
 use nom_locate::position;
 use std::{borrow::Cow, convert::TryFrom, fmt};
@@ -155,6 +155,12 @@ fn skip_to_pascal(mut span: Span) -> ParseResult<()> {
         let (new_span, c) = next_char(span)?;
         span = new_span;
         if c == 'p' || c == 'P' {
+            return Ok((span, ())); // anonymous module
+        }
+
+        if c == '<' {
+            let (span, _name) = take_until_end_token()(span)?;
+            let (span, _) = char('=')(span)?;
             return Ok((span, ()));
         }
     }
@@ -294,6 +300,41 @@ impl TryFrom<&str> for PascalReservedWord {
 }
 
 #[derive(Debug)]
+enum DelimiterKind {
+    Paren,
+
+    /// A `@{` or `@}` meta-comment. Note that these need not be balanced.
+    MetaComment,
+
+    /// Obtained with the `(.` digraph.
+    SquareBracket,
+}
+
+#[derive(Debug)]
+enum IntLiteralKind {
+    Decimal,
+    Octal,
+}
+
+#[derive(Debug)]
+enum StringLiteralKind {
+    SingleQuote,
+    DoubleQuote,
+}
+
+#[derive(Debug)]
+enum IndexEntryKind {
+    /// `@^`: for human language
+    Roman,
+
+    /// `@.`: for UI strings
+    Typewriter,
+
+    /// `@:`: used for custom TeX typesetting, essentially
+    Wildcard,
+}
+
+#[derive(Debug)]
 enum PascalToken<'a> {
     /// The `@t` control code: TeX text for the woven output.
     TexString(StringSpan<'a>),
@@ -307,8 +348,58 @@ enum PascalToken<'a> {
     /// An identifier
     Identifier(StringSpan<'a>),
 
+    OpenDelimiter(DelimiterKind),
+
+    CloseDelimiter(DelimiterKind),
+
+    Comma,
+
+    Semicolon,
+
     /// Formatting control codes that we don't care about: @/, @|, @#, @+
     Formatting,
+
+    /// @&: concatenate adjacent pieces of text
+    PasteText,
+
+    /// semi-hack (?) for parsing magic system directives
+    DollarSign,
+
+    Plus,
+
+    Minus,
+
+    Times,
+
+    Greater,
+
+    GreaterEquals,
+
+    Less,
+
+    LessEquals,
+
+    Equals,
+
+    NotEquals,
+
+    DoubleDot,
+
+    Gets,
+
+    Equivalence,
+
+    Colon,
+
+    Caret,
+
+    IntLiteral(IntLiteralKind, usize),
+
+    StringLiteral(StringLiteralKind, StringSpan<'a>),
+
+    IndexEntry(IndexEntryKind, StringSpan<'a>),
+
+    Comment(StringSpan<'a>),
 }
 
 fn take_until_nlspace<'a>() -> impl Fn(Span<'a>) -> ParseResult<Span<'a>> {
@@ -355,12 +446,6 @@ fn scan_module_reference_token(span: Span) -> ParseResult<PascalToken> {
     ))
 }
 
-fn scan_formatting_token(span: Span) -> ParseResult<PascalToken> {
-    let (span, _) = char('@')(span)?;
-    let (span, _) = alt((char('/'), char('|'), char('#'), char('+')))(span)?;
-    Ok((span, PascalToken::Formatting))
-}
-
 fn scan_reserved_word_token(span: Span) -> ParseResult<PascalToken> {
     let (span, start) = position(span)?;
     let (span, text) = take_until_nlspace()(span)?;
@@ -392,30 +477,313 @@ fn scan_identifier_token(span: Span) -> ParseResult<PascalToken> {
     ))
 }
 
+/// See WEAVE:97
+fn scan_punct_token(span: Span) -> ParseResult<PascalToken> {
+    let (mut span, c) = next_char(span)?;
+
+    let tok = match c {
+        '(' => {
+            if let Ok((new_span, _)) = char::<Span, ParseError>('*')(span) {
+                span = new_span;
+                PascalToken::OpenDelimiter(DelimiterKind::MetaComment)
+            } else if let Ok((new_span, _)) = char::<Span, ParseError>('.')(span) {
+                span = new_span;
+                PascalToken::OpenDelimiter(DelimiterKind::SquareBracket)
+            } else {
+                PascalToken::OpenDelimiter(DelimiterKind::Paren)
+            }
+        }
+
+        ')' => PascalToken::CloseDelimiter(DelimiterKind::Paren),
+        '[' => PascalToken::OpenDelimiter(DelimiterKind::SquareBracket),
+        ']' => PascalToken::CloseDelimiter(DelimiterKind::SquareBracket),
+        ',' => PascalToken::Comma,
+        ';' => PascalToken::Semicolon,
+        '$' => PascalToken::DollarSign,
+        '+' => PascalToken::Plus,
+        '-' => PascalToken::Minus,
+        '^' => PascalToken::Caret,
+
+        '.' => {
+            if let Ok((new_span, _)) = char::<Span, ParseError>('.')(span) {
+                span = new_span;
+                PascalToken::DoubleDot
+            } else if let Ok((new_span, _)) = char::<Span, ParseError>(')')(span) {
+                span = new_span;
+                PascalToken::CloseDelimiter(DelimiterKind::SquareBracket)
+            } else {
+                return new_parse_error(span, ErrorKind::Char);
+            }
+        }
+
+        ':' => {
+            if let Ok((new_span, _)) = char::<Span, ParseError>('=')(span) {
+                span = new_span;
+                PascalToken::Gets
+            } else {
+                PascalToken::Colon
+            }
+        }
+
+        '=' => {
+            if let Ok((new_span, _)) = char::<Span, ParseError>('=')(span) {
+                span = new_span;
+                PascalToken::Equivalence
+            } else {
+                PascalToken::Equals
+            }
+        }
+
+        '>' => {
+            if let Ok((new_span, _)) = char::<Span, ParseError>('=')(span) {
+                span = new_span;
+                PascalToken::GreaterEquals
+            } else {
+                PascalToken::Greater
+            }
+        }
+
+        '<' => {
+            if let Ok((new_span, _)) = char::<Span, ParseError>('=')(span) {
+                span = new_span;
+                PascalToken::LessEquals
+            } else if let Ok((new_span, _)) = char::<Span, ParseError>('>')(span) {
+                span = new_span;
+                PascalToken::NotEquals
+            } else {
+                PascalToken::Less
+            }
+        }
+
+        '*' => {
+            if let Ok((new_span, _)) = char::<Span, ParseError>(')')(span) {
+                span = new_span;
+                PascalToken::CloseDelimiter(DelimiterKind::MetaComment)
+            } else {
+                PascalToken::Times
+            }
+        }
+
+        _ => return new_parse_error(span, ErrorKind::Char),
+    };
+
+    Ok((span, tok))
+}
+
+fn scan_definition_flagged_token(span: Span) -> ParseResult<PascalToken> {
+    let (span, _) = char('@')(span)?;
+    let (span, _) = char('!')(span)?;
+    // TODO: actually implement this bit
+    //alt((
+    //    scan_identifier_token,
+    //    ...
+    //))(span)
+    scan_identifier_token(span)
+}
+
+fn scan_comment(span: Span) -> ParseResult<PascalToken> {
+    let (span, start) = position(span)?;
+    let (mut span, _) = char('{')(span)?;
+    let s_begin = span.clone();
+
+    let mut brace_depth = 1;
+    let mut inner_pascal = false;
+
+    loop {
+        let (new_span, c) = next_char(span)?;
+        span = new_span;
+
+        match c {
+            '{' => {
+                if !inner_pascal {
+                    brace_depth += 1;
+                }
+            }
+
+            '|' => {
+                inner_pascal = !inner_pascal;
+            }
+
+            '}' => {
+                if !inner_pascal {
+                    brace_depth -= 1;
+
+                    if brace_depth == 0 {
+                        break;
+                    }
+                }
+            }
+
+            _ => {}
+        }
+    }
+
+    let (span, end) = position(span)?;
+    let len = end.location_offset() - (1 + s_begin.location_offset());
+
+    Ok((
+        span,
+        PascalToken::Comment(StringSpan {
+            start,
+            end,
+            value: Cow::Borrowed(&s_begin.slice(..len)),
+        }),
+    ))
+}
+
+fn scan_pascal_control_code_token(span: Span) -> ParseResult<PascalToken> {
+    let (span, _) = char('@')(span)?;
+    let (span, c) = next_char(span)?;
+
+    let tok = match c {
+        '{' => PascalToken::OpenDelimiter(DelimiterKind::MetaComment),
+        '}' => PascalToken::OpenDelimiter(DelimiterKind::MetaComment),
+        '/' => PascalToken::Formatting,
+        '|' => PascalToken::Formatting,
+        '#' => PascalToken::Formatting,
+        '+' => PascalToken::Formatting,
+        '&' => PascalToken::PasteText,
+
+        // Is this right? "This control code is treated like a semicolon, for
+        // formatting purposes, except that it is invisible. You can use it, for
+        // example, after a module name when the Pascal text represented by that
+        // module name ends with a semicolon."
+        ';' => PascalToken::Semicolon,
+
+        _ => return new_parse_error(span, ErrorKind::Char),
+    };
+
+    Ok((span, tok))
+}
+
+fn scan_decimal_literal(span: Span) -> ParseResult<usize> {
+    // FIXME this is blah; derived from nom example
+    map_res(recognize(many1(one_of("0123456789"))), |out: Span| {
+        usize::from_str_radix(&out, 10)
+    })(span)
+}
+
+fn scan_decimal_literal_token(span: Span) -> ParseResult<PascalToken> {
+    let (span, v) = scan_decimal_literal(span)?;
+    Ok((span, PascalToken::IntLiteral(IntLiteralKind::Decimal, v)))
+}
+
+fn scan_octal_literal(span: Span) -> ParseResult<usize> {
+    // FIXME this is blah; derived from nom example
+    map_res(recognize(many1(one_of("01234567"))), |out: Span| {
+        usize::from_str_radix(&out, 8)
+    })(span)
+}
+
+fn scan_octal_literal_token(span: Span) -> ParseResult<PascalToken> {
+    let (span, _) = char('@')(span)?;
+    let (span, _) = char('\'')(span)?;
+    let (span, v) = scan_octal_literal(span)?;
+    Ok((span, PascalToken::IntLiteral(IntLiteralKind::Octal, v)))
+}
+
+/// See WEAVE:99
+///
+/// In WEB, string literals escape their delimiters by repeating them: `""""` is
+/// `"\""`. WEAVE parsing ignores the semantics here and just treats such
+/// sequences as two adjacent string literals.
+fn scan_string_literal(span: Span) -> ParseResult<PascalToken> {
+    let (span, start) = position(span)?;
+    let (span, delim) = next_char(span)?;
+
+    let kind = match delim {
+        '\"' => StringLiteralKind::DoubleQuote,
+        '\'' => StringLiteralKind::SingleQuote,
+        _ => return new_parse_error(span, ErrorKind::Char),
+    };
+
+    let (span, contents) = span.split_at_position(|c| c == '\n' || c == delim)?;
+    let (span, terminator) = next_char(span)?;
+
+    if terminator == '\n' {
+        return new_parse_error(span, ErrorKind::Char);
+    }
+
+    let (span, end) = position(span)?;
+
+    Ok((
+        span,
+        PascalToken::StringLiteral(
+            kind,
+            StringSpan {
+                start,
+                end,
+                value: Cow::Borrowed(&contents),
+            },
+        ),
+    ))
+}
+
+fn scan_index_entry(span: Span) -> ParseResult<PascalToken> {
+    let (span, start) = position(span)?;
+    let (span, _) = char('@')(span)?;
+    let (span, c) = next_char(span)?;
+
+    let kind = match c {
+        '^' => IndexEntryKind::Roman,
+        '.' => IndexEntryKind::Typewriter,
+        ':' => IndexEntryKind::Wildcard,
+        _ => return new_parse_error(span, ErrorKind::Char),
+    };
+
+    let (span, text) = take_until_end_token()(span)?;
+    let (span, end) = position(span)?;
+    Ok((
+        span,
+        PascalToken::IndexEntry(
+            kind,
+            StringSpan {
+                start,
+                end,
+                value: Cow::Borrowed(&text),
+            },
+        ),
+    ))
+}
+
 fn scan_pascal_token(span: Span) -> ParseResult<PascalToken> {
     let (span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
     alt((
+        scan_definition_flagged_token,
         scan_tex_string_token,
         scan_module_reference_token,
         scan_reserved_word_token,
         scan_identifier_token,
-        scan_formatting_token,
+        scan_punct_token,
+        scan_comment,
+        scan_pascal_control_code_token,
+        scan_decimal_literal_token,
+        scan_octal_literal_token,
+        scan_string_literal,
+        scan_index_entry,
     ))(span)
 }
 
 fn first_pass_inner(span: Span) -> ParseResult<()> {
-    let (span, _) = skip_limbo(span)?;
-    let (span, moddec) = scan_module_declaration(span)?;
-    println!("Module: {:?}", moddec);
-    let (span, _) = skip_to_pascal(span)?;
-    let (span, toks) = many0(scan_pascal_token)(span)?;
+    let (mut span, _) = skip_limbo(span)?;
 
-    println!("Got some pascal toks ({}):", toks.len());
-    for tok in &toks {
-        println!("- {:?}", tok);
+    loop {
+        let (ispan, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
+
+        let (ispan, moddec) = scan_module_declaration(ispan)?;
+        println!("Module: {:?}", moddec);
+        let (ispan, _) = skip_to_pascal(ispan)?;
+        let (ispan, toks) = many0(scan_pascal_token)(ispan)?;
+
+        println!("Got some pascal toks ({}):", toks.len());
+        for tok in &toks {
+            println!("- {:?}", tok);
+        }
+
+        span = ispan;
+        println!("Stopped at: {}", &span[..32]);
     }
 
-    println!("Stopped at: {}", &span[..32]);
     Ok((span, ()))
 }
 
