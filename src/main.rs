@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use tectonic_errors::prelude::*;
 
 mod parsers;
+mod parsers2;
 
 type Span<'a> = LocatedSpan<&'a str>;
 
@@ -28,7 +29,7 @@ fn main() -> Result<()> {
     let input = Span::new(&text);
 
     // First pass
-    parsers::first_pass(input)?;
+    parsers2::first_pass(input)?;
 
     Ok(())
 }
