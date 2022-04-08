@@ -13,7 +13,7 @@ use nom::{
 use nom_locate::position;
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeSet, HashMap},
     convert::TryFrom,
     fmt,
 };
@@ -285,7 +285,7 @@ type StringSpan<'a> = SpanValue<'a, Cow<'a, str>>;
 /// trailing whitespace are eaten, and inner whitespace is collapsed.
 ///
 /// See WEAVE:103-104.
-fn scan_module_name(span: Span) -> ParseResult<StringSpan> {
+fn scan_module_name<'a>(state: &State, span: Span<'a>) -> ParseResult<'a, StringSpan<'a>> {
     let (span, start) = position(span)?;
     let (mut span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
 
@@ -317,12 +317,39 @@ fn scan_module_name(span: Span) -> ParseResult<StringSpan> {
     }
 
     let (span, end) = position(span)?;
+
+    // Now (ab)use the module name table to do the prefix match if we need to
+
+    let matched_name = if let Some(body) = value.strip_suffix("...") {
+        let mut matched_name = String::new();
+
+        for name in state
+            .named_modules
+            .range(body.to_owned()..)
+            .take_while(|n| n.starts_with(body))
+        {
+            if matched_name.is_empty() {
+                matched_name.push_str(&name);
+            } else {
+                return new_parse_error(span, ErrorKind::Fail);
+            }
+        }
+
+        if matched_name.is_empty() {
+            return new_parse_error(span, ErrorKind::Fail);
+        }
+
+        matched_name
+    } else {
+        value
+    };
+
     Ok((
         span,
         StringSpan {
             start,
             end,
-            value: value.into(),
+            value: matched_name.into(),
         },
     ))
 }
@@ -1022,7 +1049,7 @@ struct State {
     /// module.
     ///
     /// https://stackoverflow.com/questions/27344452/how-can-i-have-a-sorted-key-value-map-with-prefix-key-search
-    named_modules: BTreeMap<String, ModuleId>,
+    named_modules: BTreeSet<String>,
 
     index_entries: HashMap<String, IndexState>,
 }
@@ -1438,7 +1465,8 @@ fn first_pass_handle_pascal<'a>(
 
             Token::Control(ControlKind::ModuleName) => {
                 let text;
-                (span, text) = scan_module_name(span)?;
+                (span, text) = scan_module_name(state, span)?;
+                state.named_modules.insert(text.value.to_string());
                 add_index_entry(cur_module, state, text, IndexEntryKind::Normal, false);
                 prev_span = span.clone();
                 (span, tok) = next_token(span)?;
@@ -1498,10 +1526,8 @@ fn first_pass_inner<'a>(state: &mut State, span: Span<'a>) -> ParseResult<'a, ()
 
             Token::Control(ControlKind::ModuleName) => {
                 let text;
-                (span, text) = scan_module_name(span)?;
-                state
-                    .named_modules
-                    .insert(text.value.into_owned(), cur_module);
+                (span, text) = scan_module_name(state, span)?;
+                state.named_modules.insert(text.value.into_owned());
                 // there's like one module in XeTeX with a space between module name and equals sign
                 (span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
                 (span, _) = char('=')(span)?;
@@ -1522,8 +1548,8 @@ pub fn first_pass(span: Span) -> Result<()> {
         Err((_remainder, kind)) => return Err(anyhow!(kind.description().to_owned())),
     }
 
-    for (key, value) in state.named_modules.iter() {
-        println!("{:?} = #{}", key, value);
+    for name in state.named_modules.iter() {
+        println!("{:?}", name);
     }
 
     Ok(())
