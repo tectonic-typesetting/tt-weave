@@ -250,11 +250,8 @@ fn expect_token<'a>(tok: Token) -> impl Fn(Span<'a>) -> ParseResult<Token> {
 
 /// Skip the "limbo" section at the start of the WEB file.
 ///
-/// This method approximately corresponds to WEAVE:89, `skip_limbo`. When it
-/// finishes, the remaining span is just past the first new-module marker token.
-/// The return value is true if the detected module is a major module, false if
-/// minor.
-fn skip_limbo(mut span: Span) -> ParseResult<bool> {
+/// This method approximately corresponds to WEAVE:89, `skip_limbo`.
+fn skip_limbo(mut span: Span) -> ParseResult<Token> {
     // I feel like there must be a better way to do this. The way that peeking
     // seems to work in nom, I think we have to loop char-by-char in order to be
     // able to rewind to the '@' when we find our match.
@@ -265,14 +262,15 @@ fn skip_limbo(mut span: Span) -> ParseResult<bool> {
 
         match tok {
             Token::Char(_) | Token::Control(ControlKind::AtLiteral) => continue,
-            Token::Control(ControlKind::NewMajorModule) => return Ok((span, true)),
-            Token::Control(ControlKind::NewMinorModule) => return Ok((span, false)),
+            Token::Control(ControlKind::NewMajorModule)
+            | Token::Control(ControlKind::NewMinorModule) => return Ok((span, tok)),
             _ => return new_parse_error(span, ErrorKind::Char),
         }
     }
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct SpanValue<'a, T> {
     pub start: Span<'a>,
     pub end: Span<'a>,
@@ -1036,7 +1034,7 @@ struct State {
     /// module.
     ///
     /// https://stackoverflow.com/questions/27344452/how-can-i-have-a-sorted-key-value-map-with-prefix-key-search
-    named_modules: BTreeMap<String, Vec<ModuleId>>,
+    named_modules: BTreeMap<String, ModuleId>,
 
     index_entries: HashMap<String, IndexState>,
 }
@@ -1465,15 +1463,27 @@ fn first_pass_handle_pascal<'a>(
 
 fn first_pass_inner(span: Span) -> ParseResult<()> {
     let mut state = State::default();
-    let (mut span, mut is_major) = skip_limbo(span)?;
+    let (mut span, mut tok) = skip_limbo(span)?;
     let mut cur_module: ModuleId = 0;
-    let mut tok;
 
     loop {
         // At the top of this loop, we've just read a new-module boundary token.
-        // `is_major` is true if it is a major module.
+        // At the moment we don't really care about major vs minor.
 
         cur_module += 1;
+
+        match tok {
+            Token::Control(ControlKind::NewMajorModule) => {
+                println!("- Major module #{}", cur_module);
+            }
+
+            Token::Control(ControlKind::NewMinorModule) => {}
+
+            _ => {
+                eprintln!("unexpected module end {:?}", tok);
+                return new_parse_error(span, ErrorKind::Complete);
+            }
+        }
 
         // Handle the TeX chunk (which can be empty), and find out what ended it.
 
@@ -1499,7 +1509,9 @@ fn first_pass_inner(span: Span) -> ParseResult<()> {
             Token::Control(ControlKind::ModuleName) => {
                 let text;
                 (span, text) = scan_module_name(span)?;
-                // TODO: assign name!!!
+                state
+                    .named_modules
+                    .insert(text.value.into_owned(), cur_module);
                 // there's like one module in XeTeX with a space between module name and equals sign
                 (span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
                 (span, _) = char('=')(span)?;
@@ -1509,21 +1521,6 @@ fn first_pass_inner(span: Span) -> ParseResult<()> {
         }
 
         println!("Stopped at: {:?}", &span[..32]);
-
-        match tok {
-            Token::Control(ControlKind::NewMajorModule) => {
-                is_major = true;
-            }
-
-            Token::Control(ControlKind::NewMinorModule) => {
-                is_major = false;
-            }
-
-            _ => {
-                eprintln!("unexpected module end {:?}", tok);
-                return new_parse_error(span, ErrorKind::Complete);
-            }
-        }
     }
 }
 
