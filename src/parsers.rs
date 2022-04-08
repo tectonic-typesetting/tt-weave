@@ -1438,6 +1438,7 @@ fn first_pass_handle_pascal<'a>(
             });
     }
 
+    let mut prev_span = span.clone();
     (span, tok) = next_token(span)?;
 
     loop {
@@ -1451,11 +1452,12 @@ fn first_pass_handle_pascal<'a>(
                 let text;
                 (span, text) = scan_module_name(span)?;
                 add_index_entry(cur_module, state, text, IndexEntryKind::Normal, false);
+                prev_span = span.clone();
                 (span, tok) = next_token(span)?;
             }
 
             _ => {
-                (span, tok) = first_pass_scan_pascal(cur_module, state, span)?;
+                (span, tok) = first_pass_scan_pascal(cur_module, state, prev_span)?;
             }
         }
     }
@@ -1496,6 +1498,7 @@ fn first_pass_inner(span: Span) -> ParseResult<()> {
             | Token::Control(ControlKind::FormatDefinition) => {
                 (span, tok) = first_pass_handle_definitions(cur_module, &mut state, span, tok)?;
             }
+
             _ => {}
         }
 
@@ -1517,10 +1520,9 @@ fn first_pass_inner(span: Span) -> ParseResult<()> {
                 (span, _) = char('=')(span)?;
                 (span, tok) = first_pass_handle_pascal(cur_module, &mut state, span)?;
             }
+
             _ => {}
         }
-
-        println!("Stopped at: {:?}", &span[..32]);
     }
 }
 
