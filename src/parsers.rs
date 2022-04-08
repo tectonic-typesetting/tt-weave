@@ -504,9 +504,6 @@ enum PascalToken<'a> {
     /// The `@t` control code: TeX text for the woven output.
     TexString(StringSpan<'a>),
 
-    /// The `@<` control code: a reference to a module.
-    ModuleRef(StringSpan<'a>),
-
     /// One of the Pascal reserved words
     ReservedWord(SpanValue<'a, PascalReservedWord>),
 
@@ -589,7 +586,6 @@ impl<'a> fmt::Display for PascalToken<'a> {
             PascalToken::Comment(s) => write!(f, "Comment({:?})", s.value),
             PascalToken::Identifier(s) => write!(f, "Identifier({:?})", s.value),
             PascalToken::IndexEntry(k, s) => write!(f, "IndexEntry({:?}, {:?})", k, s.value),
-            PascalToken::ModuleRef(s) => write!(f, "ModuleRef({:?})", s.value),
             PascalToken::ReservedWord(s) => write!(f, "ReservedWord({:?})", s.value),
             PascalToken::StringLiteral(k, s) => write!(f, "StringLiteral({:?}, {:?})", k, s.value),
             PascalToken::TexString(s) => write!(f, "TexString({:?})", s.value),
@@ -655,13 +651,6 @@ fn match_tex_string_token(span: Span) -> ParseResult<PascalToken> {
     let (span, _) = expect_token(Token::Control(ControlKind::TexAnnotation))(span)?;
     let (span, text) = take_until_terminator(span)?;
     Ok((span, PascalToken::TexString(text)))
-}
-
-/// TODO: clarify about resolving partial names to full names
-fn match_module_reference_token(span: Span) -> ParseResult<PascalToken> {
-    let (span, _) = expect_token(Token::Control(ControlKind::ModuleName))(span)?;
-    let (span, text) = scan_module_name(span)?;
-    Ok((span, PascalToken::ModuleRef(text)))
 }
 
 fn match_pascal_control_code_token(span: Span) -> ParseResult<PascalToken> {
@@ -980,7 +969,6 @@ fn match_pascal_token(span: Span) -> ParseResult<PascalToken> {
     let (span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
     alt((
         match_tex_string_token,
-        match_module_reference_token,
         match_reserved_word_token,
         match_identifier_token,
         match_punct_token,
