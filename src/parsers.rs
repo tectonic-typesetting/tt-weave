@@ -1463,8 +1463,7 @@ fn first_pass_handle_pascal<'a>(
     }
 }
 
-fn first_pass_inner(span: Span) -> ParseResult<()> {
-    let mut state = State::default();
+fn first_pass_inner<'a>(state: &mut State, span: Span<'a>) -> ParseResult<'a, ()> {
     let (mut span, mut tok) = skip_limbo(span)?;
     let mut cur_module: ModuleId = 0;
 
@@ -1489,14 +1488,14 @@ fn first_pass_inner(span: Span) -> ParseResult<()> {
 
         // Handle the TeX chunk (which can be empty), and find out what ended it.
 
-        (span, tok) = first_pass_handle_tex(cur_module, &mut state, span)?;
+        (span, tok) = first_pass_handle_tex(cur_module, state, span)?;
 
         // If there are macro/format definitions, handle those
 
         match tok {
             Token::Control(ControlKind::MacroDefinition)
             | Token::Control(ControlKind::FormatDefinition) => {
-                (span, tok) = first_pass_handle_definitions(cur_module, &mut state, span, tok)?;
+                (span, tok) = first_pass_handle_definitions(cur_module, state, span, tok)?;
             }
 
             _ => {}
@@ -1506,7 +1505,7 @@ fn first_pass_inner(span: Span) -> ParseResult<()> {
 
         match tok {
             Token::Control(ControlKind::StartUnnamedPascal) => {
-                (span, tok) = first_pass_handle_pascal(cur_module, &mut state, span)?;
+                (span, tok) = first_pass_handle_pascal(cur_module, state, span)?;
             }
 
             Token::Control(ControlKind::ModuleName) => {
@@ -1518,7 +1517,7 @@ fn first_pass_inner(span: Span) -> ParseResult<()> {
                 // there's like one module in XeTeX with a space between module name and equals sign
                 (span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
                 (span, _) = char('=')(span)?;
-                (span, tok) = first_pass_handle_pascal(cur_module, &mut state, span)?;
+                (span, tok) = first_pass_handle_pascal(cur_module, state, span)?;
             }
 
             _ => {}
@@ -1527,9 +1526,17 @@ fn first_pass_inner(span: Span) -> ParseResult<()> {
 }
 
 pub fn first_pass(span: Span) -> Result<()> {
-    match first_pass_inner(span).finish() {
-        Ok((_remainder, _value)) => Ok(()),
-        Err((_remainder, ErrorKind::Eof)) => Ok(()),
-        Err((_remainder, kind)) => Err(anyhow!(kind.description().to_owned())),
+    let mut state = State::default();
+
+    match first_pass_inner(&mut state, span).finish() {
+        Ok((_remainder, _value)) => {}
+        Err((_remainder, ErrorKind::Eof)) => {}
+        Err((_remainder, kind)) => return Err(anyhow!(kind.description().to_owned())),
     }
+
+    for (key, value) in state.named_modules.iter() {
+        println!("{:?} = #{}", key, value);
+    }
+
+    Ok(())
 }
