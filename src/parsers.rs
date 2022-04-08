@@ -6,7 +6,7 @@ use nom::{
     character::complete::{alpha1, alphanumeric1, char, one_of},
     combinator::{map_res, recognize},
     error::{ErrorKind, ParseError as NomParseError},
-    multi::{many0, many0_count, many1},
+    multi::{many0_count, many1},
     sequence::pair,
     Err, Finish, IResult, InputIter, InputTake, InputTakeAtPosition, Slice,
 };
@@ -767,7 +767,7 @@ fn match_punct_token(span: Span) -> ParseResult<PascalToken> {
         '-' => PascalToken::Minus,
         '^' => PascalToken::Caret,
         '/' => PascalToken::Divide,
-        '#' => PascalToken::Divide,
+        '#' => PascalToken::Hash,
 
         '.' => {
             if let Ok((new_span, _)) = char::<Span, ParseError>('.')(span) {
@@ -1284,7 +1284,7 @@ fn first_pass_handle_tex<'a>(
         next_token(span)
     }
 
-    (span, tok) = next_token(span)?;
+    (span, tok) = first_pass_skip_tex(span)?;
 
     loop {
         match tok {
@@ -1309,11 +1309,11 @@ fn first_pass_handle_tex<'a>(
 
             Token::Char('|') => {
                 (span, _) = first_pass_scan_pascal_only(cur_module, state, span)?;
-                (span, tok) = next_token(span)?;
+                (span, tok) = first_pass_skip_tex(span)?;
             }
 
             _ => {
-                (span, tok) = next_token(span)?;
+                (span, tok) = first_pass_skip_tex(span)?;
             }
         }
     }
