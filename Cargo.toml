@@ -5,6 +5,7 @@ edition = "2018"
 
 [dependencies]
 clap = { version = "^3.1", features = ["derive"] }
+lexical-sort = "^0.3"
 nom = "^7.1"
 nom_locate = "^4.0"
 tectonic_errors = "^0.2"

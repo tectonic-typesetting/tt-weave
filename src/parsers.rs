@@ -1,5 +1,6 @@
 //! Parsing for the WEB input.
 
+use lexical_sort::{natural_lexical_cmp, StringSort};
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_while},
@@ -15,7 +16,7 @@ use std::{
     borrow::Cow,
     collections::{BTreeSet, HashMap},
     convert::TryFrom,
-    fmt,
+    fmt::{self, Write},
 };
 use tectonic_errors::prelude::*;
 
@@ -494,7 +495,7 @@ enum DelimiterKind {
     /// A `@{` or `@}` meta-comment. Note that these need not be balanced.
     MetaComment,
 
-    /// Obtained with the `(.` digraph.
+    /// Obtained with the `(.` digraph, or literal square brackets.
     SquareBracket,
 }
 
@@ -1017,15 +1018,6 @@ struct Reference {
     pub is_definition: bool,
 }
 
-impl Reference {
-    fn new_ref(module: ModuleId) -> Self {
-        Reference {
-            module,
-            is_definition: false,
-        }
-    }
-}
-
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct IndexState {
     pub kind: IndexEntryKind,
@@ -1052,6 +1044,53 @@ struct State {
     named_modules: BTreeSet<String>,
 
     index_entries: HashMap<String, IndexState>,
+}
+
+impl State {
+    fn add_index_entry<S: Into<String>>(
+        &mut self,
+        text: S,
+        kind: IndexEntryKind,
+        module: ModuleId,
+        is_definition: bool,
+    ) {
+        let text = text.into(); // sigh - rust-lang/rust#51604
+
+        if !is_definition {
+            if text.len() == 1 || PascalReservedWord::try_from(&text[..]).is_ok() {
+                return;
+            }
+        }
+
+        let refs = &mut self
+            .index_entries
+            .entry(text)
+            .or_insert(IndexState::new(kind))
+            .refs;
+
+        for existing in refs.iter_mut() {
+            if existing.module == module {
+                existing.is_definition |= is_definition;
+                return;
+            }
+        }
+
+        refs.push(Reference {
+            module,
+            is_definition,
+        });
+    }
+
+    fn scan_add_next<'a>(
+        &mut self,
+        kind: IndexEntryKind,
+        module: ModuleId,
+        span: Span<'a>,
+    ) -> ParseResult<'a, Token> {
+        let (span, text) = take_until_terminator(span)?;
+        self.add_index_entry(text.value.into_owned(), kind, module, false);
+        next_token(span)
+    }
 }
 
 /// WEAVE:91, `skip_comment`
@@ -1133,26 +1172,6 @@ fn first_pass_scan_pascal_only<'a>(
     let mut ptok;
     let mut definition_flag = false;
 
-    fn add_index_entry(
-        module: ModuleId,
-        state: &mut State,
-        text: StringSpan,
-        kind: IndexEntryKind,
-        is_definition: bool,
-    ) {
-        let text = text.value.into_owned(); // sigh - rust-lang/rust#51604
-        let ref_ = Reference {
-            module,
-            is_definition,
-        };
-        state
-            .index_entries
-            .entry(text)
-            .or_insert(IndexState::new(kind))
-            .refs
-            .push(ref_);
-    }
-
     loop {
         (span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
 
@@ -1198,18 +1217,17 @@ fn first_pass_scan_pascal_only<'a>(
             }
 
             PascalToken::Identifier(text) => {
-                add_index_entry(
-                    cur_module,
-                    state,
-                    text,
+                state.add_index_entry(
+                    text.value.into_owned(),
                     IndexEntryKind::Normal,
+                    cur_module,
                     definition_flag,
                 );
                 definition_flag = false;
             }
 
             PascalToken::IndexEntry(kind, text) => {
-                add_index_entry(cur_module, state, text, kind, definition_flag);
+                state.add_index_entry(text.value.into_owned(), kind, cur_module, definition_flag);
                 definition_flag = false;
             }
 
@@ -1280,23 +1298,6 @@ fn first_pass_handle_tex<'a>(
 ) -> ParseResult<'a, Token> {
     let mut tok;
 
-    fn add_index_entry<'a>(
-        cur_module: ModuleId,
-        state: &mut State,
-        span: Span<'a>,
-        kind: IndexEntryKind,
-    ) -> ParseResult<'a, Token> {
-        let (span, text) = take_until_terminator(span)?;
-        let text = text.value.into_owned(); // sigh - rust-lang/rust#51604
-        state
-            .index_entries
-            .entry(text)
-            .or_insert(IndexState::new(kind))
-            .refs
-            .push(Reference::new_ref(cur_module));
-        next_token(span)
-    }
-
     (span, tok) = first_pass_skip_tex(span)?;
 
     loop {
@@ -1311,13 +1312,13 @@ fn first_pass_handle_tex<'a>(
             }
 
             Token::Control(ControlKind::RomanIndexEntry) => {
-                (span, tok) = add_index_entry(cur_module, state, span, IndexEntryKind::Roman)?;
+                (span, tok) = state.scan_add_next(IndexEntryKind::Roman, cur_module, span)?;
             }
             Token::Control(ControlKind::TypewriterIndexEntry) => {
-                (span, tok) = add_index_entry(cur_module, state, span, IndexEntryKind::Typewriter)?;
+                (span, tok) = state.scan_add_next(IndexEntryKind::Typewriter, cur_module, span)?;
             }
             Token::Control(ControlKind::WildcardIndexEntry) => {
-                (span, tok) = add_index_entry(cur_module, state, span, IndexEntryKind::Wildcard)?;
+                (span, tok) = state.scan_add_next(IndexEntryKind::Wildcard, cur_module, span)?;
             }
 
             Token::Char('|') => {
@@ -1339,36 +1340,6 @@ fn first_pass_handle_definitions<'a>(
     mut span: Span<'a>,
     mut tok: Token,
 ) -> ParseResult<'a, Token> {
-    fn add_index_entry<'a>(
-        module: ModuleId,
-        state: &mut State,
-        text: StringSpan<'a>,
-        kind: IndexEntryKind,
-        is_definition: bool,
-    ) {
-        let text = text.value.into_owned(); // sigh - rust-lang/rust#51604
-        state
-            .index_entries
-            .entry(text)
-            .or_insert(IndexState::new(kind))
-            .refs
-            .push(Reference {
-                module,
-                is_definition,
-            });
-    }
-
-    fn scan_add_next<'a>(
-        module: ModuleId,
-        state: &mut State,
-        span: Span<'a>,
-        kind: IndexEntryKind,
-    ) -> ParseResult<'a, Token> {
-        let (span, text) = take_until_terminator(span)?;
-        add_index_entry(module, state, text, kind, false);
-        next_token(span)
-    }
-
     loop {
         match tok {
             Token::Control(ControlKind::NewMajorModule)
@@ -1388,7 +1359,12 @@ fn first_pass_handle_definitions<'a>(
                 (span, ptok) = match_pascal_token(span)?;
 
                 if let PascalToken::Identifier(text) = ptok {
-                    add_index_entry(cur_module, state, text, IndexEntryKind::Normal, true);
+                    state.add_index_entry(
+                        text.value.into_owned(),
+                        IndexEntryKind::Normal,
+                        cur_module,
+                        true,
+                    );
                     (span, ptok) = match_pascal_token(span)?;
 
                     if let PascalToken::Equivalence = ptok {
@@ -1396,7 +1372,12 @@ fn first_pass_handle_definitions<'a>(
 
                         if let PascalToken::Identifier(text) = ptok {
                             // TODO? Register the new formatting convention
-                            add_index_entry(cur_module, state, text, IndexEntryKind::Normal, false);
+                            state.add_index_entry(
+                                text.value.into_owned(),
+                                IndexEntryKind::Normal,
+                                cur_module,
+                                false,
+                            );
                         }
                     }
                 }
@@ -1405,13 +1386,13 @@ fn first_pass_handle_definitions<'a>(
             }
 
             Token::Control(ControlKind::RomanIndexEntry) => {
-                (span, tok) = scan_add_next(cur_module, state, span, IndexEntryKind::Roman)?;
+                (span, tok) = state.scan_add_next(IndexEntryKind::Roman, cur_module, span)?;
             }
             Token::Control(ControlKind::TypewriterIndexEntry) => {
-                (span, tok) = scan_add_next(cur_module, state, span, IndexEntryKind::Typewriter)?;
+                (span, tok) = state.scan_add_next(IndexEntryKind::Typewriter, cur_module, span)?;
             }
             Token::Control(ControlKind::WildcardIndexEntry) => {
-                (span, tok) = scan_add_next(cur_module, state, span, IndexEntryKind::Wildcard)?;
+                (span, tok) = state.scan_add_next(IndexEntryKind::Wildcard, cur_module, span)?;
             }
 
             Token::Char('|') => {
@@ -1434,25 +1415,6 @@ fn first_pass_handle_pascal<'a>(
 ) -> ParseResult<'a, Token> {
     let mut tok;
 
-    fn add_index_entry<'a>(
-        module: ModuleId,
-        state: &mut State,
-        text: StringSpan<'a>,
-        kind: IndexEntryKind,
-        is_definition: bool,
-    ) {
-        let text = text.value.into_owned(); // sigh - rust-lang/rust#51604
-        state
-            .index_entries
-            .entry(text)
-            .or_insert(IndexState::new(kind))
-            .refs
-            .push(Reference {
-                module,
-                is_definition,
-            });
-    }
-
     let mut prev_span = span.clone();
     (span, tok) = next_token(span)?;
 
@@ -1467,7 +1429,12 @@ fn first_pass_handle_pascal<'a>(
                 let text;
                 (span, text) = scan_module_name(state, span)?;
                 state.named_modules.insert(text.value.to_string());
-                add_index_entry(cur_module, state, text, IndexEntryKind::Normal, false);
+                state.add_index_entry(
+                    text.value.into_owned(),
+                    IndexEntryKind::Normal,
+                    cur_module,
+                    false,
+                );
                 prev_span = span.clone();
                 (span, tok) = next_token(span)?;
             }
@@ -1550,6 +1517,34 @@ pub fn first_pass(span: Span) -> Result<()> {
 
     for name in state.named_modules.iter() {
         println!("{:?}", name);
+    }
+
+    println!();
+
+    let mut index: Vec<_> = state.index_entries.keys().collect();
+    index.string_sort_unstable(natural_lexical_cmp);
+
+    for name in &index {
+        if state.named_modules.contains(&**name) {
+            continue;
+        }
+
+        let info = state.index_entries.get(&**name).unwrap();
+
+        let mut refs = String::new();
+        for r in &info.refs {
+            if !refs.is_empty() {
+                refs.push(' ');
+            }
+
+            write!(refs, "{}", r.module).unwrap();
+
+            if r.is_definition {
+                refs.push('*');
+            }
+        }
+
+        println!("{} ({:?}) => {}", name, info.kind, refs);
     }
 
     Ok(())
