@@ -606,6 +606,8 @@ enum PascalToken<'a> {
     IndexEntry(IndexEntryKind, StringSpan<'a>),
 
     Comment(StringSpan<'a>),
+
+    VerbatimPascal(StringSpan<'a>),
 }
 
 impl<'a> fmt::Display for PascalToken<'a> {
@@ -679,6 +681,12 @@ fn match_tex_string_token(span: Span) -> ParseResult<PascalToken> {
     let (span, _) = expect_token(Token::Control(ControlKind::TexAnnotation))(span)?;
     let (span, text) = take_until_terminator(span)?;
     Ok((span, PascalToken::TexString(text)))
+}
+
+fn match_verbatim_pascal_token(span: Span) -> ParseResult<PascalToken> {
+    let (span, _) = expect_token(Token::Control(ControlKind::VerbatimPascal))(span)?;
+    let (span, text) = take_until_terminator(span)?;
+    Ok((span, PascalToken::VerbatimPascal(text)))
 }
 
 fn match_pascal_control_code_token(span: Span) -> ParseResult<PascalToken> {
@@ -997,6 +1005,7 @@ fn match_pascal_token(span: Span) -> ParseResult<PascalToken> {
     let (span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
     alt((
         match_tex_string_token,
+        match_verbatim_pascal_token,
         match_reserved_word_token,
         match_identifier_token,
         match_punct_token,
