@@ -8,7 +8,7 @@ use nom::{
     error::ErrorKind,
     multi::{many0_count, many1},
     sequence::pair,
-    InputTake, InputTakeAtPosition, Slice,
+    InputTake, InputTakeAtPosition,
 };
 use nom_locate::position;
 use std::{borrow::Cow, convert::TryFrom, fmt};
@@ -123,15 +123,12 @@ pub enum PascalToken<'a> {
 
     IndexEntry(IndexEntryKind, StringSpan<'a>),
 
-    Comment(StringSpan<'a>),
-
     VerbatimPascal(StringSpan<'a>),
 }
 
 impl<'a> fmt::Display for PascalToken<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            PascalToken::Comment(s) => write!(f, "Comment({:?})", s.value),
             PascalToken::Identifier(s) => write!(f, "Identifier({:?})", s.value),
             PascalToken::IndexEntry(k, s) => write!(f, "IndexEntry({:?}, {:?})", k, s.value),
             PascalToken::ReservedWord(s) => write!(f, "ReservedWord({:?})", s.value),
@@ -341,59 +338,6 @@ fn match_punct_token(span: Span) -> ParseResult<PascalToken> {
     Ok((span, tok))
 }
 
-fn match_comment(span: Span) -> ParseResult<PascalToken> {
-    let (span, start) = position(span)?;
-    let (mut span, _) = char('{')(span)?;
-    let s_begin = span.clone();
-
-    let mut brace_depth = 1;
-    let mut inner_pascal = false;
-    let mut tok;
-
-    loop {
-        (span, tok) = next_token(span)?;
-
-        // TODO: if we're in pascal mode we should
-        // actually scan as Pascal tokens.
-
-        match tok {
-            Token::Char('{') => {
-                if !inner_pascal {
-                    brace_depth += 1;
-                }
-            }
-
-            Token::Char('|') => {
-                inner_pascal = !inner_pascal;
-            }
-
-            Token::Char('}') => {
-                if !inner_pascal {
-                    brace_depth -= 1;
-
-                    if brace_depth == 0 {
-                        break;
-                    }
-                }
-            }
-
-            _ => {}
-        }
-    }
-
-    let (span, end) = position(span)?;
-    let len = end.location_offset() - (1 + s_begin.location_offset());
-
-    Ok((
-        span,
-        PascalToken::Comment(StringSpan {
-            start,
-            end,
-            value: Cow::Borrowed(&s_begin.slice(..len)),
-        }),
-    ))
-}
-
 fn scan_decimal_literal(span: Span) -> ParseResult<usize> {
     // FIXME this is blah; derived from nom example
     map_res(recognize(many1(one_of("0123456789"))), |out: Span| {
@@ -490,7 +434,6 @@ pub fn match_pascal_token(span: Span) -> ParseResult<PascalToken> {
         match_reserved_word_token,
         match_identifier_token,
         match_punct_token,
-        match_comment,
         match_pascal_control_code_token,
         match_decimal_literal_token,
         match_octal_literal_token,
