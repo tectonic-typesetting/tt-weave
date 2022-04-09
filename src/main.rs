@@ -1,11 +1,9 @@
 use clap::Parser;
-use nom_locate::LocatedSpan;
 use std::path::PathBuf;
 use tectonic_errors::prelude::*;
 
+mod parse_base;
 mod parsers;
-
-type Span<'a> = LocatedSpan<&'a str>;
 
 /// CLI arguments.
 #[derive(Parser, Debug)]
@@ -25,7 +23,7 @@ fn main() -> Result<()> {
         ["failed to read input path `{}` as text", args.input_path.display()]
     );
 
-    let input = Span::new(&text);
+    let input = parse_base::Span::new(&text);
 
     // First pass
     parsers::first_pass(input)?;

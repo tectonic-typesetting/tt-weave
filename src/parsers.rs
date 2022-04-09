@@ -9,7 +9,7 @@ use nom::{
     error::{ErrorKind, ParseError as NomParseError},
     multi::{many0_count, many1},
     sequence::pair,
-    Err, Finish, IResult, InputIter, InputTake, InputTakeAtPosition, Slice,
+    Err, Finish, InputIter, InputTake, InputTakeAtPosition, Slice,
 };
 use nom_locate::position;
 use std::{
@@ -20,14 +20,7 @@ use std::{
 };
 use tectonic_errors::prelude::*;
 
-use crate::Span;
-
-type ParseError<'a> = (Span<'a>, ErrorKind);
-type ParseResult<'a, T> = IResult<Span<'a>, T, ParseError<'a>>;
-
-fn new_parse_error<'a, T>(s: Span<'a>, k: ErrorKind) -> ParseResult<'a, T> {
-    Err(Err::Error(ParseError::from_error_kind(s, k)))
-}
+use crate::parse_base::{new_parse_error, ParseError, ParseResult, Span, SpanValue, StringSpan};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ControlKind {
@@ -269,16 +262,6 @@ fn skip_limbo(mut span: Span) -> ParseResult<Token> {
         }
     }
 }
-
-#[derive(Debug)]
-#[allow(dead_code)]
-struct SpanValue<'a, T> {
-    pub start: Span<'a>,
-    pub end: Span<'a>,
-    pub value: T,
-}
-
-type StringSpan<'a> = SpanValue<'a, Cow<'a, str>>;
 
 /// Scan the name of a WEB module.
 ///
