@@ -1035,6 +1035,8 @@ impl IndexState {
 
 #[derive(Debug, Default)]
 struct State {
+    definition_flag: bool,
+
     /// Map from full-length module name to the module that initially defines
     /// it. Every entry here also has a record in the index table, where
     /// `is_definition` modules indicate ones that contribute code to the
@@ -1052,11 +1054,10 @@ impl State {
         text: S,
         kind: IndexEntryKind,
         module: ModuleId,
-        is_definition: bool,
     ) {
         let text = text.into(); // sigh - rust-lang/rust#51604
 
-        if !is_definition {
+        if !self.definition_flag {
             if text.len() == 1 || PascalReservedWord::try_from(&text[..]).is_ok() {
                 return;
             }
@@ -1070,15 +1071,21 @@ impl State {
 
         for existing in refs.iter_mut() {
             if existing.module == module {
-                existing.is_definition |= is_definition;
+                existing.is_definition |= self.definition_flag;
+                self.definition_flag = false;
                 return;
             }
         }
 
         refs.push(Reference {
             module,
-            is_definition,
+            is_definition: self.definition_flag,
         });
+        self.definition_flag = false;
+    }
+
+    fn set_definition_flag(&mut self, f: bool) {
+        self.definition_flag = f;
     }
 
     fn scan_add_next<'a>(
@@ -1088,7 +1095,7 @@ impl State {
         span: Span<'a>,
     ) -> ParseResult<'a, Token> {
         let (span, text) = take_until_terminator(span)?;
-        self.add_index_entry(text.value.into_owned(), kind, module, false);
+        self.add_index_entry(text.value.into_owned(), kind, module);
         next_token(span)
     }
 }
@@ -1170,7 +1177,6 @@ fn first_pass_scan_pascal_only<'a>(
 ) -> ParseResult<'a, Token> {
     let mut tok;
     let mut ptok;
-    let mut definition_flag = false;
 
     loop {
         (span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
@@ -1213,22 +1219,23 @@ fn first_pass_scan_pascal_only<'a>(
                 value: PascalReservedWord::Var,
                 ..
             }) => {
-                definition_flag = true;
+                state.set_definition_flag(true);
             }
 
             PascalToken::Identifier(text) => {
-                state.add_index_entry(
-                    text.value.into_owned(),
-                    IndexEntryKind::Normal,
-                    cur_module,
-                    definition_flag,
-                );
-                definition_flag = false;
+                state.add_index_entry(text.value.into_owned(), IndexEntryKind::Normal, cur_module);
             }
 
             PascalToken::IndexEntry(kind, text) => {
-                state.add_index_entry(text.value.into_owned(), kind, cur_module, definition_flag);
-                definition_flag = false;
+                state.add_index_entry(text.value.into_owned(), kind, cur_module);
+            }
+
+            PascalToken::DefinitionFlag => {
+                state.set_definition_flag(true);
+            }
+
+            PascalToken::CancelDefinitionFlag => {
+                state.set_definition_flag(false);
             }
 
             _ => {}
@@ -1350,12 +1357,14 @@ fn first_pass_handle_definitions<'a>(
             }
 
             Token::Control(ControlKind::MacroDefinition) => {
+                state.set_definition_flag(true);
                 (span, tok) = first_pass_scan_pascal(cur_module, state, span)?;
             }
 
             Token::Control(ControlKind::FormatDefinition) => {
                 let mut ptok;
 
+                state.set_definition_flag(true);
                 (span, ptok) = match_pascal_token(span)?;
 
                 if let PascalToken::Identifier(text) = ptok {
@@ -1363,7 +1372,6 @@ fn first_pass_handle_definitions<'a>(
                         text.value.into_owned(),
                         IndexEntryKind::Normal,
                         cur_module,
-                        true,
                     );
                     (span, ptok) = match_pascal_token(span)?;
 
@@ -1376,7 +1384,6 @@ fn first_pass_handle_definitions<'a>(
                                 text.value.into_owned(),
                                 IndexEntryKind::Normal,
                                 cur_module,
-                                false,
                             );
                         }
                     }
@@ -1429,12 +1436,7 @@ fn first_pass_handle_pascal<'a>(
                 let text;
                 (span, text) = scan_module_name(state, span)?;
                 state.named_modules.insert(text.value.to_string());
-                state.add_index_entry(
-                    text.value.into_owned(),
-                    IndexEntryKind::Normal,
-                    cur_module,
-                    false,
-                );
+                state.add_index_entry(text.value.into_owned(), IndexEntryKind::Normal, cur_module);
                 prev_span = span.clone();
                 (span, tok) = next_token(span)?;
             }
@@ -1494,7 +1496,11 @@ fn first_pass_inner<'a>(state: &mut State, span: Span<'a>) -> ParseResult<'a, ()
             Token::Control(ControlKind::ModuleName) => {
                 let text;
                 (span, text) = scan_module_name(state, span)?;
-                state.named_modules.insert(text.value.into_owned());
+
+                state.set_definition_flag(true);
+                state.named_modules.insert(text.value.to_string());
+                state.add_index_entry(text.value.into_owned(), IndexEntryKind::Normal, cur_module);
+
                 // there's like one module in XeTeX with a space between module name and equals sign
                 (span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
                 (span, _) = char('=')(span)?;
