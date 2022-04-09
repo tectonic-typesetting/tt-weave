@@ -5,6 +5,7 @@ use tectonic_errors::prelude::*;
 mod control;
 mod parse_base;
 mod parsers;
+mod token;
 
 /// CLI arguments.
 #[derive(Parser, Debug)]
