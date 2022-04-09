@@ -2,6 +2,7 @@ use clap::Parser;
 use std::path::PathBuf;
 use tectonic_errors::prelude::*;
 
+mod control;
 mod parse_base;
 mod parsers;
 
