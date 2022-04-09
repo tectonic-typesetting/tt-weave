@@ -2,12 +2,14 @@
 
 use nom::{
     error::{ErrorKind, ParseError as NomParseError},
-    Err, InputIter, Slice,
+    Err, InputIter, InputTake, Slice,
 };
+use nom_locate::position;
+use std::borrow::Cow;
 
 use crate::{
     control::ControlKind,
-    parse_base::{new_parse_error, ParseError, ParseResult, Span},
+    parse_base::{new_parse_error, ParseError, ParseResult, Span, StringSpan},
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -104,6 +106,41 @@ pub fn expect_token<'a>(tok: Token) -> impl Fn(Span<'a>) -> ParseResult<Token> {
             Ok((new_span, actual_tok))
         } else {
             new_parse_error(span, ErrorKind::Char)
+        }
+    }
+}
+
+/// WEAVE:106
+pub fn take_until_terminator<'a>(span: Span<'a>) -> ParseResult<StringSpan<'a>> {
+    let (mut span, start) = position(span)?;
+    let text_begin = span.clone();
+    let mut n_taken = 0;
+    let mut tok;
+
+    loop {
+        (span, tok) = next_token(span)?;
+
+        match tok {
+            Token::Control(ControlKind::Terminator) => {
+                let (span, end) = position(span)?;
+                let text = text_begin.take(n_taken);
+                return Ok((
+                    span,
+                    StringSpan {
+                        start,
+                        end,
+                        value: Cow::Borrowed(&text),
+                    },
+                ));
+            }
+
+            Token::Control(_) => {
+                return new_parse_error(span, ErrorKind::TakeUntil);
+            }
+
+            Token::Char(_) => {
+                n_taken += tok.n_chars();
+            }
         }
     }
 }
