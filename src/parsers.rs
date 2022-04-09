@@ -12,8 +12,9 @@ use tectonic_errors::prelude::*;
 
 use crate::{
     control::ControlKind,
+    index::IndexEntryKind,
     parse_base::{new_parse_error, ParseResult, Span, SpanValue, StringSpan},
-    pascal_token::{match_pascal_token, IndexEntryKind, PascalToken},
+    pascal_token::{match_pascal_token, PascalToken},
     reserved::PascalReservedWord,
     token::{next_token, take_until_terminator, Token},
 };

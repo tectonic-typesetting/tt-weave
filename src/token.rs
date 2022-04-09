@@ -9,6 +9,7 @@ use std::borrow::Cow;
 
 use crate::{
     control::ControlKind,
+    index::IndexEntryKind,
     parse_base::{new_parse_error, ParseError, ParseResult, Span, StringSpan},
 };
 
@@ -35,6 +36,13 @@ impl Token {
                 s.push('@');
                 s.push(k.syntax_char());
             }
+        }
+    }
+
+    pub fn as_index_kind(&self) -> Option<IndexEntryKind> {
+        match self {
+            Token::Control(k) => k.as_index_kind(),
+            Token::Char(_) => None,
         }
     }
 }

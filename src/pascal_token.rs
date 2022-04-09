@@ -15,6 +15,7 @@ use std::{borrow::Cow, convert::TryFrom, fmt};
 
 use crate::{
     control::ControlKind,
+    index::IndexEntryKind,
     parse_base::{new_parse_error, ParseError, ParseResult, Span, SpanValue, StringSpan},
     reserved::PascalReservedWord,
     token::{expect_token, next_token, take_until_terminator, Token},
@@ -42,21 +43,6 @@ pub enum IntLiteralKind {
 pub enum StringLiteralKind {
     SingleQuote,
     DoubleQuote,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum IndexEntryKind {
-    /// Auto-sourced from Pascal code; printed in italics
-    Normal,
-
-    /// `@^`: for human language
-    Roman,
-
-    /// `@.`: for UI strings
-    Typewriter,
-
-    /// `@:`: used for custom TeX typesetting, essentially
-    Wildcard,
 }
 
 #[derive(Debug)]
@@ -487,11 +473,9 @@ fn match_string_literal(span: Span) -> ParseResult<PascalToken> {
 fn match_index_entry(span: Span) -> ParseResult<PascalToken> {
     let (span, tok) = next_token(span)?;
 
-    let kind = match tok {
-        Token::Control(ControlKind::RomanIndexEntry) => IndexEntryKind::Roman,
-        Token::Control(ControlKind::TypewriterIndexEntry) => IndexEntryKind::Typewriter,
-        Token::Control(ControlKind::WildcardIndexEntry) => IndexEntryKind::Wildcard,
-        _ => return new_parse_error(span, ErrorKind::Char),
+    let kind = match tok.as_index_kind() {
+        Some(k) => k,
+        None => return new_parse_error(span, ErrorKind::Char),
     };
 
     let (span, text) = take_until_terminator(span)?;

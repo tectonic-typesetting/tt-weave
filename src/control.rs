@@ -1,5 +1,7 @@
 //! WEB control codes.
 
+use crate::index::IndexEntryKind;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ControlKind {
     /// `@>`
@@ -118,6 +120,15 @@ impl ControlKind {
             ControlKind::FormatBigBreak => '#',
             ControlKind::FormatCancelBreak => '+',
             ControlKind::FormatLikeSemicolon => ';',
+        }
+    }
+
+    pub fn as_index_kind(&self) -> Option<IndexEntryKind> {
+        match self {
+            ControlKind::WildcardIndexEntry => Some(IndexEntryKind::Wildcard),
+            ControlKind::RomanIndexEntry => Some(IndexEntryKind::Roman),
+            ControlKind::TypewriterIndexEntry => Some(IndexEntryKind::Typewriter),
+            _ => None,
         }
     }
 }
