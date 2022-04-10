@@ -219,6 +219,18 @@ fn handle_tex<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token> {
                 (span, tok) = copy_tex(span)?;
             }
 
+            //WEAVE:223
+            Token::Control(ControlKind::OctalLiteral) => {
+                print!("\\TodoOctalLiteral ");
+                (span, tok) = copy_tex(span)?;
+            }
+
+            //WEAVE:223
+            Token::Control(ControlKind::HexLiteral) => {
+                print!("\\TodoHexLiteral ");
+                (span, tok) = copy_tex(span)?;
+            }
+
             Token::Control(ControlKind::RomanIndexEntry)
             | Token::Control(ControlKind::TypewriterIndexEntry)
             | Token::Control(ControlKind::WildcardIndexEntry) => {
