@@ -168,6 +168,11 @@ impl State {
         self.definition_flag = f;
     }
 
+    pub fn scan_next<'a>(&self, span: Span<'a>) -> ParseResult<'a, Token> {
+        let (span, _) = take_until_terminator(span)?;
+        next_token(span)
+    }
+
     pub fn scan_add_next<'a>(
         &mut self,
         kind: IndexEntryKind,
