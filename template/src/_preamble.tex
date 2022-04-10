@@ -1,0 +1,51 @@
+\documentclass{tdux}
+
+% plain/webmac compatibility
+
+\countdef\pageno=0
+\def\contentspagenumber{0}
+\def\item{\par}
+\def\yskip{}
+
+% left-arrow allusion in WEAVE.WEB
+\catcode`\^^X=\active
+\def^^X{←}
+
+% up-arrow allusion in WEAVE.WEB
+\catcode`\^^K=\active
+\def^^K{(up-arrow)}
+
+% WEAVE.WEB: `\.^^Z\ `
+\catcode`\^^Z=\active
+\def^^Z{\^\^Z}
+
+\makeatletter
+\def\eqalign#1{\null\,\vcenter{\openup\jot\m@th
+  \ialign{\strut\hfil$\displaystyle{##}$&$\displaystyle{{}##}$\hfil
+      \crcr#1\crcr}}\,}
+\makeatother
+
+% tt-weave commands
+
+\newcommand{\WebMajorModule}[1]{\newpage\par\textbf{#1.}}
+\newcommand{\WebMinorModule}[1]{\newpage\par\textbf{#1.}}
+
+\newenvironment{WebPrettified}{%
+  \special{tdux:mfs pre}\special{tdux:mfs code}%
+}{
+  \special{tdux:me pre}\special{tdux:me code}%
+}
+
+\newcommand{\TodoOctalLiteral}{OCTAL:}
+\newcommand{\TodoHexLiteral}{HEX:}
+
+% Ready to go!
+
+\begin{document}
+
+% Plain TeX definitions that could cause problems for LaTeX if we did them
+% earlier:
+\def\.#1{\texttt{#1}}
+\def\'{\textquotesingle}
+\def\~{\texttildelow}
+\def\\{\textbackslash}

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en" class="sidebar-visible no-js">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <title>{% block title %}{% endblock title %}</title>
+  <link rel="stylesheet" href="{{ tduxRelTop ~ 'tdux-style.css' | safe }}">
+</head>
+
+<body>
+  <!-- Work around some values being stored in localStorage wrapped in quotes -->
+  <script type="text/javascript">
+    try {
+      var sidebar = localStorage.getItem('tdux-sidebar');
+      if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+        localStorage.setItem('tdux-sidebar', sidebar.slice(1, sidebar.length - 1));
+      }
+    } catch (e) { }
+  </script>
+
+  <!-- Hide / unhide sidebar before it is displayed -->
+  <script type="text/javascript">
+    var html = document.querySelector('html');
+    var sidebar = 'hidden';
+    if (document.body.clientWidth >= 1080) {
+      try { sidebar = localStorage.getItem('tdux-sidebar'); } catch (e) { }
+      sidebar = sidebar || 'visible';
+    }
+    html.classList.remove('sidebar-visible');
+    html.classList.add("sidebar-" + sidebar);
+  </script>
+
+  <nav id="sidebar" class="sidebar" aria-label="Sidebar">
+    <div class="sidebar-scrollbox">
+      {% block sidebarNav %}{% endblock sidebarNav %}
+    </div>
+    <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+  </nav>
+
+  <div id="page-wrapper" class="page-wrapper">
+    <div class="page">
+      <div id="menu-bar-hover-placeholder"></div>
+      <div id="menu-bar" class="menu-bar sticky bordered">
+        <div class="left-buttons">
+          <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Sidebar"
+            aria-label="Toggle Sidebar" aria-controls="sidebar">
+            <i class="fa fa-bars"></i>
+          </button>
+        </div>
+
+        <h1 class="menu-title">{{ tduxDocumentTitle }}</h1>
+      </div>
+
+      <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+      <script type="text/javascript">
+        document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+        document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+        Array.from(document.querySelectorAll('#sidebar a')).forEach(function (link) {
+          link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+        });
+      </script>
+
+      <div id="content" class="content">
+        <main>
+          {{ tduxContent | safe }}
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ tduxRelTop ~ 'tdux-chrome.js' }}" type="text/javascript" charset="utf-8"></script>
+</body>
+
+</html>

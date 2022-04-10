@@ -1,0 +1,11 @@
+[doc]
+name = 'xenia'
+bundle = 'https://data1.fullyjustified.net/tlextras-2020.0r0.tar'
+
+[[output]]
+name = 'default'
+type = 'html'
+
+# [[output]]
+# name = 'pdf'
+# type = 'pdf'
