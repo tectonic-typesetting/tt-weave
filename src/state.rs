@@ -192,10 +192,10 @@ impl State {
 
     pub fn dump_pass1(&self) {
         for name in self.named_modules.iter() {
-            println!("{:?}", name);
+            eprintln!("{:?}", name);
         }
 
-        println!();
+        eprintln!();
 
         let mut index: Vec<_> = self.index_entries.keys().collect();
         index.string_sort_unstable(natural_lexical_cmp);
@@ -220,7 +220,7 @@ impl State {
                 }
             }
 
-            println!("{} ({:?}) => {}", name, info.kind, refs);
+            eprintln!("{} ({:?}) => {}", name, info.kind, refs);
         }
     }
 }

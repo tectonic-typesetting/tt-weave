@@ -1,4 +1,4 @@
-//! Parsing for the WEB input.
+//! The first pass -- building up the index.
 
 use nom::{bytes::complete::take_while, character::complete::char, error::ErrorKind, Finish};
 use tectonic_errors::prelude::*;
@@ -391,7 +391,7 @@ fn first_pass_inner<'a>(state: &mut State, span: Span<'a>) -> ParseResult<'a, ()
 
         match tok {
             Token::Control(ControlKind::NewMajorModule) => {
-                println!("- Major module #{}", cur_module);
+                eprintln!("- Major module #{}", cur_module);
             }
 
             Token::Control(ControlKind::NewMinorModule) => {}

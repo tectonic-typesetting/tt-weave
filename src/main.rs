@@ -7,6 +7,7 @@ mod index;
 mod parse_base;
 mod pascal_token;
 mod pass1;
+mod pass2;
 mod reserved;
 mod state;
 mod token;
@@ -31,7 +32,8 @@ fn main() -> Result<()> {
 
     let input = parse_base::Span::new(&text);
     let state = pass1::execute(input)?;
-    state.dump_pass1();
+    //state.dump_pass1();
+    pass2::execute(&state, input)?;
 
     Ok(())
 }
