@@ -143,12 +143,52 @@ fn scan_pascal_only<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<PascalToken<
     }
 }
 
+fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, Token> {
+    let mut ptoks;
+    let mut tok;
+
+    let mut prev_span = span;
+    (span, tok) = next_token(span)?;
+
+    loop {
+        match tok {
+            Token::Char('{') => {
+                let mut text;
+                let mut depth;
+                (span, (text, depth)) = copy_comment(1, span)?;
+
+                while depth > 0 {
+                    (span, (ptoks, tok)) = scan_pascal_only(span)?;
+
+                    if let Token::Char('|') = tok {
+                        (span, (text, depth)) = copy_comment(depth, span)?;
+                    } else {
+                        return new_parse_error(span, ErrorKind::Char);
+                    }
+                }
+
+                prev_span = span;
+                (span, tok) = next_token(span)?;
+            }
+
+            Token::Control(ControlKind::MacroDefinition)
+            | Token::Control(ControlKind::FormatDefinition)
+            | Token::Control(ControlKind::StartUnnamedPascal)
+            | Token::Control(ControlKind::ModuleName)
+            | Token::Control(ControlKind::NewMinorModule)
+            | Token::Control(ControlKind::NewMajorModule) => {
+                return Ok((span, tok));
+            }
+
+            _ => {
+                (span, (ptoks, tok)) = scan_pascal_only(prev_span)?;
+            }
+        }
+    }
+}
+
 /// WEAVE:222
-fn handle_tex<'a>(
-    cur_module: ModuleId,
-    state: &State,
-    mut span: Span<'a>,
-) -> ParseResult<'a, Token> {
+fn handle_tex<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token> {
     let mut tok;
 
     (span, tok) = copy_tex(span)?;
@@ -198,6 +238,64 @@ fn handle_tex<'a>(
     }
 }
 
+/// WEAVE:225-228.
+fn handle_definitions<'a>(
+    state: &State,
+    mut span: Span<'a>,
+    mut tok: Token,
+) -> ParseResult<'a, Token> {
+    let mut ptoks;
+
+    loop {
+        match tok {
+            Token::Control(ControlKind::NewMajorModule)
+            | Token::Control(ControlKind::NewMinorModule)
+            | Token::Control(ControlKind::StartUnnamedPascal)
+            | Token::Control(ControlKind::ModuleName) => {
+                return Ok((span, tok));
+            }
+
+            Token::Control(ControlKind::MacroDefinition) => {
+                (span, tok) = scan_pascal(span)?;
+            }
+
+            Token::Control(ControlKind::FormatDefinition) => {
+                let mut ptok;
+
+                (span, ptok) = match_pascal_token(span)?;
+
+                if let PascalToken::Identifier(text) = ptok {
+                    (span, ptok) = match_pascal_token(span)?;
+
+                    if let PascalToken::Equivalence = ptok {
+                        (span, ptok) = match_pascal_token(span)?;
+                    }
+                }
+
+                (span, tok) = scan_pascal(span)?;
+            }
+
+            Token::Control(ControlKind::RomanIndexEntry) => {
+                (span, tok) = state.scan_next(span)?;
+            }
+            Token::Control(ControlKind::TypewriterIndexEntry) => {
+                (span, tok) = state.scan_next(span)?;
+            }
+            Token::Control(ControlKind::WildcardIndexEntry) => {
+                (span, tok) = state.scan_next(span)?;
+            }
+
+            Token::Char('|') => {
+                (span, (ptoks, tok)) = scan_pascal_only(span)?;
+            }
+
+            _ => {
+                (span, tok) = next_token(span)?;
+            }
+        }
+    }
+}
+
 /// WEAVE:218, WEAVE:220, etc.
 fn second_pass_inner<'a>(state: &State, span: Span<'a>) -> ParseResult<'a, ()> {
     let (mut span, mut tok) = copy_limbo(span)?;
@@ -219,17 +317,21 @@ fn second_pass_inner<'a>(state: &State, span: Span<'a>) -> ParseResult<'a, ()> {
                 return new_parse_error(span, ErrorKind::Complete);
             }
         }
+
         // Handle the TeX chunk (which can be empty), and find out what ended it.
-        (span, tok) = handle_tex(cur_module, state, span)?;
+
+        (span, tok) = handle_tex(state, span)?;
 
         // If there are macro/format definitions, handle those
-        //match tok {
-        //    Token::Control(ControlKind::MacroDefinition)
-        //    | Token::Control(ControlKind::FormatDefinition) => {
-        //        (span, tok) = first_pass_handle_definitions(cur_module, state, span, tok)?;
-        //    }
-        //    _ => {}
-        //}
+
+        match tok {
+            Token::Control(ControlKind::MacroDefinition)
+            | Token::Control(ControlKind::FormatDefinition) => {
+                (span, tok) = handle_definitions(state, span, tok)?;
+            }
+            _ => {}
+        }
+
         //
         //    // If there's Pascal, handle that
         //
