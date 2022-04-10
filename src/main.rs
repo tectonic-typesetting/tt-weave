@@ -5,8 +5,8 @@ use tectonic_errors::prelude::*;
 mod control;
 mod index;
 mod parse_base;
-mod parsers;
 mod pascal_token;
+mod pass1;
 mod reserved;
 mod token;
 
@@ -30,8 +30,7 @@ fn main() -> Result<()> {
 
     let input = parse_base::Span::new(&text);
 
-    // First pass
-    parsers::first_pass(input)?;
+    pass1::execute(input)?;
 
     Ok(())
 }

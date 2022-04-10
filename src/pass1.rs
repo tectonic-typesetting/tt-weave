@@ -146,8 +146,6 @@ struct State {
     /// it. Every entry here also has a record in the index table, where
     /// `is_definition` modules indicate ones that contribute code to the
     /// module.
-    ///
-    /// https://stackoverflow.com/questions/27344452/how-can-i-have-a-sorted-key-value-map-with-prefix-key-search
     named_modules: BTreeSet<String>,
 
     index_entries: HashMap<String, IndexState>,
@@ -617,7 +615,7 @@ fn first_pass_inner<'a>(state: &mut State, span: Span<'a>) -> ParseResult<'a, ()
     }
 }
 
-pub fn first_pass(span: Span) -> Result<()> {
+pub fn execute(span: Span) -> Result<()> {
     let mut state = State::default();
 
     match first_pass_inner(&mut state, span).finish() {
