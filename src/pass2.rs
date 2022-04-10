@@ -141,9 +141,20 @@ fn scan_pascal_only<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<PascalToken<
     }
 }
 
-fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, Token> {
-    let mut ptoks;
+enum TypesetComment<'a> {
+    Pascal(Vec<PascalToken<'a>>),
+    Tex(String),
+}
+
+enum CommentedPascal<'a> {
+    Pascal(Vec<PascalToken<'a>>),
+    Comment(Vec<TypesetComment<'a>>),
+}
+
+fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<CommentedPascal<'a>>, Token)> {
+    let mut code = Vec::new();
     let mut tok;
+    let mut ptoks;
 
     let mut prev_span = span;
     (span, tok) = next_token(span)?;
@@ -151,20 +162,27 @@ fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, Token> {
     loop {
         match tok {
             Token::Char('{') => {
-                let mut text;
+                let mut comment = Vec::new();
+                let text;
                 let mut depth;
+
                 (span, (text, depth)) = copy_comment(1, span)?;
+                comment.push(TypesetComment::Tex(text));
 
                 while depth > 0 {
                     (span, (ptoks, tok)) = scan_pascal_only(span)?;
+                    comment.push(TypesetComment::Pascal(ptoks));
 
                     if let Token::Char('|') = tok {
+                        let text;
                         (span, (text, depth)) = copy_comment(depth, span)?;
+                        comment.push(TypesetComment::Tex(text));
                     } else {
                         return new_parse_error(span, ErrorKind::Char);
                     }
                 }
 
+                code.push(CommentedPascal::Comment(comment));
                 prev_span = span;
                 (span, tok) = next_token(span)?;
             }
@@ -175,11 +193,12 @@ fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, Token> {
             | Token::Control(ControlKind::ModuleName)
             | Token::Control(ControlKind::NewMinorModule)
             | Token::Control(ControlKind::NewMajorModule) => {
-                return Ok((span, tok));
+                return Ok((span, (code, tok)));
             }
 
             _ => {
                 (span, (ptoks, tok)) = scan_pascal_only(prev_span)?;
+                code.push(CommentedPascal::Pascal(ptoks));
             }
         }
     }
@@ -266,7 +285,7 @@ fn handle_definitions<'a>(
             }
 
             Token::Control(ControlKind::MacroDefinition) => {
-                (span, tok) = scan_pascal(span)?;
+                (span, (_, tok)) = scan_pascal(span)?;
             }
 
             Token::Control(ControlKind::FormatDefinition) => {
@@ -282,7 +301,7 @@ fn handle_definitions<'a>(
                     }
                 }
 
-                (span, tok) = scan_pascal(span)?;
+                (span, (_, tok)) = scan_pascal(span)?;
             }
 
             Token::Control(ControlKind::RomanIndexEntry) => {
@@ -326,7 +345,7 @@ fn handle_pascal<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token
             }
 
             _ => {
-                (span, tok) = scan_pascal(prev_span)?;
+                (span, (_, tok)) = scan_pascal(prev_span)?;
             }
         }
     }
