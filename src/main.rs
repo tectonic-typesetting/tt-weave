@@ -8,6 +8,7 @@ mod parse_base;
 mod pascal_token;
 mod pass1;
 mod reserved;
+mod state;
 mod token;
 
 /// CLI arguments.
@@ -29,8 +30,8 @@ fn main() -> Result<()> {
     );
 
     let input = parse_base::Span::new(&text);
-
-    pass1::execute(input)?;
+    let state = pass1::execute(input)?;
+    state.dump_pass1();
 
     Ok(())
 }
