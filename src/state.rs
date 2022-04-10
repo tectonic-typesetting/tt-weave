@@ -17,81 +17,6 @@ use crate::{
     token::{next_token, take_until_terminator, Token},
 };
 
-/// Scan the name of a WEB module.
-///
-/// Module names are terminated by a terminator control token. Leading and
-/// trailing whitespace are eaten, and inner whitespace is collapsed.
-///
-/// See WEAVE:103-104.
-fn scan_module_name<'a>(state: &State, span: Span<'a>) -> ParseResult<'a, StringSpan<'a>> {
-    let (span, start) = position(span)?;
-    let (mut span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
-
-    let mut value = String::new();
-    let mut space_needed = false;
-    let mut tok;
-
-    loop {
-        (span, tok) = next_token(span)?;
-
-        match tok {
-            Token::Char(' ') | Token::Char('\t') | Token::Char('\n') => {
-                space_needed = true;
-            }
-
-            Token::Control(ControlKind::Terminator) => {
-                break;
-            }
-
-            _ => {
-                if space_needed {
-                    value.push(' ');
-                    space_needed = false;
-                }
-
-                tok.push_syntax_into(&mut value);
-            }
-        }
-    }
-
-    let (span, end) = position(span)?;
-
-    // Now (ab)use the module name table to do the prefix match if we need to
-
-    let matched_name = if let Some(body) = value.strip_suffix("...") {
-        let mut matched_name = String::new();
-
-        for name in state
-            .named_modules
-            .range(body.to_owned()..)
-            .take_while(|n| n.starts_with(body))
-        {
-            if matched_name.is_empty() {
-                matched_name.push_str(&name);
-            } else {
-                return new_parse_error(span, ErrorKind::Fail);
-            }
-        }
-
-        if matched_name.is_empty() {
-            return new_parse_error(span, ErrorKind::Fail);
-        }
-
-        matched_name
-    } else {
-        value
-    };
-
-    Ok((
-        span,
-        StringSpan {
-            start,
-            end,
-            value: matched_name.into(),
-        },
-    ))
-}
-
 pub type ModuleId = usize;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -184,12 +109,86 @@ impl State {
         next_token(span)
     }
 
+    /// Scan the name of a WEB module.
+    ///
+    /// Module names are terminated by a terminator control token. Leading and
+    /// trailing whitespace are eaten, and inner whitespace is collapsed.
+    ///
+    /// See WEAVE:103-104.
+    pub fn scan_module_name<'a>(&self, span: Span<'a>) -> ParseResult<'a, StringSpan<'a>> {
+        let (span, start) = position(span)?;
+        let (mut span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
+
+        let mut value = String::new();
+        let mut space_needed = false;
+        let mut tok;
+
+        loop {
+            (span, tok) = next_token(span)?;
+
+            match tok {
+                Token::Char(' ') | Token::Char('\t') | Token::Char('\n') => {
+                    space_needed = true;
+                }
+
+                Token::Control(ControlKind::Terminator) => {
+                    break;
+                }
+
+                _ => {
+                    if space_needed {
+                        value.push(' ');
+                        space_needed = false;
+                    }
+
+                    tok.push_syntax_into(&mut value);
+                }
+            }
+        }
+
+        let (span, end) = position(span)?;
+
+        // Now (ab)use the module name table to do the prefix match if we need to
+
+        let matched_name = if let Some(body) = value.strip_suffix("...") {
+            let mut matched_name = String::new();
+
+            for name in self
+                .named_modules
+                .range(body.to_owned()..)
+                .take_while(|n| n.starts_with(body))
+            {
+                if matched_name.is_empty() {
+                    matched_name.push_str(&name);
+                } else {
+                    return new_parse_error(span, ErrorKind::Fail);
+                }
+            }
+            if matched_name.is_empty() {
+                return new_parse_error(span, ErrorKind::Fail);
+            }
+
+            matched_name
+        } else {
+            value
+        };
+
+        Ok((
+            span,
+            StringSpan {
+                start,
+                end,
+                value: matched_name.into(),
+            },
+        ))
+    }
+
     pub fn scan_module_name_and_register<'a>(
         &mut self,
         module: ModuleId,
         span: Span<'a>,
     ) -> ParseResult<'a, StringSpan<'a>> {
-        let (span, text) = scan_module_name(self, span)?;
+        let (span, text) = self.scan_module_name(span)?;
         self.named_modules.insert(text.value.to_string());
         self.add_index_entry(text.value.to_string(), IndexEntryKind::Normal, module);
         Ok((span, text))

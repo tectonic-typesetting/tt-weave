@@ -296,6 +296,32 @@ fn handle_definitions<'a>(
     }
 }
 
+fn handle_pascal<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token> {
+    let mut tok;
+
+    let mut prev_span = span.clone();
+    (span, tok) = next_token(span)?;
+
+    loop {
+        match tok {
+            Token::Control(ControlKind::NewMajorModule)
+            | Token::Control(ControlKind::NewMinorModule) => {
+                return Ok((span, tok));
+            }
+
+            Token::Control(ControlKind::ModuleName) => {
+                (span, _) = state.scan_module_name(span)?;
+                prev_span = span.clone();
+                (span, tok) = next_token(span)?;
+            }
+
+            _ => {
+                (span, tok) = scan_pascal(prev_span)?;
+            }
+        }
+    }
+}
+
 /// WEAVE:218, WEAVE:220, etc.
 fn second_pass_inner<'a>(state: &State, span: Span<'a>) -> ParseResult<'a, ()> {
     let (mut span, mut tok) = copy_limbo(span)?;
@@ -332,29 +358,25 @@ fn second_pass_inner<'a>(state: &State, span: Span<'a>) -> ParseResult<'a, ()> {
             _ => {}
         }
 
-        //
-        //    // If there's Pascal, handle that
-        //
-        //    match tok {
-        //        Token::Control(ControlKind::StartUnnamedPascal) => {
-        //            (span, tok) = first_pass_handle_pascal(cur_module, state, span)?;
-        //        }
-        //
-        //        Token::Control(ControlKind::ModuleName) => {
-        //            state.set_definition_flag(true);
-        //            (span, _) = state.scan_module_name_and_register(cur_module, span)?;
-        //
-        //            // there's like one module in XeTeX with a space between module name and equals sign
-        //            (span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
-        //            (span, _) = char('=')(span)?;
-        //            (span, tok) = first_pass_handle_pascal(cur_module, state, span)?;
-        //        }
-        //
-        //        _ => {}
-        //    }
-    }
+        // If there's Pascal, handle that
 
-    Ok((span, ()))
+        match tok {
+            Token::Control(ControlKind::StartUnnamedPascal) => {
+                (span, tok) = handle_pascal(state, span)?;
+            }
+
+            Token::Control(ControlKind::ModuleName) => {
+                (span, _) = state.scan_module_name(span)?;
+
+                // there's like one module in XeTeX with a space between module name and equals sign
+                (span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
+                (span, _) = char('=')(span)?;
+                (span, tok) = handle_pascal(state, span)?;
+            }
+
+            _ => {}
+        }
+    }
 }
 
 pub fn execute(state: &State, span: Span) -> Result<()> {
