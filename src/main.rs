@@ -8,6 +8,7 @@ mod parse_base;
 mod pascal_token;
 mod pass1;
 mod pass2;
+mod prettify;
 mod reserved;
 mod state;
 mod token;

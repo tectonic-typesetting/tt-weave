@@ -1,6 +1,8 @@
 //! The second pass -- emitting TeX
 
 use nom::{bytes::complete::take_while, character::complete::char, error::ErrorKind, Finish};
+use std::fmt::Write;
+use syntect::highlighting::ThemeSet;
 use tectonic_errors::prelude::*;
 
 use crate::{
@@ -204,6 +206,78 @@ fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<CommentedPascal<'
     }
 }
 
+fn emit_pascal(code: &[CommentedPascal]) {
+    // tmp!
+    let mut flat = String::new();
+    let mut first = true;
+
+    for piece in code {
+        if first {
+            first = false;
+        } else {
+            flat.push('\n');
+        }
+
+        match piece {
+            CommentedPascal::Pascal(ptoks) => {
+                let mut inner_first = false;
+
+                for ptok in &ptoks[..] {
+                    if inner_first {
+                        inner_first = true;
+                    } else {
+                        flat.push(' ');
+                    }
+
+                    write!(flat, "{}", ptok).unwrap();
+                }
+            }
+
+            CommentedPascal::Comment(ttoks) => {
+                flat.push_str("/*");
+
+                let mut inner_first = false;
+
+                for ttok in &ttoks[..] {
+                    if inner_first {
+                        inner_first = true;
+                    } else {
+                        flat.push(' ');
+                    }
+
+                    match ttok {
+                        TypesetComment::Pascal(ptoks) => {
+                            let mut innerer_first = false;
+
+                            for ptok in &ptoks[..] {
+                                if innerer_first {
+                                    innerer_first = true;
+                                } else {
+                                    flat.push(' ');
+                                }
+
+                                write!(flat, "{}", ptok).unwrap();
+                            }
+                        }
+
+                        TypesetComment::Tex(s) => {
+                            flat.push_str(&s);
+                        }
+                    }
+                }
+
+                flat.push_str("*/");
+            }
+        }
+    }
+
+    let pc = crate::prettify::PrettifiedCode::new(flat);
+
+    let ts = ThemeSet::load_defaults();
+    let theme = &ts.themes["InspiredGitHub"];
+    pc.emit(theme);
+}
+
 /// WEAVE:222
 fn handle_tex<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token> {
     let mut tok;
@@ -222,7 +296,10 @@ fn handle_tex<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token> {
             }
 
             Token::Char('|') => {
-                (span, _) = scan_pascal_only(span)?;
+                let ptoks;
+                (span, (ptoks, _)) = scan_pascal_only(span)?;
+                let wrapped = vec![CommentedPascal::Pascal(ptoks)];
+                emit_pascal(&wrapped[..]);
                 (span, tok) = copy_tex(span)?;
             }
 
@@ -285,23 +362,34 @@ fn handle_definitions<'a>(
             }
 
             Token::Control(ControlKind::MacroDefinition) => {
-                (span, (_, tok)) = scan_pascal(span)?;
+                let code;
+                (span, (code, tok)) = scan_pascal(span)?;
+                emit_pascal(&code[..]);
             }
 
             Token::Control(ControlKind::FormatDefinition) => {
-                let mut ptok;
+                let mut initial_chunk = Vec::new();
+                let ptok;
 
                 (span, ptok) = match_pascal_token(span)?;
+                initial_chunk.push(ptok.clone());
 
-                if let PascalToken::Identifier(text) = ptok {
-                    (span, ptok) = match_pascal_token(span)?;
+                if let PascalToken::Identifier(_) = ptok {
+                    let ptok2;
+                    (span, ptok2) = match_pascal_token(span)?;
+                    initial_chunk.push(ptok2.clone());
 
-                    if let PascalToken::Equivalence = ptok {
-                        (span, ptok) = match_pascal_token(span)?;
+                    if let PascalToken::Equivalence = ptok2 {
+                        let ptok3;
+                        (span, ptok3) = match_pascal_token(span)?;
+                        initial_chunk.push(ptok3);
                     }
                 }
 
-                (span, (_, tok)) = scan_pascal(span)?;
+                let mut code;
+                (span, (code, tok)) = scan_pascal(span)?;
+                code.insert(0, CommentedPascal::Pascal(initial_chunk));
+                emit_pascal(&code[..]);
             }
 
             Token::Control(ControlKind::RomanIndexEntry) => {
@@ -316,6 +404,8 @@ fn handle_definitions<'a>(
 
             Token::Char('|') => {
                 (span, (ptoks, tok)) = scan_pascal_only(span)?;
+                let wrapped = vec![CommentedPascal::Pascal(ptoks)];
+                emit_pascal(&wrapped[..]);
             }
 
             _ => {
@@ -342,10 +432,13 @@ fn handle_pascal<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token
                 (span, _) = state.scan_module_name(span)?;
                 prev_span = span.clone();
                 (span, tok) = next_token(span)?;
+                // XXXX inline in the Pascal code!!!!
             }
 
             _ => {
-                (span, (_, tok)) = scan_pascal(prev_span)?;
+                let code;
+                (span, (code, tok)) = scan_pascal(prev_span)?;
+                emit_pascal(&code[..]);
             }
         }
     }
@@ -417,3 +510,26 @@ pub fn execute(state: &State, span: Span) -> Result<()> {
 
     Ok(())
 }
+
+// Start:
+// ```
+// let ps = SyntaxSet::load_defaults_newlines();
+// let ts = ThemeSet::load_defaults();
+// let syntax = ps.find_syntax_by_extension("rs").unwrap();
+// ```
+//
+// In most cases you'd get scope stack operations with
+// `syntect::parsing::ParseState::parse_line`. But we're generating this stuff
+// manually!
+//
+// Use `syntect::highlighting::HighlightIterator`:
+// ```
+// pub fn new(
+//     state: &'a mut HighlightState,
+//     changes: &'a [(usize, ScopeStackOp)],
+//     text: &'b str,
+//     highlighter: &'a Highlighter<'_>
+// ) -> HighlightIterator<'a, 'b>ⓘ
+// ```
+//
+// Generates sequence of `(Style, &str)`. That can be converted to HTML.

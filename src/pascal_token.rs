@@ -21,7 +21,7 @@ use crate::{
     token::{expect_token, next_token, take_until_terminator, Token},
 };
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DelimiterKind {
     Paren,
 
@@ -32,20 +32,20 @@ pub enum DelimiterKind {
     SquareBracket,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IntLiteralKind {
     Decimal,
     Octal,
     Hex,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StringLiteralKind {
     SingleQuote,
     DoubleQuote,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PascalToken<'a> {
     /// The `@t` control code: TeX text for the woven output.
     TexString(StringSpan<'a>),

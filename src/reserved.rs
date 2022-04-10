@@ -5,7 +5,7 @@ use std::{convert::TryFrom, fmt};
 /// Reserved words in WEB's Pascal.
 ///
 /// See WEAVE:64.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PascalReservedWord {
     And,
     Array,
