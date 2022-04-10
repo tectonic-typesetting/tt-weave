@@ -5,10 +5,8 @@ use tectonic_errors::prelude::*;
 
 use crate::{
     control::ControlKind,
-    index::IndexEntryKind,
-    parse_base::{new_parse_error, ParseResult, Span, SpanValue},
+    parse_base::{new_parse_error, ParseResult, Span},
     pascal_token::{match_pascal_token, PascalToken},
-    reserved::PascalReservedWord,
     state::{ModuleId, State},
     token::{next_token, Token},
 };
@@ -73,7 +71,7 @@ fn copy_comment<'a>(mut depth: usize, mut span: Span<'a>) -> ParseResult<'a, (St
                 // construction basically doesn't arise in practice.
                 text.push('\\');
 
-                let mut c;
+                let c;
                 (span, c) = next_token(span)?;
                 c.push_syntax_into(&mut text);
             }
