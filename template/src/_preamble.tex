@@ -25,6 +25,9 @@
       \crcr#1\crcr}}\,}
 \makeatother
 
+\let\justTeX=\TeX
+\def\TeX{\special{tdux:cs math}\justTeX\special{tdux:ce math}}
+
 % tt-weave commands
 
 \newcommand{\WebMajorModule}[1]{\newpage\par\textbf{#1.}}
@@ -38,6 +41,16 @@
 
 \newcommand{\TodoOctalLiteral}{OCTAL:}
 \newcommand{\TodoHexLiteral}{HEX:}
+
+% {foreground-color}{background-color}{font-options}{text}
+% todo ignoring font options
+\newcommand{\WebPrettifiedCodeSpan}[4]{%
+  \special{tdux:mfs span^^J%
+Scolor #1^^J%
+Sbackground-color #2^^J%
+}#4\special{tdux:me span}%
+}
+\let\S=\WebPrettifiedCodeSpan
 
 % Ready to go!
 

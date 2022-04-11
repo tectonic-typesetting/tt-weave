@@ -84,11 +84,14 @@ fn copy_comment<'a>(mut depth: usize, mut span: Span<'a>) -> ParseResult<'a, (St
             }
 
             Token::Char('}') => {
-                text.push('}');
+                // TODO: decide how we want to handle comment typesetting
+                //text.push('}');
                 depth -= 1;
 
                 if depth == 0 {
                     return Ok((span, (text, depth)));
+                } else {
+                    text.push('}');
                 }
             }
 
@@ -97,7 +100,9 @@ fn copy_comment<'a>(mut depth: usize, mut span: Span<'a>) -> ParseResult<'a, (St
                 return new_parse_error(span, ErrorKind::Char)
             }
 
-            _ => {}
+            other => {
+                other.push_syntax_into(&mut text);
+            }
         }
     }
 }
@@ -143,11 +148,13 @@ fn scan_pascal_only<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<PascalToken<
     }
 }
 
+#[derive(Debug)]
 enum TypesetComment<'a> {
     Pascal(Vec<PascalToken<'a>>),
     Tex(String),
 }
 
+#[derive(Debug)]
 enum CommentedPascal<'a> {
     Pascal(Vec<PascalToken<'a>>),
     Comment(Vec<TypesetComment<'a>>),

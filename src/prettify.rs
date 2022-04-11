@@ -69,7 +69,7 @@ impl PrettifiedCode {
                     '\\' => print!("{{\\textbackslash}}"),
                     '&' => print!("\\&"),
                     '~' => print!("\\~"),
-                    '\n' => print!("{{\newline}}"),
+                    '\n' => print!("{{\\newline}}"),
                     other => print!("{}", other),
                 }
             }
