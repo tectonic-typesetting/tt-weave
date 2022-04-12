@@ -34,9 +34,11 @@
 \newcommand{\WebMinorModule}[1]{\newpage\par\textbf{#1.}}
 
 \newenvironment{WebPrettified}{%
+  \ifmmode\else\ttfamily\fi
   \special{tdux:mfs pre}\special{tdux:mfs code}%
 }{
   \special{tdux:me code}\special{tdux:me pre}%
+  \ifmmode\else\rmfamily\fi
 }
 
 \newcommand{\TodoOctalLiteral}{OCTAL:}

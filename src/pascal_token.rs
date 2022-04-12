@@ -132,10 +132,20 @@ impl<'a> fmt::Display for PascalToken<'a> {
             PascalToken::Identifier(s) => write!(f, "{}", s.value),
             PascalToken::IndexEntry(k, s) => write!(f, "IndexEntry({:?}, {:?})", k, s.value),
             PascalToken::ReservedWord(s) => write!(f, "{}", s.value),
-            PascalToken::StringLiteral(k, s) => write!(f, "StringLiteral({:?}, {:?})", k, s.value),
+            PascalToken::StringLiteral(k, s) => match k {
+                StringLiteralKind::SingleQuote => write!(f, "{:?}", s.value),
+                StringLiteralKind::DoubleQuote => {
+                    if s.value.len() == 1 {
+                        write!(f, "ord!({:?})", s.value)
+                    } else {
+                        write!(f, "pool!({:?})", s.value)
+                    }
+                }
+            },
+
             PascalToken::TexString(s) => write!(f, "TexString({:?})", s.value),
-            PascalToken::OpenDelimiter(DelimiterKind::MetaComment) => write!(f, "/*"),
-            PascalToken::CloseDelimiter(DelimiterKind::MetaComment) => write!(f, "*/"),
+            PascalToken::OpenDelimiter(DelimiterKind::MetaComment) => write!(f, "/* "),
+            PascalToken::CloseDelimiter(DelimiterKind::MetaComment) => write!(f, " */"),
             PascalToken::OpenDelimiter(DelimiterKind::SquareBracket) => write!(f, "["),
             PascalToken::CloseDelimiter(DelimiterKind::SquareBracket) => write!(f, "]"),
             PascalToken::OpenDelimiter(DelimiterKind::Paren) => write!(f, "("),

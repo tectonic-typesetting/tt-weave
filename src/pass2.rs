@@ -13,8 +13,39 @@ use crate::{
     token::{next_token, Token},
 };
 
+#[derive(Debug, Default)]
+struct OutputState {
+    col: usize,
+    saw_phantom: bool,
+}
+
+impl OutputState {
+    fn printc(&mut self, c: char) {
+        if c == '\n' {
+            if self.col != 0 || !self.saw_phantom {
+                print!("{}", c);
+            }
+            self.col = 0;
+            self.saw_phantom = false;
+        } else {
+            print!("{}", c);
+            self.col += 1
+        }
+    }
+
+    fn prints<S: AsRef<str>>(&mut self, s: S) {
+        for c in s.as_ref().chars() {
+            self.printc(c);
+        }
+    }
+
+    fn see_phantom(&mut self) {
+        self.saw_phantom = true;
+    }
+}
+
 /// WEAVE:132, `copy_limbo`, or so.
-fn copy_limbo(mut span: Span) -> ParseResult<Token> {
+fn copy_limbo<'a>(output: &mut OutputState, mut span: Span<'a>) -> ParseResult<'a, Token> {
     let mut tok;
 
     loop {
@@ -22,11 +53,11 @@ fn copy_limbo(mut span: Span) -> ParseResult<Token> {
 
         match tok {
             Token::Char(c) => {
-                print!("{}", c);
+                output.printc(c);
             }
 
             Token::Control(ControlKind::AtLiteral) => {
-                print!("@");
+                output.printc('@');
             }
 
             Token::Control(ControlKind::NewMajorModule)
@@ -41,7 +72,7 @@ fn copy_limbo(mut span: Span) -> ParseResult<Token> {
 ///
 /// TODO: may need to monitor linebreaks as in WEAVE finish_line, etc.,
 /// to produce correct output with index entries.
-fn copy_tex<'a>(mut span: Span<'a>) -> ParseResult<'a, Token> {
+fn copy_tex<'a>(output: &mut OutputState, mut span: Span<'a>) -> ParseResult<'a, Token> {
     let mut tok;
 
     loop {
@@ -50,7 +81,7 @@ fn copy_tex<'a>(mut span: Span<'a>) -> ParseResult<'a, Token> {
         match tok {
             Token::Char('|') | Token::Control(_) => return Ok((span, tok)),
             Token::Char(c) => {
-                print!("{}", c);
+                output.printc(c);
             }
         }
     }
@@ -286,10 +317,14 @@ fn emit_pascal(code: &[CommentedPascal]) {
 }
 
 /// WEAVE:222
-fn handle_tex<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token> {
+fn handle_tex<'a>(
+    state: &State,
+    output: &mut OutputState,
+    mut span: Span<'a>,
+) -> ParseResult<'a, Token> {
     let mut tok;
 
-    (span, tok) = copy_tex(span)?;
+    (span, tok) = copy_tex(output, span)?;
 
     loop {
         match tok {
@@ -307,39 +342,40 @@ fn handle_tex<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token> {
                 (span, (ptoks, _)) = scan_pascal_only(span)?;
                 let wrapped = vec![CommentedPascal::Pascal(ptoks)];
                 emit_pascal(&wrapped[..]);
-                (span, tok) = copy_tex(span)?;
+                (span, tok) = copy_tex(output, span)?;
             }
 
             Token::Char(c) => {
-                print!("{}", c);
-                (span, tok) = copy_tex(span)?;
+                output.printc(c);
+                (span, tok) = copy_tex(output, span)?;
             }
 
             Token::Control(ControlKind::AtLiteral) => {
-                print!("@");
-                (span, tok) = copy_tex(span)?;
+                output.printc('@');
+                (span, tok) = copy_tex(output, span)?;
             }
 
             //WEAVE:223
             Token::Control(ControlKind::OctalLiteral) => {
-                print!("\\TodoOctalLiteral ");
-                (span, tok) = copy_tex(span)?;
+                output.prints("\\TodoOctalLiteral ");
+                (span, tok) = copy_tex(output, span)?;
             }
 
             //WEAVE:223
             Token::Control(ControlKind::HexLiteral) => {
-                print!("\\TodoHexLiteral ");
-                (span, tok) = copy_tex(span)?;
+                output.prints("\\TodoHexLiteral ");
+                (span, tok) = copy_tex(output, span)?;
             }
 
             Token::Control(ControlKind::RomanIndexEntry)
             | Token::Control(ControlKind::TypewriterIndexEntry)
             | Token::Control(ControlKind::WildcardIndexEntry) => {
+                output.see_phantom();
                 (span, tok) = state.scan_next(span)?;
             }
 
             Token::Control(ControlKind::DefinitionFlag) => {
-                (span, tok) = copy_tex(span)?;
+                (span, tok) = copy_tex(output, span)?;
             }
 
             other => {
@@ -453,7 +489,8 @@ fn handle_pascal<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token
 
 /// WEAVE:218, WEAVE:220, etc.
 fn second_pass_inner<'a>(state: &State, span: Span<'a>) -> ParseResult<'a, ()> {
-    let (mut span, mut tok) = copy_limbo(span)?;
+    let mut output = OutputState::default();
+    let (mut span, mut tok) = copy_limbo(&mut output, span)?;
     let mut cur_module: ModuleId = 0;
 
     loop {
@@ -462,10 +499,10 @@ fn second_pass_inner<'a>(state: &State, span: Span<'a>) -> ParseResult<'a, ()> {
         cur_module += 1;
         match tok {
             Token::Control(ControlKind::NewMajorModule) => {
-                print!("\n\\WebMajorModule{{{}}} ", cur_module);
+                output.prints(format!("\n\\WebMajorModule{{{}}} ", cur_module));
             }
             Token::Control(ControlKind::NewMinorModule) => {
-                print!("\n\\WebMinorModule{{{}}} ", cur_module);
+                output.prints(format!("\n\\WebMinorModule{{{}}} ", cur_module));
             }
             _ => {
                 eprintln!("unexpected module end {:?}", tok);
@@ -475,7 +512,7 @@ fn second_pass_inner<'a>(state: &State, span: Span<'a>) -> ParseResult<'a, ()> {
 
         // Handle the TeX chunk (which can be empty), and find out what ended it.
 
-        (span, tok) = handle_tex(state, span)?;
+        (span, tok) = handle_tex(state, &mut output, span)?;
 
         // If there are macro/format definitions, handle those
 
