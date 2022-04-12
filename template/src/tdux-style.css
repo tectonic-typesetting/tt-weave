@@ -581,3 +581,9 @@ pre>.result {
 .canvas .ci {
   position: absolute;
 }
+
+/* tt-weave customization */
+
+section.ttweave-nonfirst {
+  margin-top: 10em;
+}

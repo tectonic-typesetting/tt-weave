@@ -30,8 +30,23 @@
 
 % tt-weave commands
 
-\newcommand{\WebMajorModule}[1]{\newpage\par\textbf{#1.}}
-\newcommand{\WebMinorModule}[1]{\newpage\par\textbf{#1.}}
+\newif\iffirstmodule
+\firstmoduletrue
+
+\newcommand{\WebMajorModule}[1]{%
+  \newpage\par
+  \iffirstmodule
+    \firstmodulefalse
+    \special{tdux:mfs section^^J%
+Cttweave-first}
+  \else
+    \special{tdux:me section}
+    \special{tdux:mfs section^^J%
+Cttweave-nonfirst}
+  \fi
+  \textbf{#1.}
+}
+\let\WebMinorModule=\WebMajorModule
 
 \newenvironment{WebPrettifiedDisplay}{%
   \ifmmode\else\ttfamily\fi
