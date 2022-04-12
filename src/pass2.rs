@@ -244,7 +244,7 @@ fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<CommentedPascal<'
     }
 }
 
-fn emit_pascal(code: &[CommentedPascal]) {
+fn emit_pascal(code: &[CommentedPascal], inline: bool) {
     // tmp!
     let mut flat = String::new();
     let mut first = true;
@@ -313,7 +313,7 @@ fn emit_pascal(code: &[CommentedPascal]) {
 
     let ts = ThemeSet::load_defaults();
     let theme = &ts.themes["InspiredGitHub"];
-    pc.emit(theme);
+    pc.emit(theme, inline);
 }
 
 /// WEAVE:222
@@ -341,7 +341,7 @@ fn handle_tex<'a>(
                 let ptoks;
                 (span, (ptoks, _)) = scan_pascal_only(span)?;
                 let wrapped = vec![CommentedPascal::Pascal(ptoks)];
-                emit_pascal(&wrapped[..]);
+                emit_pascal(&wrapped[..], true);
                 (span, tok) = copy_tex(output, span)?;
             }
 
@@ -407,7 +407,7 @@ fn handle_definitions<'a>(
             Token::Control(ControlKind::MacroDefinition) => {
                 let code;
                 (span, (code, tok)) = scan_pascal(span)?;
-                emit_pascal(&code[..]);
+                emit_pascal(&code[..], false);
             }
 
             Token::Control(ControlKind::FormatDefinition) => {
@@ -432,7 +432,7 @@ fn handle_definitions<'a>(
                 let mut code;
                 (span, (code, tok)) = scan_pascal(span)?;
                 code.insert(0, CommentedPascal::Pascal(initial_chunk));
-                emit_pascal(&code[..]);
+                emit_pascal(&code[..], false);
             }
 
             Token::Control(ControlKind::RomanIndexEntry) => {
@@ -448,7 +448,7 @@ fn handle_definitions<'a>(
             Token::Char('|') => {
                 (span, (ptoks, tok)) = scan_pascal_only(span)?;
                 let wrapped = vec![CommentedPascal::Pascal(ptoks)];
-                emit_pascal(&wrapped[..]);
+                emit_pascal(&wrapped[..], true);
             }
 
             _ => {
@@ -481,7 +481,7 @@ fn handle_pascal<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token
             _ => {
                 let code;
                 (span, (code, tok)) = scan_pascal(prev_span)?;
-                emit_pascal(&code[..]);
+                emit_pascal(&code[..], false);
             }
         }
     }

@@ -33,11 +33,19 @@
 \newcommand{\WebMajorModule}[1]{\newpage\par\textbf{#1.}}
 \newcommand{\WebMinorModule}[1]{\newpage\par\textbf{#1.}}
 
-\newenvironment{WebPrettified}{%
+\newenvironment{WebPrettifiedDisplay}{%
   \ifmmode\else\ttfamily\fi
   \special{tdux:mfs pre}\special{tdux:mfs code}%
 }{
   \special{tdux:me code}\special{tdux:me pre}%
+  \ifmmode\else\rmfamily\fi
+}
+
+\newenvironment{WebPrettifiedInline}{%
+  \ifmmode\else\ttfamily\fi
+  \special{tdux:mfs code}%
+}{
+  \special{tdux:me code}%
   \ifmmode\else\rmfamily\fi
 }
 

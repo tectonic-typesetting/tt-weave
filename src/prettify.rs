@@ -28,13 +28,19 @@ impl PrettifiedCode {
         }
     }
 
-    pub fn emit(&self, theme: &Theme) {
+    pub fn emit(&self, theme: &Theme, inline: bool) {
         let highlighter = Highlighter::new(theme);
         let initial_stack = ScopeStack::from_str(INITIAL_SCOPES).unwrap();
         let mut hs = HighlightState::new(&highlighter, initial_stack);
         let hi = HighlightIterator::new(&mut hs, &self.ops[..], &self.text[..], &highlighter);
 
-        println!("\\begin{{WebPrettified}}%");
+        let (env, terminator) = if inline {
+            ("WebPrettifiedInline", "")
+        } else {
+            ("WebPrettifiedDisplay", "%\n")
+        };
+
+        println!("\\begin{{{}}}%", env);
 
         for (style, span) in hi {
             print!(
@@ -78,7 +84,7 @@ impl PrettifiedCode {
         }
 
         println!("%");
-        println!("\\end{{WebPrettified}}%");
+        print!("\\end{{{}}}{}", env, terminator);
     }
 }
 
