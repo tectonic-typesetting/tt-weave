@@ -132,6 +132,7 @@ impl<'a> fmt::Display for PascalToken<'a> {
             PascalToken::Identifier(s) => write!(f, "{}", s.value),
             PascalToken::IndexEntry(k, s) => write!(f, "IndexEntry({:?}, {:?})", k, s.value),
             PascalToken::ReservedWord(s) => write!(f, "{}", s.value),
+
             PascalToken::StringLiteral(k, s) => match k {
                 StringLiteralKind::SingleQuote => write!(f, "{:?}", s.value),
                 StringLiteralKind::DoubleQuote => {
@@ -141,6 +142,13 @@ impl<'a> fmt::Display for PascalToken<'a> {
                         write!(f, "pool!({:?})", s.value)
                     }
                 }
+            },
+
+            PascalToken::IntLiteral(k, v) => match k {
+                // See also handle_tex in pass2
+                IntLiteralKind::Octal => write!(f, "0x{:X}", v),
+                IntLiteralKind::Hex => write!(f, "0x{:X}", v),
+                IntLiteralKind::Decimal => write!(f, "{}", v),
             },
 
             PascalToken::TexString(s) => write!(f, "TexString({:?})", s.value),
@@ -176,7 +184,6 @@ impl<'a> fmt::Display for PascalToken<'a> {
             PascalToken::StringPoolChecksum => write!(f, "$STRING_POOL_CHECKSUM"),
             PascalToken::DefinitionFlag => Ok(()),
             PascalToken::CancelDefinitionFlag => Ok(()),
-            PascalToken::IntLiteral(_, v) => write!(f, "{}", v),
             PascalToken::VerbatimPascal(text) => write!(f, "{}", text.value),
         }
     }
@@ -393,7 +400,7 @@ fn match_decimal_literal_token(span: Span) -> ParseResult<PascalToken> {
     Ok((span, PascalToken::IntLiteral(IntLiteralKind::Decimal, v)))
 }
 
-fn scan_octal_literal(span: Span) -> ParseResult<usize> {
+pub fn scan_octal_literal(span: Span) -> ParseResult<usize> {
     // FIXME this is blah; derived from nom example
     map_res(recognize(many1(one_of("01234567"))), |out: Span| {
         usize::from_str_radix(&out, 8)
@@ -406,7 +413,7 @@ fn match_octal_literal_token(span: Span) -> ParseResult<PascalToken> {
     Ok((span, PascalToken::IntLiteral(IntLiteralKind::Octal, v)))
 }
 
-fn scan_hex_literal(span: Span) -> ParseResult<usize> {
+pub fn scan_hex_literal(span: Span) -> ParseResult<usize> {
     // FIXME this is blah; derived from nom example
     map_res(
         recognize(many1(one_of("0123456789ABCDEFabcdef"))),

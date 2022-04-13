@@ -64,8 +64,10 @@ Cttweave-nonfirst}
   \ifmmode\else\rmfamily\fi
 }
 
-\newcommand{\TodoOctalLiteral}{OCTAL:}
-\newcommand{\TodoHexLiteral}{HEX:}
+% I find octal literals super annoying to read, so
+% let's just display them all as hex
+\newcommand{\WebOctalLiteralHexed}[1]{0x#1}
+\newcommand{\WebHexLiteral}[1]{0x#1}
 
 % {foreground-color}{background-color}{font-options}{text}
 % todo ignoring font options

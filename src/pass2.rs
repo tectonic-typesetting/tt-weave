@@ -355,15 +355,19 @@ fn handle_tex<'a>(
                 (span, tok) = copy_tex(output, span)?;
             }
 
-            //WEAVE:223
+            //WEAVE:223. See also stringification of PascalToken IntLiteral values.
             Token::Control(ControlKind::OctalLiteral) => {
-                output.prints("\\TodoOctalLiteral ");
+                let value;
+                (span, value) = crate::pascal_token::scan_octal_literal(span)?;
+                output.prints(format!("\\WebOctalLiteralHexed{{{:X}}}", value));
                 (span, tok) = copy_tex(output, span)?;
             }
 
             //WEAVE:223
             Token::Control(ControlKind::HexLiteral) => {
-                output.prints("\\TodoHexLiteral ");
+                let value;
+                (span, value) = crate::pascal_token::scan_hex_literal(span)?;
+                output.prints(format!("\\WebHexLiteral{{{:X}}}", value));
                 (span, tok) = copy_tex(output, span)?;
             }
 
