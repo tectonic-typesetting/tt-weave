@@ -1,0 +1,9 @@
+% from webmac
+
+\def\X#1:#2\X{%
+  \ifmmode\gdef\XX{\null$\null}\else\gdef\XX{}\fi % section name
+  \XX$\langle\,$#2 #1$\,\rangle$\XX}
+
+\def\mc{}
+\def\[{[}
+
