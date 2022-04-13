@@ -94,7 +94,7 @@ impl fmt::Display for ColorHexConvert {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "rgba({:02X},{:02X},{:02X},{:.2})",
+            "rgba({},{},{},{:.2})",
             self.0.r,
             self.0.g,
             self.0.b,
