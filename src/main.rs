@@ -25,6 +25,11 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
 
+    let basename = a_ok_or!(
+        args.input_path.file_stem().and_then(|s| s.to_str());
+        ["unable to determine a Unicode basename from the input path `{}`", args.input_path.display()]
+    );
+
     // Make life easy on ourselves: just read the input into a huge string.
     let text = atry!(
         std::fs::read_to_string(&args.input_path);
@@ -34,7 +39,7 @@ fn main() -> Result<()> {
     let input = parse_base::Span::new(&text);
     let state = pass1::execute(input)?;
     //state.dump_pass1();
-    pass2::execute(&state, input)?;
+    pass2::execute(basename, &state, input)?;
 
     Ok(())
 }
