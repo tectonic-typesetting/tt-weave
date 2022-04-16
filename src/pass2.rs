@@ -258,11 +258,11 @@ fn emit_pascal(code: &[CommentedPascal], inline: bool) {
 
         match piece {
             CommentedPascal::Pascal(ptoks) => {
-                let mut inner_first = false;
+                let mut inner_first = true;
 
                 for ptok in &ptoks[..] {
                     if inner_first {
-                        inner_first = true;
+                        inner_first = false;
                     } else {
                         flat.push(' ');
                     }
@@ -274,22 +274,22 @@ fn emit_pascal(code: &[CommentedPascal], inline: bool) {
             CommentedPascal::Comment(ttoks) => {
                 flat.push_str("/*");
 
-                let mut inner_first = false;
+                let mut inner_first = true;
 
                 for ttok in &ttoks[..] {
                     if inner_first {
-                        inner_first = true;
+                        inner_first = false;
                     } else {
                         flat.push(' ');
                     }
 
                     match ttok {
                         TypesetComment::Pascal(ptoks) => {
-                            let mut innerer_first = false;
+                            let mut innerer_first = true;
 
                             for ptok in &ptoks[..] {
                                 if innerer_first {
-                                    innerer_first = true;
+                                    innerer_first = false;
                                 } else {
                                     flat.push(' ');
                                 }
