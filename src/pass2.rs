@@ -7,8 +7,9 @@ use tectonic_errors::prelude::*;
 
 use crate::{
     control::ControlKind,
-    parse_base::{new_parse_error, ParseResult, Span},
+    parse_base::{new_parse_error, ParseResult, Span, SpanValue},
     pascal_token::{match_pascal_token, PascalToken},
+    reserved::PascalReservedWord,
     state::{ModuleId, State},
     token::{next_token, Token},
 };
@@ -409,13 +410,25 @@ fn handle_definitions<'a>(
             }
 
             Token::Control(ControlKind::MacroDefinition) => {
-                let code;
+                let mut code;
                 (span, (code, tok)) = scan_pascal(span)?;
+                code.insert(
+                    0,
+                    CommentedPascal::Pascal(vec![PascalToken::ReservedWord(SpanValue {
+                        start: Span::new(""),
+                        end: Span::new(""),
+                        value: PascalReservedWord::Define,
+                    })]),
+                );
                 emit_pascal(&code[..], false);
             }
 
             Token::Control(ControlKind::FormatDefinition) => {
-                let mut initial_chunk = Vec::new();
+                let mut initial_chunk = vec![PascalToken::ReservedWord(SpanValue {
+                    start: Span::new(""),
+                    end: Span::new(""),
+                    value: PascalReservedWord::Format,
+                })];
                 let ptok;
 
                 (span, ptok) = match_pascal_token(span)?;

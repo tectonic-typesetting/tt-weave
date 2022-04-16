@@ -12,6 +12,10 @@ pub enum PascalReservedWord {
     Begin,
     Case,
     Const,
+
+    /// Not actually a Pascal reserved word; we use this to typeset WEB `@d`
+    Define,
+
     Div,
     Do,
     Downto,
@@ -19,6 +23,10 @@ pub enum PascalReservedWord {
     End,
     File,
     For,
+
+    /// Not actually as Pascal reserved word; we use this to typeset WEB `@f`
+    Format,
+
     Function,
     Goto,
     If,
@@ -53,6 +61,7 @@ impl fmt::Display for PascalReservedWord {
             PascalReservedWord::Begin => "begin",
             PascalReservedWord::Case => "case",
             PascalReservedWord::Const => "const",
+            PascalReservedWord::Define => "@define",
             PascalReservedWord::Div => "div",
             PascalReservedWord::Do => "do",
             PascalReservedWord::Downto => "downto",
@@ -60,6 +69,7 @@ impl fmt::Display for PascalReservedWord {
             PascalReservedWord::End => "end",
             PascalReservedWord::File => "file",
             PascalReservedWord::For => "for",
+            PascalReservedWord::Format => "@format",
             PascalReservedWord::Function => "function",
             PascalReservedWord::Goto => "goto",
             PascalReservedWord::If => "if",
@@ -93,6 +103,8 @@ impl TryFrom<&str> for PascalReservedWord {
     type Error = ();
 
     fn try_from(value: &str) -> std::result::Result<Self, ()> {
+        // Note: intentionally not implemented Define and Format since those are
+        // WEB words, not Pascal words.
         match value.as_ref() {
             "and" => Ok(PascalReservedWord::And),
             "array" => Ok(PascalReservedWord::Array),

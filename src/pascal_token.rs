@@ -92,14 +92,17 @@ pub enum PascalToken<'a> {
 
     LessEquals,
 
+    /// Equality test: `=` in Pascal, `==` in C
     Equals,
 
     NotEquals,
 
     DoubleDot,
 
+    /// Variable assignment: `:=` in Pascal, `=` in C
     Gets,
 
+    /// Equivalence (macro and module definitions): `==` in WEB
     Equivalence,
 
     Colon,
