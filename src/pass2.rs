@@ -7,7 +7,7 @@ use tectonic_errors::prelude::*;
 
 use crate::{
     control::ControlKind,
-    parse_base::{new_parse_error, ParseResult, Span, SpanValue},
+    parse_base::{new_parse_error, ParseResult, Span, SpanValue, StringSpan},
     pascal_token::{match_pascal_token, PascalToken},
     reserved::PascalReservedWord,
     state::{ModuleId, State},
@@ -186,13 +186,24 @@ enum TypesetComment<'a> {
     Tex(String),
 }
 
+/// A logical token of the WEB language, which we treat as a superset of Pascal.
 #[derive(Debug)]
-enum CommentedPascal<'a> {
-    Pascal(Vec<PascalToken<'a>>),
+enum WebToken<'a> {
+    /// A basic Pascal token
+    Pascal(PascalToken<'a>),
+
+    /// A typeset comment, which contains alternating bits of TeX code and Pascal
+    /// token sequences.
     Comment(Vec<TypesetComment<'a>>),
+
+    /// A reference to a WEB module.
+    ModuleReference(StringSpan<'a>),
 }
 
-fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<CommentedPascal<'a>>, Token)> {
+#[derive(Debug)]
+struct WebCode<'a>(pub Vec<WebToken<'a>>);
+
+fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (WebCode<'a>, Token)> {
     let mut code = Vec::new();
     let mut tok;
     let mut ptoks;
@@ -223,7 +234,7 @@ fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<CommentedPascal<'
                     }
                 }
 
-                code.push(CommentedPascal::Comment(comment));
+                code.push(WebToken::Comment(comment));
                 prev_span = span;
                 (span, tok) = next_token(span)?;
             }
@@ -234,23 +245,23 @@ fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<CommentedPascal<'
             | Token::Control(ControlKind::ModuleName)
             | Token::Control(ControlKind::NewMinorModule)
             | Token::Control(ControlKind::NewMajorModule) => {
-                return Ok((span, (code, tok)));
+                return Ok((span, (WebCode(code), tok)));
             }
 
             _ => {
                 (span, (ptoks, tok)) = scan_pascal_only(prev_span)?;
-                code.push(CommentedPascal::Pascal(ptoks));
+                code.extend(ptoks.drain(..).map(|t| WebToken::Pascal(t)));
             }
         }
     }
 }
 
-fn emit_pascal(code: &[CommentedPascal], inline: bool) {
+fn emit_pascal(code: &WebCode, inline: bool) {
     // tmp!
     let mut flat = String::new();
     let mut first = true;
 
-    for piece in code {
+    for piece in &code.0[..] {
         if first {
             first = false;
         } else {
@@ -258,21 +269,15 @@ fn emit_pascal(code: &[CommentedPascal], inline: bool) {
         }
 
         match piece {
-            CommentedPascal::Pascal(ptoks) => {
-                let mut inner_first = true;
-
-                for ptok in &ptoks[..] {
-                    if inner_first {
-                        inner_first = false;
-                    } else {
-                        flat.push(' ');
-                    }
-
-                    write!(flat, "{}", ptok).unwrap();
-                }
+            WebToken::Pascal(ptok) => {
+                write!(flat, "{}", ptok).unwrap();
             }
 
-            CommentedPascal::Comment(ttoks) => {
+            WebToken::ModuleReference(modname) => {
+                write!(flat, "{{{}}}", modname.value).unwrap();
+            }
+
+            WebToken::Comment(ttoks) => {
                 flat.push_str("/*");
 
                 let mut inner_first = true;
@@ -339,10 +344,10 @@ fn handle_tex<'a>(
             }
 
             Token::Char('|') => {
-                let ptoks;
+                let mut ptoks;
                 (span, (ptoks, _)) = scan_pascal_only(span)?;
-                let wrapped = vec![CommentedPascal::Pascal(ptoks)];
-                emit_pascal(&wrapped[..], true);
+                let wrapped = ptoks.drain(..).map(|t| WebToken::Pascal(t)).collect();
+                emit_pascal(&WebCode(wrapped), true);
                 (span, tok) = copy_tex(output, span)?;
             }
 
@@ -412,44 +417,44 @@ fn handle_definitions<'a>(
             Token::Control(ControlKind::MacroDefinition) => {
                 let mut code;
                 (span, (code, tok)) = scan_pascal(span)?;
-                code.insert(
+                code.0.insert(
                     0,
-                    CommentedPascal::Pascal(vec![PascalToken::ReservedWord(SpanValue {
+                    WebToken::Pascal(PascalToken::ReservedWord(SpanValue {
                         start: Span::new(""),
                         end: Span::new(""),
                         value: PascalReservedWord::Define,
-                    })]),
+                    })),
                 );
-                emit_pascal(&code[..], false);
+                emit_pascal(&code, false);
             }
 
             Token::Control(ControlKind::FormatDefinition) => {
-                let mut initial_chunk = vec![PascalToken::ReservedWord(SpanValue {
+                let mut code = vec![WebToken::Pascal(PascalToken::ReservedWord(SpanValue {
                     start: Span::new(""),
                     end: Span::new(""),
                     value: PascalReservedWord::Format,
-                })];
+                }))];
                 let ptok;
 
                 (span, ptok) = match_pascal_token(span)?;
-                initial_chunk.push(ptok.clone());
+                code.push(WebToken::Pascal(ptok.clone()));
 
                 if let PascalToken::Identifier(_) = ptok {
                     let ptok2;
                     (span, ptok2) = match_pascal_token(span)?;
-                    initial_chunk.push(ptok2.clone());
+                    code.push(WebToken::Pascal(ptok2.clone()));
 
                     if let PascalToken::Equivalence = ptok2 {
                         let ptok3;
                         (span, ptok3) = match_pascal_token(span)?;
-                        initial_chunk.push(ptok3);
+                        code.push(WebToken::Pascal(ptok3));
                     }
                 }
 
-                let mut code;
-                (span, (code, tok)) = scan_pascal(span)?;
-                code.insert(0, CommentedPascal::Pascal(initial_chunk));
-                emit_pascal(&code[..], false);
+                let mut rest;
+                (span, (rest, tok)) = scan_pascal(span)?;
+                code.append(&mut rest.0);
+                emit_pascal(&WebCode(code), false);
             }
 
             Token::Control(ControlKind::RomanIndexEntry) => {
@@ -464,8 +469,8 @@ fn handle_definitions<'a>(
 
             Token::Char('|') => {
                 (span, (ptoks, tok)) = scan_pascal_only(span)?;
-                let wrapped = vec![CommentedPascal::Pascal(ptoks)];
-                emit_pascal(&wrapped[..], true);
+                let wrapped = ptoks.drain(..).map(|t| WebToken::Pascal(t)).collect();
+                emit_pascal(&WebCode(wrapped), true);
             }
 
             _ => {
@@ -481,24 +486,29 @@ fn handle_pascal<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token
     let mut prev_span = span.clone();
     (span, tok) = next_token(span)?;
 
+    let mut code = Vec::new();
+
     loop {
         match tok {
             Token::Control(ControlKind::NewMajorModule)
             | Token::Control(ControlKind::NewMinorModule) => {
+                emit_pascal(&WebCode(code), false);
                 return Ok((span, tok));
             }
 
             Token::Control(ControlKind::ModuleName) => {
-                (span, _) = state.scan_module_name(span)?;
+                let mod_name;
+                (span, mod_name) = state.scan_module_name(span)?;
+                code.push(WebToken::ModuleReference(mod_name));
+
                 prev_span = span.clone();
                 (span, tok) = next_token(span)?;
-                // XXXX inline in the Pascal code!!!!
             }
 
             _ => {
-                let code;
-                (span, (code, tok)) = scan_pascal(prev_span)?;
-                emit_pascal(&code[..], false);
+                let mut block;
+                (span, (block, tok)) = scan_pascal(prev_span)?;
+                code.append(&mut block.0);
             }
         }
     }
