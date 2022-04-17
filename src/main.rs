@@ -12,6 +12,7 @@ mod prettify;
 mod reserved;
 mod state;
 mod token;
+mod weblang;
 
 /// CLI arguments.
 #[derive(Parser, Debug)]

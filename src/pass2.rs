@@ -7,11 +7,12 @@ use tectonic_errors::prelude::*;
 
 use crate::{
     control::ControlKind,
-    parse_base::{new_parse_error, ParseResult, Span, SpanValue, StringSpan},
+    parse_base::{new_parse_error, ParseResult, Span, SpanValue},
     pascal_token::{match_pascal_token, PascalToken},
     reserved::PascalReservedWord,
     state::{ModuleId, State},
     token::{next_token, Token},
+    weblang::{TypesetComment, WebCode, WebToken},
 };
 
 #[derive(Debug, Default)]
@@ -179,47 +180,6 @@ fn scan_pascal_only<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<PascalToken<
         }
     }
 }
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum TypesetComment<'a> {
-    Pascal(Vec<PascalToken<'a>>),
-    Tex(String),
-}
-
-/// A logical token of the WEB language, which we treat as a superset of Pascal.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum WebToken<'a> {
-    /// A basic Pascal token
-    Pascal(PascalToken<'a>),
-
-    /// A typeset comment, which contains alternating bits of TeX code and Pascal
-    /// token sequences.
-    Comment(Vec<TypesetComment<'a>>),
-
-    /// A reference to a WEB module.
-    ModuleReference(StringSpan<'a>),
-}
-
-impl<'a> WebToken<'a> {
-    pub fn as_pascal(&self) -> Option<&PascalToken> {
-        if let WebToken::Pascal(ptok) = self {
-            Some(ptok)
-        } else {
-            None
-        }
-    }
-
-    pub fn is_reserved_word(&self, rw: PascalReservedWord) -> bool {
-        if let WebToken::Pascal(ptok) = self {
-            ptok.is_reserved_word(rw)
-        } else {
-            false
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct WebCode<'a>(pub Vec<WebToken<'a>>);
 
 fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (WebCode<'a>, Token)> {
     let mut code = Vec::new();

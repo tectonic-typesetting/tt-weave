@@ -10,7 +10,7 @@ use syntect::{
     parsing::{Scope, ScopeStack, ScopeStackOp},
 };
 
-use crate::{pass2::WebToken, reserved::PascalReservedWord};
+use crate::{reserved::PascalReservedWord, weblang::WebToken};
 
 lazy_static! {
     static ref KEYWORD_SCOPE: Scope = Scope::new("keyword.control.c").unwrap();
