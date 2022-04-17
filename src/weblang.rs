@@ -45,6 +45,14 @@ impl<'a> WebToken<'a> {
         }
     }
 
+    pub fn is_module_reference(&self) -> bool {
+        if let WebToken::ModuleReference(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn as_pascal(&self) -> Option<&PascalToken> {
         if let WebToken::Pascal(ptok) = self {
             Some(ptok)
@@ -66,6 +74,14 @@ impl<'a> WebToken<'a> {
             tc
         } else {
             panic!("into_comment() of non-comment WEB token");
+        }
+    }
+
+    pub fn into_module_reference(self) -> StringSpan<'a> {
+        if let WebToken::ModuleReference(mr) = self {
+            mr
+        } else {
+            panic!("into_module_reference() of non-module-referenced WEB token");
         }
     }
 
@@ -101,6 +117,9 @@ pub enum WebToplevel<'a> {
     /// A `@d` definition.
     Define(WebDefine<'a>),
 
+    /// A module reference.
+    ModuleReference(StringSpan<'a>),
+
     /// A single Pascal token.
     Standalone(WebStandalone<'a>),
 }
@@ -123,17 +142,40 @@ pub struct WebCode<'a>(pub Vec<WebToplevel<'a>>);
 
 impl<'a> WebCode<'a> {
     pub fn parse(syntax: WebSyntax<'a>) -> Option<WebCode<'a>> {
-        // TODO: sequence!!!
-        let tl = parse_toplevel_entire(syntax.0)?;
-        Some(WebCode(vec![tl]))
+        let mut toks = syntax.0;
+        let mut toplevels = Vec::new();
+
+        while !toks.is_empty() {
+            let tl = match parse_toplevel(&mut toks) {
+                Some(tl) => tl,
+                None => {
+                    eprintln!("\nparse failed, balance: {:?}", toks);
+                    return None;
+                }
+            };
+
+            toplevels.push(tl);
+        }
+
+        Some(WebCode(toplevels))
     }
 }
 
-/// Parse out a WEB top-level construct, assuming that *all* of the tokens
-/// in the input should go into the result.
-pub fn parse_toplevel_entire<'a>(toks: Vec<WebToken<'a>>) -> Option<WebToplevel<'a>> {
+/// Parse out a WEB top-level construct.
+///
+/// If successful, the parsed-out tokens are removed from the vec.
+pub fn parse_toplevel<'a>(toks: &mut Vec<WebToken<'a>>) -> Option<WebToplevel<'a>> {
+    while toks[0].is_pascal_token(PascalToken::Formatting) {
+        toks.remove(0);
+    }
+
     if toks[0].is_reserved_word(PascalReservedWord::Define) {
         return parse_definition(toks).map(|t| t.into());
+    }
+
+    if toks[0].is_module_reference() {
+        let mr = toks.remove(0).into_module_reference();
+        return Some(WebToplevel::ModuleReference(mr));
     }
 
     if let Some(t) = parse_standalone(toks) {
@@ -141,6 +183,18 @@ pub fn parse_toplevel_entire<'a>(toks: Vec<WebToken<'a>>) -> Option<WebToplevel<
     }
 
     None
+}
+
+/// Parse out a WEB top-level construct, assuming that *all* of the tokens
+/// in the input should go into the result.
+pub fn parse_toplevel_entire<'a>(toks: &mut Vec<WebToken<'a>>) -> Option<WebToplevel<'a>> {
+    let parsed = parse_toplevel(toks)?;
+
+    if !toks.is_empty() {
+        eprintln!("parse_toplevel_entire() entire failure");
+    }
+
+    Some(parsed)
 }
 
 /// A `@d` definition
@@ -158,7 +212,7 @@ pub struct WebDefine<'a> {
 /// `@d <toks...> equiv <anything>`
 ///
 /// toks[0] is the `@d` token here.
-fn parse_definition<'a>(mut toks: Vec<WebToken<'a>>) -> Option<WebDefine<'a>> {
+fn parse_definition<'a>(toks: &mut Vec<WebToken<'a>>) -> Option<WebDefine<'a>> {
     let mut rest = toks.split_off(1);
 
     // If we were compiling in any real way, we'd make sure the LHS made
@@ -184,11 +238,12 @@ fn parse_definition<'a>(mut toks: Vec<WebToken<'a>>) -> Option<WebDefine<'a>> {
         return None;
     }
 
-    let rhs = rest.split_off(sep_idx + 1);
+    let mut rhs = rest.split_off(sep_idx + 1);
     let lhs: Vec<_> = rest.drain(..sep_idx).map(|wt| wt.into_pascal()).collect();
 
-    let rhs = parse_toplevel_entire(rhs)?;
+    let rhs = parse_toplevel_entire(&mut rhs)?;
 
+    toks.truncate(0);
     Some(WebDefine {
         lhs,
         rhs: Box::new(rhs),
@@ -207,35 +262,29 @@ pub struct WebStandalone<'a> {
 
 /// Parse out a top-level single standalone token.
 ///
-/// Does not mutate *toks* if the tok-string doesn't match.
-fn parse_standalone<'a>(mut toks: Vec<WebToken<'a>>) -> Option<WebStandalone<'a>> {
-    if toks.len() > 2 {
-        return None;
-    }
+/// Does not mutate *toks* if the tok-string doesn't match. But this should be
+/// called at minimum priority since this will match nearly anything.
+fn parse_standalone<'a>(toks: &mut Vec<WebToken<'a>>) -> Option<WebStandalone<'a>> {
+    match toks[0].as_pascal() {
+        Some(PascalToken::Identifier(..))
+        | Some(PascalToken::IntLiteral(..))
+        | Some(PascalToken::StringLiteral(..))
+        | Some(PascalToken::TexString(..)) => {}
 
-    if let Some(ptok) = toks[0].as_pascal() {
-        match ptok {
-            PascalToken::StringLiteral(..)
-            | PascalToken::IntLiteral(..)
-            | PascalToken::Identifier(..) => {}
-            _ => {
-                return None;
-            }
-        }
-    }
-
-    let comment = if toks.len() < 2 {
-        None
-    } else {
-        if !toks[1].is_comment() {
+        _ => {
             return None;
         }
+    }
 
-        Some(toks.pop().unwrap().into_comment())
+    let token = toks.remove(0).into_pascal();
+
+    let comment = if toks.len() < 1 {
+        None
+    } else if !toks[0].is_comment() {
+        None
+    } else {
+        Some(toks.remove(0).into_comment())
     };
 
-    Some(WebStandalone {
-        token: toks.pop().unwrap().into_pascal(),
-        comment,
-    })
+    Some(WebStandalone { token, comment })
 }
