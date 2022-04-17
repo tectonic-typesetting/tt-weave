@@ -1,15 +1,100 @@
 //! Prettify the Pascal source.
 
-use std::{fmt, str::FromStr};
+use lazy_static::lazy_static;
+use std::{
+    fmt::{self, Write},
+    str::FromStr,
+};
 use syntect::{
     highlighting::{Color, FontStyle, HighlightIterator, HighlightState, Highlighter, Theme},
     parsing::{Scope, ScopeStack, ScopeStackOp},
 };
 
-#[derive(Debug)]
+use crate::{pass2::WebToken, reserved::PascalReservedWord};
+
+lazy_static! {
+    static ref KEYWORD_SCOPE: Scope = Scope::new("keyword.control.c").unwrap();
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct FormatContext {
+    indent: usize,
+    remaining_width: usize,
+}
+
+impl FormatContext {
+    fn indent(&self, amount: usize) -> Option<Self> {
+        if amount >= self.remaining_width {
+            None
+        } else {
+            Some(FormatContext {
+                indent: self.indent + amount,
+                remaining_width: self.remaining_width - amount,
+            })
+        }
+    }
+
+    fn indent_default(&self) -> Option<Self> {
+        self.indent(4)
+    }
+}
+
+impl FormatContext {
+    fn new() -> Self {
+        FormatContext {
+            indent: 0,
+            remaining_width: 60,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct PrettifiedCode {
     text: String,
     ops: Vec<(usize, ScopeStackOp)>,
+}
+
+impl PrettifiedCode {
+    fn scope_push<S: fmt::Display>(&mut self, scope: Scope, text: S) -> usize {
+        let n0 = self.text.len();
+        self.ops.push((n0, ScopeStackOp::Push(scope)));
+        write!(self.text, "{}", text).unwrap();
+        let n1 = self.text.len();
+        self.ops.push((n1, ScopeStackOp::Pop(1)));
+        n1 - n0
+    }
+
+    fn space(&mut self) -> usize {
+        self.text.push(' ');
+        1
+    }
+}
+
+fn prettify(code: &[WebToken], context: &FormatContext) -> Option<PrettifiedCode> {
+    // No tokens? No problem!
+    if code.is_empty() {
+        return Some(PrettifiedCode::default());
+    }
+
+    // Top-level constructs
+
+    if code[0].is_reserved_word(PascalReservedWord::Define) {
+        return prettify_define_statement(code, context);
+    }
+
+    None
+}
+
+/// `@define sym(#) === anything ...`
+///
+/// When called we know that code[0] is the @define token.
+fn prettify_define_statement(code: &[WebToken], context: &FormatContext) -> Option<PrettifiedCode> {
+    let mut pc = PrettifiedCode::default();
+
+    let mut amount = pc.scope_push(*KEYWORD_SCOPE, code[0].as_pascal().unwrap());
+    amount += pc.space();
+
+    Some(pc)
 }
 
 const INITIAL_SCOPES: &str = "source.c";
