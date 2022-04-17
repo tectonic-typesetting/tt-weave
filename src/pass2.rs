@@ -12,7 +12,7 @@ use crate::{
     reserved::PascalReservedWord,
     state::{ModuleId, State},
     token::{next_token, Token},
-    weblang::{TypesetComment, WebSyntax, WebToken},
+    weblang::{TypesetComment, WebCode, WebSyntax, WebToken},
 };
 
 #[derive(Debug, Default)]
@@ -234,7 +234,7 @@ fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (WebSyntax<'a>, Token)
     }
 }
 
-fn emit_pascal(code: &WebSyntax, inline: bool) {
+fn emit_pascal<'a>(code: WebSyntax<'a>, inline: bool) {
     // tmp!
     let mut flat = String::new();
     let mut first = true;
@@ -298,6 +298,17 @@ fn emit_pascal(code: &WebSyntax, inline: bool) {
     let ts = ThemeSet::load_defaults();
     let theme = &ts.themes["InspiredGitHub"];
     pc.emit(theme, inline);
+
+    // parsing!!!
+
+    let dump = format!("{:?}", code.0);
+    let code = WebCode::parse(code);
+
+    if let Some(c) = code {
+        eprintln!("OK! {:?}", c);
+    } else {
+        panic!("ERR: {}", dump);
+    }
 }
 
 /// WEAVE:222
@@ -325,7 +336,7 @@ fn handle_tex<'a>(
                 let mut ptoks;
                 (span, (ptoks, _)) = scan_pascal_only(span)?;
                 let wrapped = ptoks.drain(..).map(|t| WebToken::Pascal(t)).collect();
-                emit_pascal(&WebSyntax(wrapped), true);
+                emit_pascal(WebSyntax(wrapped), true);
                 (span, tok) = copy_tex(output, span)?;
             }
 
@@ -403,7 +414,7 @@ fn handle_definitions<'a>(
                         value: PascalReservedWord::Define,
                     })),
                 );
-                emit_pascal(&code, false);
+                emit_pascal(code, false);
             }
 
             Token::Control(ControlKind::FormatDefinition) => {
@@ -432,7 +443,7 @@ fn handle_definitions<'a>(
                 let mut rest;
                 (span, (rest, tok)) = scan_pascal(span)?;
                 code.append(&mut rest.0);
-                emit_pascal(&WebSyntax(code), false);
+                emit_pascal(WebSyntax(code), false);
             }
 
             Token::Control(ControlKind::RomanIndexEntry) => {
@@ -448,7 +459,7 @@ fn handle_definitions<'a>(
             Token::Char('|') => {
                 (span, (ptoks, tok)) = scan_pascal_only(span)?;
                 let wrapped = ptoks.drain(..).map(|t| WebToken::Pascal(t)).collect();
-                emit_pascal(&WebSyntax(wrapped), true);
+                emit_pascal(WebSyntax(wrapped), true);
             }
 
             _ => {
@@ -470,7 +481,7 @@ fn handle_pascal<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token
         match tok {
             Token::Control(ControlKind::NewMajorModule)
             | Token::Control(ControlKind::NewMinorModule) => {
-                emit_pascal(&WebSyntax(code), false);
+                emit_pascal(WebSyntax(code), false);
                 return Ok((span, tok));
             }
 
