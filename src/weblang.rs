@@ -4,6 +4,10 @@
 
 use crate::{parse_base::StringSpan, pascal_token::PascalToken, reserved::PascalReservedWord};
 
+/// Information about a typeset comment.
+///
+/// This type is lame. The structure is an interleaving of TeX code and inline
+/// Pascal text, but our data structure doesn't capture that very effectively.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TypesetComment<'a> {
     Pascal(Vec<PascalToken<'a>>),
@@ -42,5 +46,27 @@ impl<'a> WebToken<'a> {
     }
 }
 
-#[derive(Debug)]
-pub struct WebCode<'a>(pub Vec<WebToken<'a>>);
+/// A block of WEB code: just a sequence of WEB tokens.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebSyntax<'a>(pub Vec<WebToken<'a>>);
+
+/// A top-level WEB production.
+///
+/// Because we're not actually compiling the WEB language in any meaningful we,
+/// we're pretty sloppy with the definition of "toplevel" here. It's anything
+/// that can show up as a top-level item in WEB code, including `@define` and
+/// `@format` statement.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum WebToplevel<'a> {
+    Define(WebDefine<'a>),
+}
+
+/// A `@d` definition
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebDefine<'a> {
+    /// The LHS of the define. This may be a sequence of tokens like `blah(#)`.
+    lhs: Vec<PascalToken<'a>>,
+
+    /// The RHS. This could be anything, including partial bits of syntax.
+    rhs: Box<WebToplevel<'a>>,
+}

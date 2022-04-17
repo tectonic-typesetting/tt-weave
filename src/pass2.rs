@@ -12,7 +12,7 @@ use crate::{
     reserved::PascalReservedWord,
     state::{ModuleId, State},
     token::{next_token, Token},
-    weblang::{TypesetComment, WebCode, WebToken},
+    weblang::{TypesetComment, WebSyntax, WebToken},
 };
 
 #[derive(Debug, Default)]
@@ -181,7 +181,7 @@ fn scan_pascal_only<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<PascalToken<
     }
 }
 
-fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (WebCode<'a>, Token)> {
+fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (WebSyntax<'a>, Token)> {
     let mut code = Vec::new();
     let mut tok;
     let mut ptoks;
@@ -223,7 +223,7 @@ fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (WebCode<'a>, Token)> 
             | Token::Control(ControlKind::ModuleName)
             | Token::Control(ControlKind::NewMinorModule)
             | Token::Control(ControlKind::NewMajorModule) => {
-                return Ok((span, (WebCode(code), tok)));
+                return Ok((span, (WebSyntax(code), tok)));
             }
 
             _ => {
@@ -234,7 +234,7 @@ fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (WebCode<'a>, Token)> 
     }
 }
 
-fn emit_pascal(code: &WebCode, inline: bool) {
+fn emit_pascal(code: &WebSyntax, inline: bool) {
     // tmp!
     let mut flat = String::new();
     let mut first = true;
@@ -325,7 +325,7 @@ fn handle_tex<'a>(
                 let mut ptoks;
                 (span, (ptoks, _)) = scan_pascal_only(span)?;
                 let wrapped = ptoks.drain(..).map(|t| WebToken::Pascal(t)).collect();
-                emit_pascal(&WebCode(wrapped), true);
+                emit_pascal(&WebSyntax(wrapped), true);
                 (span, tok) = copy_tex(output, span)?;
             }
 
@@ -432,7 +432,7 @@ fn handle_definitions<'a>(
                 let mut rest;
                 (span, (rest, tok)) = scan_pascal(span)?;
                 code.append(&mut rest.0);
-                emit_pascal(&WebCode(code), false);
+                emit_pascal(&WebSyntax(code), false);
             }
 
             Token::Control(ControlKind::RomanIndexEntry) => {
@@ -448,7 +448,7 @@ fn handle_definitions<'a>(
             Token::Char('|') => {
                 (span, (ptoks, tok)) = scan_pascal_only(span)?;
                 let wrapped = ptoks.drain(..).map(|t| WebToken::Pascal(t)).collect();
-                emit_pascal(&WebCode(wrapped), true);
+                emit_pascal(&WebSyntax(wrapped), true);
             }
 
             _ => {
@@ -470,7 +470,7 @@ fn handle_pascal<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token
         match tok {
             Token::Control(ControlKind::NewMajorModule)
             | Token::Control(ControlKind::NewMinorModule) => {
-                emit_pascal(&WebCode(code), false);
+                emit_pascal(&WebSyntax(code), false);
                 return Ok((span, tok));
             }
 
