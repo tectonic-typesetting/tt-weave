@@ -180,15 +180,15 @@ fn scan_pascal_only<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<PascalToken<
     }
 }
 
-#[derive(Debug)]
-enum TypesetComment<'a> {
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TypesetComment<'a> {
     Pascal(Vec<PascalToken<'a>>),
     Tex(String),
 }
 
 /// A logical token of the WEB language, which we treat as a superset of Pascal.
-#[derive(Debug)]
-enum WebToken<'a> {
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum WebToken<'a> {
     /// A basic Pascal token
     Pascal(PascalToken<'a>),
 
@@ -200,8 +200,26 @@ enum WebToken<'a> {
     ModuleReference(StringSpan<'a>),
 }
 
+impl<'a> WebToken<'a> {
+    pub fn as_pascal(&self) -> Option<&PascalToken> {
+        if let WebToken::Pascal(ptok) = self {
+            Some(ptok)
+        } else {
+            None
+        }
+    }
+
+    pub fn is_reserved_word(&self, rw: PascalReservedWord) -> bool {
+        if let WebToken::Pascal(ptok) = self {
+            ptok.is_reserved_word(rw)
+        } else {
+            false
+        }
+    }
+}
+
 #[derive(Debug)]
-struct WebCode<'a>(pub Vec<WebToken<'a>>);
+pub struct WebCode<'a>(pub Vec<WebToken<'a>>);
 
 fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (WebCode<'a>, Token)> {
     let mut code = Vec::new();
