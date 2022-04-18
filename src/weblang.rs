@@ -387,8 +387,11 @@ pub enum WebToplevel<'a> {
     /// The program definition.
     ProgramDefinition(WebProgramDefinition<'a>),
 
-    /// A label definition.
-    LabelDefinition(WebLabelDefinition<'a>),
+    /// A label declaration.
+    LabelDeclaration(WebLabelDeclaration<'a>),
+
+    /// Declarations that are done by referencing a module.
+    ModulifiedDeclaration(WebModulifiedDeclaration<'a>),
 }
 
 /// A block of WEB code: a sequence of parsed-out WEB toplevels
@@ -442,7 +445,8 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         parse_define,
         map(module_reference, |s| WebToplevel::ModuleReference(s)),
         parse_program_definition,
-        parse_label_definition,
+        parse_label_declaration,
+        parse_modulified_declaration,
         // This goes second-to-last since it will match nearly anything
         parse_standalone,
         // This goes last for debugging
@@ -527,6 +531,10 @@ pub struct WebProgramDefinition<'a> {
 /// A Pascal program definition
 ///
 /// `PROGRAM $name($arg1, ...);`
+///
+/// Really this should have the same structure as a procedure definition, but
+/// WEB implementations always split the program across the entire source file,
+/// so the program definition is always incomplete.
 fn parse_program_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
     let (input, items) = tuple((
         reserved_word(PascalReservedWord::Program),
@@ -546,9 +554,9 @@ fn parse_program_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebTop
     ))
 }
 
-/// A label declaration
+/// A label declaration.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct WebLabelDefinition<'a> {
+pub struct WebLabelDeclaration<'a> {
     /// The label name.
     name: StringSpan<'a>,
 
@@ -556,7 +564,7 @@ pub struct WebLabelDefinition<'a> {
     comment: Option<Vec<TypesetComment<'a>>>,
 }
 
-fn parse_label_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+fn parse_label_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
     let (input, items) = tuple((
         reserved_word(PascalReservedWord::Label),
         identifier,
@@ -566,9 +574,47 @@ fn parse_label_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebTople
 
     Ok((
         input,
-        WebToplevel::LabelDefinition(WebLabelDefinition {
+        WebToplevel::LabelDeclaration(WebLabelDeclaration {
             name: items.1,
             comment: items.3,
+        }),
+    ))
+}
+
+/// A group of declarations done by referencing a module.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebModulifiedDeclaration<'a> {
+    /// The kind of declaration
+    kind: PascalReservedWord,
+
+    /// The associated module
+    module: StringSpan<'a>,
+}
+
+/// `(const|type|var) <module-ref>`
+fn parse_modulified_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+    fn declaration_keyword<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalReservedWord> {
+        let (input, wt) = next_token(input)?;
+
+        if let WebToken::Pascal(PascalToken::ReservedWord(sv)) = wt {
+            match sv.value {
+                PascalReservedWord::Const | PascalReservedWord::Type | PascalReservedWord::Var => {
+                    return Ok((input, sv.value));
+                }
+                _ => {}
+            }
+        }
+
+        new_parse_err(input, WebErrorKind::ExpectedPascalToken)
+    }
+
+    let (input, items) = tuple((declaration_keyword, module_reference))(input)?;
+
+    Ok((
+        input,
+        WebToplevel::ModulifiedDeclaration(WebModulifiedDeclaration {
+            kind: items.0,
+            module: items.1,
         }),
     ))
 }
