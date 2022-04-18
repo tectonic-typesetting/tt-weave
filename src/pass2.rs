@@ -301,12 +301,12 @@ fn emit_pascal<'a>(code: WebSyntax<'a>, inline: bool) {
 
     // parsing!!!
 
-    let code = WebCode::parse(code);
+    let code = WebCode::parse(&code);
 
     if let Some(c) = code {
-        eprintln!("OK! {:?}", c);
+        eprintln!("\nOK! {:?}", c);
     } else {
-        panic!("parse failed");
+        panic!("\n\nparse failed");
     }
 }
 

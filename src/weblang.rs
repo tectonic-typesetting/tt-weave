@@ -1,8 +1,28 @@
 //! Higher-level WEB language processing.
 //!
-//! This is *mostly* Pascal, but with a few additions.
+//! This is *mostly* Pascal, but with a few additions. This doesn't feel like an
+//! awesome technique, but we implement parsing with `nom` where the underlying
+//! datatype is a sequence of tokens.
 
-use crate::{parse_base::StringSpan, pascal_token::PascalToken, reserved::PascalReservedWord};
+use nom::{
+    branch::alt,
+    bytes::complete::{take_while, take_while1},
+    combinator::{map, opt},
+    error::{ErrorKind, ParseError as NomParseError},
+    multi::{many1, separated_list0},
+    sequence::tuple,
+    Err, Finish, IResult, InputIter, InputLength, InputTake, Needed, Slice, UnspecializedInput,
+};
+use std::{
+    iter::{Cloned, Enumerate},
+    slice::Iter,
+};
+
+use crate::{
+    parse_base::{SpanValue, StringSpan},
+    pascal_token::{DelimiterKind, PascalToken},
+    reserved::PascalReservedWord,
+};
 
 /// Information about a typeset comment.
 ///
@@ -106,6 +126,245 @@ impl<'a> WebToken<'a> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebSyntax<'a>(pub Vec<WebToken<'a>>);
 
+/// The parse input: a slice of tokens
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct ParseInput<'a>(&'a [WebToken<'a>]);
+
+impl<'a> InputLength for ParseInput<'a> {
+    fn input_len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+/// This is a monkey-see-monkey-do impl based on how nom does things for slices.
+/// The main difference is that unfortunately we have to clone instead of
+/// copying.
+impl<'a> InputIter for ParseInput<'a> {
+    type Item = WebToken<'a>;
+    type Iter = Enumerate<Self::IterElem>;
+    type IterElem = Cloned<Iter<'a, WebToken<'a>>>;
+
+    #[inline]
+    fn iter_indices(&self) -> Self::Iter {
+        self.iter_elements().enumerate()
+    }
+
+    #[inline]
+    fn iter_elements(&self) -> Self::IterElem {
+        self.0.iter().cloned()
+    }
+
+    #[inline]
+    fn position<P>(&self, predicate: P) -> Option<usize>
+    where
+        P: Fn(Self::Item) -> bool,
+    {
+        self.0.iter().position(|b| predicate(b.clone()))
+    }
+
+    #[inline]
+    fn slice_index(&self, count: usize) -> Result<usize, Needed> {
+        if self.0.len() >= count {
+            Ok(count)
+        } else {
+            Err(Needed::new(count - self.0.len()))
+        }
+    }
+}
+
+impl<'a, R> Slice<R> for ParseInput<'a>
+where
+    &'a [WebToken<'a>]: Slice<R>,
+{
+    fn slice(&self, range: R) -> Self {
+        ParseInput(self.0.slice(range))
+    }
+}
+
+impl<'a> InputTake for ParseInput<'a> {
+    #[inline]
+    fn take(&self, count: usize) -> Self {
+        ParseInput(&self.0[0..count])
+    }
+
+    #[inline]
+    fn take_split(&self, count: usize) -> (Self, Self) {
+        let (prefix, suffix) = self.0.split_at(count);
+        (ParseInput(suffix), ParseInput(prefix))
+    }
+}
+
+/// Implementing this gives is InputTakeAtPosition and Compare
+impl<'a> UnspecializedInput for ParseInput<'a> {}
+
+/// Our parse error kinds, including a lame catch-all for Nom's built-in ones.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum WebErrorKind {
+    Eof,
+    ExpectedPascalToken,
+    ExpectedIdentifer,
+    ExpectedStringLiteral,
+    ExpectedIntLiteral,
+    ExpectedComment,
+    ExpectedToplevel,
+    ExpectedReservedWord(PascalReservedWord),
+    ExpectedOpenDelimiter(DelimiterKind),
+    ExpectedCloseDelimiter(DelimiterKind),
+    Nom(ErrorKind),
+}
+
+/// The parse error type.
+type ParseError<'a> = (ParseInput<'a>, WebErrorKind);
+
+impl<'a> NomParseError<ParseInput<'a>> for ParseError<'a> {
+    fn from_error_kind(input: ParseInput<'a>, kind: ErrorKind) -> Self {
+        (input, WebErrorKind::Nom(kind))
+    }
+
+    fn append(_: ParseInput<'a>, _: ErrorKind, other: Self) -> Self {
+        other
+    }
+}
+
+/// The parse result type.
+type ParseResult<'a, T> = IResult<ParseInput<'a>, T, ParseError<'a>>;
+
+fn new_parse_err<'a, T>(s: ParseInput<'a>, k: WebErrorKind) -> ParseResult<'a, T> {
+    Err(Err::Error((s, k)))
+}
+
+// Low-level parse tools
+
+fn next_token<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToken<'a>> {
+    let wt = input
+        .iter_elements()
+        .next()
+        .ok_or_else(|| Err::Error((input, WebErrorKind::Eof)))?;
+    Ok((input.slice(1..), wt))
+}
+
+/// Expect a specific Pascal token.
+///
+/// This matches use an equality test, so it's probably only what you want if
+/// the token variant you're testing for is a content-less one.
+fn pascal_token<'a>(
+    expected: PascalToken<'a>,
+) -> impl Fn(ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+    move |input: ParseInput<'a>| {
+        let (input, wt) = next_token(input)?;
+
+        if let WebToken::Pascal(found) = wt {
+            if found == expected {
+                return Ok((input, found));
+            }
+        }
+
+        return new_parse_err(input, WebErrorKind::ExpectedPascalToken);
+    }
+}
+
+/// Expect a Pascal identifier, returning its text.
+fn identifier<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan<'a>> {
+    let (input, wt) = next_token(input)?;
+
+    if let WebToken::Pascal(PascalToken::Identifier(s)) = wt {
+        Ok((input, s))
+    } else {
+        return new_parse_err(input, WebErrorKind::ExpectedIdentifer);
+    }
+}
+
+/// Expect a Pascal reserved word, returning its span-value.
+fn reserved_word<'a>(
+    rw: PascalReservedWord,
+) -> impl Fn(ParseInput<'a>) -> ParseResult<'a, SpanValue<'a, PascalReservedWord>> {
+    move |input: ParseInput<'a>| {
+        let (input, wt) = next_token(input)?;
+
+        if let WebToken::Pascal(PascalToken::ReservedWord(sv)) = wt {
+            if sv.value == rw {
+                return Ok((input, sv));
+            }
+        }
+
+        return new_parse_err(input, WebErrorKind::ExpectedReservedWord(rw));
+    }
+}
+
+/// Expect a Pascal string literal token, returning it.
+fn string_literal<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+    let (input, wt) = next_token(input)?;
+
+    if let WebToken::Pascal(lit @ PascalToken::StringLiteral(..)) = wt {
+        Ok((input, lit))
+    } else {
+        return new_parse_err(input, WebErrorKind::ExpectedStringLiteral);
+    }
+}
+
+/// Expect a Pascal integer literal token, returning it.
+fn int_literal<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+    let (input, wt) = next_token(input)?;
+
+    if let WebToken::Pascal(lit @ PascalToken::IntLiteral(..)) = wt {
+        Ok((input, lit))
+    } else {
+        return new_parse_err(input, WebErrorKind::ExpectedIntLiteral);
+    }
+}
+
+/// An open delimiter.
+fn open_delimiter<'a>(kind: DelimiterKind) -> impl Fn(ParseInput<'a>) -> ParseResult<'a, ()> {
+    move |input: ParseInput<'a>| {
+        let (input, wt) = next_token(input)?;
+
+        if let WebToken::Pascal(PascalToken::OpenDelimiter(found_kind)) = wt {
+            if found_kind == kind {
+                return Ok((input, ()));
+            }
+        }
+
+        return new_parse_err(input, WebErrorKind::ExpectedOpenDelimiter(kind));
+    }
+}
+
+/// A close delimiter.
+fn close_delimiter<'a>(kind: DelimiterKind) -> impl Fn(ParseInput<'a>) -> ParseResult<'a, ()> {
+    move |input: ParseInput<'a>| {
+        let (input, wt) = next_token(input)?;
+
+        if let WebToken::Pascal(PascalToken::CloseDelimiter(found_kind)) = wt {
+            if found_kind == kind {
+                return Ok((input, ()));
+            }
+        }
+
+        return new_parse_err(input, WebErrorKind::ExpectedCloseDelimiter(kind));
+    }
+}
+
+/// Expect a comment, returning it.
+fn comment<'a>(input: ParseInput<'a>) -> ParseResult<'a, Vec<TypesetComment<'a>>> {
+    let (input, wt) = next_token(input)?;
+
+    if let WebToken::Comment(c) = wt {
+        Ok((input, c))
+    } else {
+        return new_parse_err(input, WebErrorKind::ExpectedComment);
+    }
+}
+
+/// Expect a module reference, returning its value.
+fn module_reference<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan<'a>> {
+    let (input, wt) = next_token(input)?;
+
+    if let WebToken::ModuleReference(s) = wt {
+        Ok((input, s))
+    } else {
+        return new_parse_err(input, WebErrorKind::ExpectedIdentifer);
+    }
+}
+
 /// A top-level WEB production.
 ///
 /// Because we're not actually compiling the WEB language in any meaningful we,
@@ -121,19 +380,15 @@ pub enum WebToplevel<'a> {
     ModuleReference(StringSpan<'a>),
 
     /// A single Pascal token.
+    ///
+    /// To match: string literal, int literal, texstring, identifier
     Standalone(WebStandalone<'a>),
-}
 
-impl<'a> From<WebDefine<'a>> for WebToplevel<'a> {
-    fn from(v: WebDefine<'a>) -> Self {
-        WebToplevel::Define(v)
-    }
-}
+    /// The program definition.
+    ProgramDefinition(WebProgramDefinition<'a>),
 
-impl<'a> From<WebStandalone<'a>> for WebToplevel<'a> {
-    fn from(v: WebStandalone<'a>) -> Self {
-        WebToplevel::Standalone(v)
-    }
+    /// A label definition.
+    LabelDefinition(WebLabelDefinition<'a>),
 }
 
 /// A block of WEB code: a sequence of parsed-out WEB toplevels
@@ -141,60 +396,58 @@ impl<'a> From<WebStandalone<'a>> for WebToplevel<'a> {
 pub struct WebCode<'a>(pub Vec<WebToplevel<'a>>);
 
 impl<'a> WebCode<'a> {
-    pub fn parse(syntax: WebSyntax<'a>) -> Option<WebCode<'a>> {
-        let mut toks = syntax.0;
-        let mut toplevels = Vec::new();
+    pub fn parse(syntax: &'a WebSyntax<'a>) -> Option<WebCode<'a>> {
+        let input = ParseInput(&syntax.0[..]);
 
-        while !toks.is_empty() {
-            let tl = match parse_toplevel(&mut toks) {
-                Some(tl) => tl,
-                None => {
-                    eprintln!("\nparse failed, balance: {:?}", toks);
+        match many1(parse_toplevel)(input).finish() {
+            Ok((remainder, value)) => {
+                if remainder.input_len() > 0 {
+                    eprintln!("\nincomplete parse");
                     return None;
+                } else {
+                    return Some(WebCode(value));
                 }
-            };
+            }
 
-            toplevels.push(tl);
+            Err((_remainder, e)) => {
+                eprintln!("parse error: {:?}", e);
+                return None;
+            }
         }
-
-        Some(WebCode(toplevels))
     }
 }
 
-/// Parse out a WEB top-level construct.
-///
-/// If successful, the parsed-out tokens are removed from the vec.
-pub fn parse_toplevel<'a>(toks: &mut Vec<WebToken<'a>>) -> Option<WebToplevel<'a>> {
-    while toks[0].is_pascal_token(PascalToken::Formatting) {
-        toks.remove(0);
+fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+    fn is_ignored_token(t: WebToken) -> bool {
+        match t {
+            WebToken::Pascal(PascalToken::Formatting)
+            | WebToken::Pascal(PascalToken::ForcedEol)
+            | WebToken::Pascal(PascalToken::TexString(..)) => true,
+            _ => false,
+        }
     }
 
-    if toks[0].is_reserved_word(PascalReservedWord::Define) {
-        return parse_definition(toks).map(|t| t.into());
+    let (input, _) = take_while(is_ignored_token)(input)?;
+
+    fn parse_fails<'b>(input: ParseInput<'b>) -> ParseResult<'b, WebToplevel<'b>> {
+        if input.input_len() == 0 {
+            new_parse_err(input, WebErrorKind::Eof)
+        } else {
+            eprintln!("\n\nTL fail at: {:?}\n", input);
+            new_parse_err(input, WebErrorKind::ExpectedToplevel)
+        }
     }
 
-    if toks[0].is_module_reference() {
-        let mr = toks.remove(0).into_module_reference();
-        return Some(WebToplevel::ModuleReference(mr));
-    }
-
-    if let Some(t) = parse_standalone(toks) {
-        return Some(t.into());
-    }
-
-    None
-}
-
-/// Parse out a WEB top-level construct, assuming that *all* of the tokens
-/// in the input should go into the result.
-pub fn parse_toplevel_entire<'a>(toks: &mut Vec<WebToken<'a>>) -> Option<WebToplevel<'a>> {
-    let parsed = parse_toplevel(toks)?;
-
-    if !toks.is_empty() {
-        eprintln!("parse_toplevel_entire() entire failure");
-    }
-
-    Some(parsed)
+    alt((
+        parse_define,
+        map(module_reference, |s| WebToplevel::ModuleReference(s)),
+        parse_program_definition,
+        parse_label_definition,
+        // This goes second-to-last since it will match nearly anything
+        parse_standalone,
+        // This goes last for debugging
+        parse_fails,
+    ))(input)
 }
 
 /// A `@d` definition
@@ -207,47 +460,35 @@ pub struct WebDefine<'a> {
     rhs: Box<WebToplevel<'a>>,
 }
 
-/// Parse out a top-level `@define`:
-///
-/// `@d <toks...> equiv <anything>`
-///
-/// toks[0] is the `@d` token here.
-fn parse_definition<'a>(toks: &mut Vec<WebToken<'a>>) -> Option<WebDefine<'a>> {
-    let mut rest = toks.split_off(1);
-
-    // If we were compiling in any real way, we'd make sure the LHS made
-    // syntactic sense, but we're not.
-
-    let mut sep_idx = None;
-
-    for (idx, tok) in rest.iter().enumerate() {
-        if !tok.is_pascal() {
-            return None;
-        }
-
-        if tok.is_pascal_token(PascalToken::Equivalence) || tok.is_pascal_token(PascalToken::Equals)
-        {
-            sep_idx = Some(idx);
-            break;
+fn parse_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+    fn is_define_lhs_token(t: WebToken) -> bool {
+        if let Some(pt) = t.as_pascal() {
+            match pt {
+                PascalToken::Equals | PascalToken::Equivalence => false,
+                _ => true,
+            }
+        } else {
+            false
         }
     }
 
-    let sep_idx = sep_idx?;
+    let (input, items) = tuple((
+        reserved_word(PascalReservedWord::Define),
+        take_while1(is_define_lhs_token),
+        alt((
+            pascal_token(PascalToken::Equivalence),
+            pascal_token(PascalToken::Equals),
+        )),
+        parse_toplevel,
+    ))(input)?;
 
-    if sep_idx >= rest.len() - 1 {
-        return None;
-    }
-
-    let mut rhs = rest.split_off(sep_idx + 1);
-    let lhs: Vec<_> = rest.drain(..sep_idx).map(|wt| wt.into_pascal()).collect();
-
-    let rhs = parse_toplevel_entire(&mut rhs)?;
-
-    toks.truncate(0);
-    Some(WebDefine {
-        lhs,
-        rhs: Box::new(rhs),
-    })
+    Ok((
+        input,
+        WebToplevel::Define(WebDefine {
+            lhs: items.1 .0.iter().map(|t| t.clone().into_pascal()).collect(),
+            rhs: Box::new(items.3),
+        }),
+    ))
 }
 
 /// A "standalone" token with an optional comment.
@@ -256,35 +497,78 @@ pub struct WebStandalone<'a> {
     /// The token.
     token: PascalToken<'a>,
 
-    /// The comment.
+    /// An optional associated comment.
     comment: Option<Vec<TypesetComment<'a>>>,
 }
 
-/// Parse out a top-level single standalone token.
+/// A single Pascal token, maybe followed by a comment.
+fn parse_standalone<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+    let (input, token) = alt((
+        map(identifier, |s| PascalToken::Identifier(s)),
+        string_literal,
+        int_literal,
+    ))(input)?;
+
+    let (input, comment) = opt(comment)(input)?;
+
+    Ok((
+        input,
+        WebToplevel::Standalone(WebStandalone { token, comment }),
+    ))
+}
+
+/// The top-level program definition
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebProgramDefinition<'a> {
+    name: StringSpan<'a>,
+    args: Vec<StringSpan<'a>>,
+}
+
+/// A Pascal program definition
 ///
-/// Does not mutate *toks* if the tok-string doesn't match. But this should be
-/// called at minimum priority since this will match nearly anything.
-fn parse_standalone<'a>(toks: &mut Vec<WebToken<'a>>) -> Option<WebStandalone<'a>> {
-    match toks[0].as_pascal() {
-        Some(PascalToken::Identifier(..))
-        | Some(PascalToken::IntLiteral(..))
-        | Some(PascalToken::StringLiteral(..))
-        | Some(PascalToken::TexString(..)) => {}
+/// `PROGRAM $name($arg1, ...);`
+fn parse_program_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+    let (input, items) = tuple((
+        reserved_word(PascalReservedWord::Program),
+        identifier,
+        open_delimiter(DelimiterKind::Paren),
+        separated_list0(pascal_token(PascalToken::Comma), identifier),
+        close_delimiter(DelimiterKind::Paren),
+        pascal_token(PascalToken::Semicolon),
+    ))(input)?;
 
-        _ => {
-            return None;
-        }
-    }
+    Ok((
+        input,
+        WebToplevel::ProgramDefinition(WebProgramDefinition {
+            name: items.1,
+            args: items.3,
+        }),
+    ))
+}
 
-    let token = toks.remove(0).into_pascal();
+/// A label declaration
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebLabelDefinition<'a> {
+    /// The label name.
+    name: StringSpan<'a>,
 
-    let comment = if toks.len() < 1 {
-        None
-    } else if !toks[0].is_comment() {
-        None
-    } else {
-        Some(toks.remove(0).into_comment())
-    };
+    /// An optional associated comment.
+    comment: Option<Vec<TypesetComment<'a>>>,
+}
 
-    Some(WebStandalone { token, comment })
+fn parse_label_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+    let (input, items) = tuple((
+        reserved_word(PascalReservedWord::Label),
+        identifier,
+        pascal_token(PascalToken::Semicolon),
+        opt(comment),
+    ))(input)?;
+
+    Ok((
+        input,
+        WebToplevel::LabelDefinition(WebLabelDefinition {
+            name: items.1,
+            comment: items.3,
+        }),
+    ))
 }
