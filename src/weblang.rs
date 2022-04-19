@@ -152,6 +152,7 @@ enum WebErrorKind {
     ExpectedComment,
     ExpectedToplevel,
     ExpectedReservedWord(PascalReservedWord),
+    ExpectedAnyReservedWord,
     ExpectedOpenDelimiter(DelimiterKind),
     ExpectedCloseDelimiter(DelimiterKind),
     Nom(ErrorKind),
@@ -233,6 +234,19 @@ fn reserved_word<'a>(
 
         return new_parse_err(input, WebErrorKind::ExpectedReservedWord(rw));
     }
+}
+
+/// Accept any Pascal reserved word.
+fn any_reserved_word<'a>(
+    input: ParseInput<'a>,
+) -> ParseResult<'a, SpanValue<'a, PascalReservedWord>> {
+    let (input, wt) = next_token(input)?;
+
+    if let WebToken::Pascal(PascalToken::ReservedWord(sv)) = wt {
+        return Ok((input, sv));
+    }
+
+    return new_parse_err(input, WebErrorKind::ExpectedAnyReservedWord);
 }
 
 /// Expect a Pascal string literal token, returning it.
@@ -320,6 +334,9 @@ pub enum WebToplevel<'a> {
     /// A `@d` definition.
     Define(WebDefine<'a>),
 
+    /// A `@f` format definition.
+    Format(WebFormat<'a>),
+
     /// A module reference.
     ModuleReference(StringSpan<'a>),
 
@@ -392,7 +409,9 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
     }
 
     alt((
+        // Define comes first since its tail is a toplevel in and of itself.
         parse_define,
+        parse_format,
         map(module_reference, |s| WebToplevel::ModuleReference(s)),
         parse_program_definition,
         parse_label_declaration,
@@ -443,6 +462,33 @@ fn parse_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
         WebToplevel::Define(WebDefine {
             lhs: items.1 .0.iter().map(|t| t.clone().into_pascal()).collect(),
             rhs: Box::new(items.3),
+        }),
+    ))
+}
+
+/// A `@f` format definition
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebFormat<'a> {
+    /// The LHS of the format: an identifier.
+    lhs: StringSpan<'a>,
+
+    /// The RHS: a reserved word
+    rhs: PascalReservedWord,
+}
+
+fn parse_format<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+    let (input, items) = tuple((
+        reserved_word(PascalReservedWord::Format),
+        identifier,
+        pascal_token(PascalToken::Equivalence),
+        any_reserved_word,
+    ))(input)?;
+
+    Ok((
+        input,
+        WebToplevel::Format(WebFormat {
+            lhs: items.1,
+            rhs: items.3.value,
         }),
     ))
 }
