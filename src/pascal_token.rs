@@ -8,7 +8,7 @@ use nom::{
     error::ErrorKind,
     multi::{many0_count, many1},
     sequence::pair,
-    InputTake, InputTakeAtPosition,
+    InputTakeAtPosition,
 };
 use nom_locate::position;
 use std::{borrow::Cow, convert::TryFrom, fmt};
@@ -189,24 +189,6 @@ impl<'a> fmt::Display for PascalToken<'a> {
             PascalToken::CancelDefinitionFlag => Ok(()),
             PascalToken::VerbatimPascal(text) => write!(f, "{}", text.value),
         }
-    }
-}
-
-fn take_until_nlspace<'a>(mut span: Span<'a>) -> ParseResult<Span<'a>> {
-    let text_begin = span.clone();
-    let mut n_taken = 0;
-
-    loop {
-        let (new_span, tok) = next_token(span)?;
-
-        if let Token::Char(c) = tok {
-            if c == ' ' || c == '\t' || c == '\n' {
-                return Ok((span, text_begin.take(n_taken)));
-            }
-        }
-
-        span = new_span;
-        n_taken += tok.n_chars();
     }
 }
 

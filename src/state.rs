@@ -194,6 +194,7 @@ impl State {
         Ok((span, text))
     }
 
+    #[allow(dead_code)]
     pub fn dump_pass1(&self) {
         for name in self.named_modules.iter() {
             eprintln!("{:?}", name);
