@@ -339,6 +339,9 @@ pub enum WebToplevel<'a> {
 
     /// Definition of a procedure or function
     FunctionDefinition(WebFunctionDefinition<'a>),
+
+    /// A meta-comment for WEB's version of `#ifdef` processing
+    IfdefLike(WebIfdefLike<'a>),
 }
 
 /// A block of WEB code: a sequence of parsed-out WEB toplevels
@@ -395,6 +398,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         parse_label_declaration,
         parse_modulified_declaration,
         parse_function_definition,
+        parse_ifdef_like,
         // This goes second-to-last since it will match nearly anything
         parse_standalone,
         // This goes last for debugging
@@ -530,6 +534,8 @@ fn parse_label_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebTopl
 }
 
 /// A group of declarations done by referencing a module.
+///
+/// TODO: replace this with code used for functions below.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebModulifiedDeclaration<'a> {
     /// The kind of declaration
@@ -694,5 +700,41 @@ fn parse_function_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebTo
             vars,
             stmts,
         }),
+    ))
+}
+
+/// An `#ifdef`-like construct
+///
+/// Needed for `@define debug = { { blah blah }`
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebIfdefLike<'a> {
+    /// Whether this is an "open" meta-comment or not (i.e., close).
+    is_open: bool,
+
+    /// An optional associated comment
+    comment: Option<Vec<TypesetComment<'a>>>,
+}
+
+/// `(const|type|var) <module-ref>`
+fn parse_ifdef_like<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+    let (input, items) = tuple((
+        alt((
+            pascal_token(PascalToken::OpenDelimiter(DelimiterKind::MetaComment)),
+            pascal_token(PascalToken::CloseDelimiter(DelimiterKind::MetaComment)),
+        )),
+        opt(comment),
+    ))(input)?;
+
+    let is_open = if let PascalToken::OpenDelimiter(DelimiterKind::MetaComment) = items.0 {
+        true
+    } else {
+        false
+    };
+
+    let comment = items.1;
+
+    Ok((
+        input,
+        WebToplevel::IfdefLike(WebIfdefLike { is_open, comment }),
     ))
 }
