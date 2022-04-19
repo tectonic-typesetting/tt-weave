@@ -129,16 +129,6 @@ pub enum PascalToken<'a> {
     VerbatimPascal(StringSpan<'a>),
 }
 
-impl<'a> PascalToken<'a> {
-    pub fn is_reserved_word(&self, rw: PascalReservedWord) -> bool {
-        if let PascalToken::ReservedWord(SpanValue { value, .. }) = self {
-            *value == rw
-        } else {
-            false
-        }
-    }
-}
-
 impl<'a> fmt::Display for PascalToken<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -272,7 +262,7 @@ fn match_pascal_control_code_token(span: Span) -> ParseResult<PascalToken> {
 
 fn match_reserved_word_token(span: Span) -> ParseResult<PascalToken> {
     let (span, start) = position(span)?;
-    let (span, text) = take_until_nlspace(span)?;
+    let (span, text) = recognize(pair(alpha1, many0_count(alt((alphanumeric1, tag("_"))))))(span)?;
     let (span, end) = position(span)?;
 
     match PascalReservedWord::try_from(&text[..]) {

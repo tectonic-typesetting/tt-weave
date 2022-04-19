@@ -76,12 +76,6 @@ fn prettify(code: &[WebToken], context: &FormatContext) -> Option<PrettifiedCode
         return Some(PrettifiedCode::default());
     }
 
-    // Top-level constructs
-
-    if code[0].is_reserved_word(PascalReservedWord::Define) {
-        return prettify_define_statement(code, context);
-    }
-
     None
 }
 

@@ -172,7 +172,8 @@ fn scan_pascal_only<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<PascalToken<
         match ptok {
             PascalToken::IndexEntry(_, _)
             | PascalToken::DefinitionFlag
-            | PascalToken::CancelDefinitionFlag => {}
+            | PascalToken::CancelDefinitionFlag
+            | PascalToken::Formatting => {}
 
             other => {
                 ptoks.push(other);
@@ -306,7 +307,7 @@ fn emit_pascal<'a>(code: WebSyntax<'a>, inline: bool) {
     if let Some(c) = code {
         eprintln!("\nOK! {:?}", c);
     } else {
-        panic!("\n\nparse failed");
+        panic!("parse failed");
     }
 }
 
