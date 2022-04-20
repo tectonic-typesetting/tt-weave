@@ -134,7 +134,7 @@ fn first_pass_scan_pascal_only<'a>(
 
         // Looks like we still have Pascal. Now parse it as such.
 
-        (span, ptok) = match_pascal_token(prev_span)?;
+        (span, ptok) = match_pascal_token(prev_span, None)?;
 
         match ptok {
             PascalToken::ReservedWord(SpanValue {
@@ -299,23 +299,23 @@ fn first_pass_handle_definitions<'a>(
                 let mut ptok;
 
                 state.set_definition_flag(true);
-                (span, ptok) = match_pascal_token(span)?;
+                (span, ptok) = match_pascal_token(span, None)?;
 
                 if let PascalToken::Identifier(text) = ptok {
                     state.add_index_entry(
-                        text.value.into_owned(),
+                        text.value.to_owned(),
                         IndexEntryKind::Normal,
                         cur_module,
                     );
-                    (span, ptok) = match_pascal_token(span)?;
+                    (span, ptok) = match_pascal_token(span, None)?;
 
                     if let PascalToken::Equivalence = ptok {
-                        (span, ptok) = match_pascal_token(span)?;
+                        (span, ptok) = match_pascal_token(span, None)?;
 
-                        if let PascalToken::Identifier(text) = ptok {
-                            // TODO? Register the new formatting convention
+                        if let PascalToken::ReservedWord(sv) = ptok {
+                            state.add_formatted_identifier(text.value.into_owned(), sv.value);
                             state.add_index_entry(
-                                text.value.into_owned(),
+                                sv.value.to_string(),
                                 IndexEntryKind::Normal,
                                 cur_module,
                             );

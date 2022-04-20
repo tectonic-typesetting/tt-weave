@@ -13,6 +13,7 @@ use crate::{
     control::ControlKind,
     index::IndexEntryKind,
     parse_base::{new_parse_error, ParseResult, Span, StringSpan},
+    pascal_token::{match_pascal_token, FormatOverrides, PascalToken},
     reserved::PascalReservedWord,
     token::{next_token, take_until_terminator, Token},
 };
@@ -51,6 +52,8 @@ pub struct State {
     named_modules: BTreeSet<String>,
 
     index_entries: HashMap<String, IndexState>,
+
+    formatted_identifiers: FormatOverrides,
 }
 
 impl State {
@@ -91,6 +94,21 @@ impl State {
 
     pub fn set_definition_flag(&mut self, f: bool) {
         self.definition_flag = f;
+    }
+
+    pub fn add_formatted_identifier<S: Into<String>>(
+        &mut self,
+        text: S,
+        equiv: PascalReservedWord,
+    ) {
+        self.formatted_identifiers.insert(text.into(), equiv);
+    }
+
+    pub fn match_pascal_token_with_formats<'a>(
+        &self,
+        span: Span<'a>,
+    ) -> ParseResult<'a, PascalToken<'a>> {
+        match_pascal_token(span, Some(&self.formatted_identifiers))
     }
 
     pub fn scan_next<'a>(&self, span: Span<'a>) -> ParseResult<'a, Token> {

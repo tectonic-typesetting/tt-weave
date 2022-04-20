@@ -202,6 +202,9 @@ pub fn pascal_token<'a>(
 }
 
 /// Expect a Pascal identifier, returning its text.
+///
+/// Note that this will not match "formatted identifiers" that have had their
+/// behavior overridden with an `@f` command.
 pub fn identifier<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan<'a>> {
     let (input, wt) = next_token(input)?;
 

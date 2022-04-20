@@ -140,7 +140,10 @@ fn copy_comment<'a>(mut depth: usize, mut span: Span<'a>) -> ParseResult<'a, (St
     }
 }
 
-fn scan_pascal_only<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<PascalToken<'a>>, Token)> {
+fn scan_pascal_only<'a>(
+    mut span: Span<'a>,
+    state: &State,
+) -> ParseResult<'a, (Vec<PascalToken<'a>>, Token)> {
     let mut ptoks = Vec::new();
     let mut tok;
     let mut ptok;
@@ -167,7 +170,7 @@ fn scan_pascal_only<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<PascalToken<
 
         // Looks like we still have Pascal. Now parse it as such.
 
-        (span, ptok) = match_pascal_token(prev_span)?;
+        (span, ptok) = state.match_pascal_token_with_formats(prev_span)?;
 
         match ptok {
             PascalToken::IndexEntry(_, _)
@@ -182,7 +185,7 @@ fn scan_pascal_only<'a>(mut span: Span<'a>) -> ParseResult<'a, (Vec<PascalToken<
     }
 }
 
-fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (WebSyntax<'a>, Token)> {
+fn scan_pascal<'a>(mut span: Span<'a>, state: &State) -> ParseResult<'a, (WebSyntax<'a>, Token)> {
     let mut code = Vec::new();
     let mut tok;
     let mut ptoks;
@@ -201,7 +204,7 @@ fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (WebSyntax<'a>, Token)
                 comment.push(TypesetComment::Tex(text));
 
                 while depth > 0 {
-                    (span, (ptoks, tok)) = scan_pascal_only(span)?;
+                    (span, (ptoks, tok)) = scan_pascal_only(span, state)?;
                     comment.push(TypesetComment::Pascal(ptoks));
 
                     if let Token::Char('|') = tok {
@@ -228,7 +231,7 @@ fn scan_pascal<'a>(mut span: Span<'a>) -> ParseResult<'a, (WebSyntax<'a>, Token)
             }
 
             _ => {
-                (span, (ptoks, tok)) = scan_pascal_only(prev_span)?;
+                (span, (ptoks, tok)) = scan_pascal_only(prev_span, state)?;
                 code.extend(ptoks.drain(..).map(|t| WebToken::Pascal(t)));
             }
         }
@@ -337,7 +340,7 @@ fn handle_tex<'a>(
 
             Token::Char('|') => {
                 let mut ptoks;
-                (span, (ptoks, _)) = scan_pascal_only(span)?;
+                (span, (ptoks, _)) = scan_pascal_only(span, state)?;
                 let wrapped = ptoks.drain(..).map(|t| WebToken::Pascal(t)).collect();
                 emit_pascal(WebSyntax(wrapped), true);
                 (span, tok) = copy_tex(output, span)?;
@@ -408,7 +411,7 @@ fn handle_definitions<'a>(
 
             Token::Control(ControlKind::MacroDefinition) => {
                 let mut code;
-                (span, (code, tok)) = scan_pascal(span)?;
+                (span, (code, tok)) = scan_pascal(span, state)?;
                 code.0.insert(
                     0,
                     WebToken::Pascal(PascalToken::ReservedWord(SpanValue {
@@ -428,23 +431,23 @@ fn handle_definitions<'a>(
                 }))];
                 let ptok;
 
-                (span, ptok) = match_pascal_token(span)?;
+                (span, ptok) = state.match_pascal_token_with_formats(span)?;
                 code.push(WebToken::Pascal(ptok.clone()));
 
                 if let PascalToken::Identifier(_) = ptok {
                     let ptok2;
-                    (span, ptok2) = match_pascal_token(span)?;
+                    (span, ptok2) = state.match_pascal_token_with_formats(span)?;
                     code.push(WebToken::Pascal(ptok2.clone()));
 
                     if let PascalToken::Equivalence = ptok2 {
                         let ptok3;
-                        (span, ptok3) = match_pascal_token(span)?;
+                        (span, ptok3) = state.match_pascal_token_with_formats(span)?;
                         code.push(WebToken::Pascal(ptok3));
                     }
                 }
 
                 let mut rest;
-                (span, (rest, tok)) = scan_pascal(span)?;
+                (span, (rest, tok)) = scan_pascal(span, state)?;
                 code.append(&mut rest.0);
                 emit_pascal(WebSyntax(code), false);
             }
@@ -460,7 +463,7 @@ fn handle_definitions<'a>(
             }
 
             Token::Char('|') => {
-                (span, (ptoks, tok)) = scan_pascal_only(span)?;
+                (span, (ptoks, tok)) = scan_pascal_only(span, state)?;
                 let wrapped = ptoks.drain(..).map(|t| WebToken::Pascal(t)).collect();
                 emit_pascal(WebSyntax(wrapped), true);
             }
@@ -499,7 +502,7 @@ fn handle_pascal<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token
 
             _ => {
                 let mut block;
-                (span, (block, tok)) = scan_pascal(prev_span)?;
+                (span, (block, tok)) = scan_pascal(prev_span, state)?;
                 code.append(&mut block.0);
             }
         }

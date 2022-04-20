@@ -11,7 +11,7 @@ use nom::{
     InputTakeAtPosition,
 };
 use nom_locate::position;
-use std::{borrow::Cow, convert::TryFrom, fmt};
+use std::{borrow::Cow, collections::HashMap, convert::TryFrom, fmt};
 
 use crate::{
     control::ControlKind,
@@ -55,6 +55,9 @@ pub enum PascalToken<'a> {
 
     /// An identifier
     Identifier(StringSpan<'a>),
+
+    /// An identifier that has been @f-defined to act like a reserved word.
+    FormattedIdentifier(StringSpan<'a>, PascalReservedWord),
 
     OpenDelimiter(DelimiterKind),
 
@@ -135,6 +138,8 @@ impl<'a> fmt::Display for PascalToken<'a> {
             PascalToken::Identifier(s) => write!(f, "{}", s.value),
             PascalToken::IndexEntry(k, s) => write!(f, "IndexEntry({:?}, {:?})", k, s.value),
             PascalToken::ReservedWord(s) => write!(f, "{}", s.value),
+
+            PascalToken::FormattedIdentifier(s, k) => write!(f, "{}[~{}]", s.value, k),
 
             PascalToken::StringLiteral(k, s) => match k {
                 StringLiteralKind::SingleQuote => write!(f, "{:?}", s.value),
@@ -257,20 +262,28 @@ fn match_reserved_word_token(span: Span) -> ParseResult<PascalToken> {
 }
 
 /// See WEAVE:98
-fn match_identifier_token(span: Span) -> ParseResult<PascalToken> {
-    // We can ignore control codes since the alphanumeric scanner won't match them.
-    let (span, start) = position(span)?;
-    let (span, text) = recognize(pair(alpha1, many0_count(alt((alphanumeric1, tag("_"))))))(span)?;
-    let (span, end) = position(span)?;
+fn match_identifier_token<'a>(
+    overrides: Option<&FormatOverrides>,
+) -> impl Fn(Span<'a>) -> ParseResult<'a, PascalToken<'a>> + '_ {
+    move |span: Span<'a>| {
+        // We can ignore control codes since the alphanumeric scanner won't match them.
+        let (span, start) = position(span)?;
+        let (span, text) =
+            recognize(pair(alpha1, many0_count(alt((alphanumeric1, tag("_"))))))(span)?;
+        let (span, end) = position(span)?;
 
-    Ok((
-        span,
-        PascalToken::Identifier(StringSpan {
-            start,
-            end,
-            value: Cow::Borrowed(&text),
-        }),
-    ))
+        let value: Cow<str> = Cow::Borrowed(&text);
+        let rw = overrides.and_then(|hm| hm.get(value.as_ref()));
+        let val_span = StringSpan { start, end, value };
+
+        let tok = if let Some(rw) = rw {
+            PascalToken::FormattedIdentifier(val_span, *rw)
+        } else {
+            PascalToken::Identifier(val_span)
+        };
+
+        Ok((span, tok))
+    }
 }
 
 /// See WEAVE:97
@@ -461,13 +474,18 @@ fn match_index_entry(span: Span) -> ParseResult<PascalToken> {
     Ok((span, PascalToken::IndexEntry(kind, text)))
 }
 
-pub fn match_pascal_token(span: Span) -> ParseResult<PascalToken> {
+pub type FormatOverrides = HashMap<String, PascalReservedWord>;
+
+pub fn match_pascal_token<'a>(
+    span: Span<'a>,
+    overrides: Option<&FormatOverrides>,
+) -> ParseResult<'a, PascalToken<'a>> {
     let (span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
     alt((
         match_tex_string_token,
         match_verbatim_pascal_token,
         match_reserved_word_token,
-        match_identifier_token,
+        match_identifier_token(overrides),
         match_punct_token,
         match_pascal_control_code_token,
         match_decimal_literal_token,

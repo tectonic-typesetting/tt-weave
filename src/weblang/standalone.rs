@@ -21,6 +21,7 @@ pub struct WebStandalone<'a> {
 pub fn parse_standalone<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
     let (input, token) = alt((
         map(identifier, |s| PascalToken::Identifier(s)),
+        transmute_formatted,
         string_literal,
         int_literal,
     ))(input)?;
@@ -31,4 +32,14 @@ pub fn parse_standalone<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebTopleve
         input,
         WebToplevel::Standalone(WebStandalone { token, comment }),
     ))
+}
+
+fn transmute_formatted<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+    let (input, wt) = next_token(input)?;
+
+    if let WebToken::Pascal(PascalToken::FormattedIdentifier(s, k)) = wt {
+        Ok((input, PascalToken::Identifier(s)))
+    } else {
+        return new_parse_err(input, WebErrorKind::ExpectedIdentifer);
+    }
 }
