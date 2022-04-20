@@ -210,6 +210,16 @@ pub fn identifier<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan<'a>> 
 
     if let WebToken::Pascal(PascalToken::Identifier(s)) = wt {
         Ok((input, s))
+    } else if let WebToken::Pascal(PascalToken::Hash(p)) = wt {
+        // For our purposes, hash marks act like identifiers
+        Ok((
+            input,
+            StringSpan {
+                start: p.clone(),
+                end: p.clone(),
+                value: "#".into(),
+            },
+        ))
     } else {
         return new_parse_err(input, WebErrorKind::ExpectedIdentifer);
     }

@@ -9,6 +9,7 @@ use nom::{
 
 mod base;
 mod define;
+mod expr;
 mod format;
 mod function_definition;
 mod ifdef_like;

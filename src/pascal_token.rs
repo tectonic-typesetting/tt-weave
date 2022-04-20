@@ -114,8 +114,9 @@ pub enum PascalToken<'a> {
 
     Period,
 
-    /// Needed to parse WEB macros
-    Hash,
+    /// Needed to parse WEB macros. We track a span so that we can pretend it's
+    /// an identifier.
+    Hash(Span<'a>),
 
     StringPoolChecksum,
 
@@ -188,7 +189,7 @@ impl<'a> fmt::Display for PascalToken<'a> {
             PascalToken::Colon => write!(f, ":"),
             PascalToken::Caret => write!(f, "^"),
             PascalToken::Period => write!(f, "."),
-            PascalToken::Hash => write!(f, "#"),
+            PascalToken::Hash(_) => write!(f, "#"),
             PascalToken::StringPoolChecksum => write!(f, "$STRING_POOL_CHECKSUM"),
             PascalToken::DefinitionFlag => Ok(()),
             PascalToken::CancelDefinitionFlag => Ok(()),
@@ -318,7 +319,12 @@ fn match_punct_token(span: Span) -> ParseResult<PascalToken> {
         '-' => PascalToken::Minus,
         '^' => PascalToken::Caret,
         '/' => PascalToken::Divide,
-        '#' => PascalToken::Hash,
+
+        '#' => {
+            let pos;
+            (span, pos) = position(span)?;
+            PascalToken::Hash(pos)
+        }
 
         '.' => {
             if let Ok((new_span, _)) = char::<Span, ParseError>('.')(span) {
