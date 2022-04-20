@@ -4,8 +4,9 @@
 
 use nom::{
     error::{ErrorKind, ParseError as NomParseError},
-    Err, IResult, InputIter, InputLength, InputTake, Needed, Slice, UnspecializedInput,
+    AsBytes, Err, IResult, InputIter, InputLength, InputTake, Needed, Slice, UnspecializedInput,
 };
+use nom_recursive::{HasRecursiveInfo, RecursiveInfo};
 use std::{
     iter::{Cloned, Enumerate},
     slice::Iter,
@@ -66,11 +67,21 @@ pub struct WebSyntax<'a>(pub Vec<WebToken<'a>>);
 
 /// The parse input: a slice of tokens
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct ParseInput<'a>(pub &'a [WebToken<'a>]);
+pub struct ParseInput<'a>(pub &'a [WebToken<'a>], pub RecursiveInfo);
 
 impl<'a> InputLength for ParseInput<'a> {
     fn input_len(&self) -> usize {
         self.0.len()
+    }
+}
+
+impl<'a> HasRecursiveInfo for ParseInput<'a> {
+    fn get_recursive_info(&self) -> RecursiveInfo {
+        self.1
+    }
+
+    fn set_recursive_info(self, info: RecursiveInfo) -> Self {
+        ParseInput(self.0.clone(), info)
     }
 }
 
@@ -115,25 +126,40 @@ where
     &'a [WebToken<'a>]: Slice<R>,
 {
     fn slice(&self, range: R) -> Self {
-        ParseInput(self.0.slice(range))
+        ParseInput(self.0.slice(range), self.1.clone())
     }
 }
 
 impl<'a> InputTake for ParseInput<'a> {
     #[inline]
     fn take(&self, count: usize) -> Self {
-        ParseInput(&self.0[0..count])
+        ParseInput(&self.0[0..count], self.1.clone())
     }
 
     #[inline]
     fn take_split(&self, count: usize) -> (Self, Self) {
         let (prefix, suffix) = self.0.split_at(count);
-        (ParseInput(suffix), ParseInput(prefix))
+        (
+            ParseInput(suffix, self.1.clone()),
+            ParseInput(prefix, self.1.clone()),
+        )
     }
 }
 
 /// Implementing this gives is InputTakeAtPosition and Compare
 impl<'a> UnspecializedInput for ParseInput<'a> {}
+
+// AWOOOOGA AWOOOGA
+//
+// This totally evil implementation is to support nom_recursive, which require
+// an AsBytes impl on the parse type just so that it can call as_ptr() on it.
+// Hopefully, returning an immutable zero-size slice will prevent anything gross
+// from happening.
+impl<'a> AsBytes for ParseInput<'a> {
+    fn as_bytes(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.0.as_ptr() as *const u8, 0) }
+    }
+}
 
 /// Our parse error kinds, including a lame catch-all for Nom's built-in ones.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
