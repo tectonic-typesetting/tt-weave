@@ -15,7 +15,6 @@ pub enum WebExpr<'a> {
 }
 
 pub fn parse_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    eprintln!("EXPR: {:?}", input);
     alt((parse_binary_expr, parse_token_expr))(input)
 }
 

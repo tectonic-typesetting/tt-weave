@@ -175,6 +175,7 @@ pub enum WebErrorKind {
     ExpectedAnyReservedWord,
     ExpectedOpenDelimiter(DelimiterKind),
     ExpectedCloseDelimiter(DelimiterKind),
+    IncompleteDefine,
     Nom(ErrorKind),
 }
 

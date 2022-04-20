@@ -3,7 +3,9 @@
 //! This has the general form `@d LHS == RHS`. The LHS might not be simple
 //! identifier if it has macro parameter, and the RHS can be any toplevel.
 
-use nom::{branch::alt, bytes::complete::take_while1, combinator::opt, sequence::tuple};
+use nom::{
+    branch::alt, bytes::complete::take_while1, combinator::opt, sequence::tuple, InputLength,
+};
 
 use super::{base::*, parse_toplevel, WebToplevel};
 
@@ -42,6 +44,11 @@ pub fn parse_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a
         parse_toplevel,
         opt(comment),
     ))(input)?;
+
+    if input.input_len() != 0 {
+        eprintln!("\n\n** incomplete @define parse, remaining: {:?}\n", input);
+        return new_parse_err(input, WebErrorKind::IncompleteDefine);
+    }
 
     let lhs = items.1 .0.iter().map(|t| t.clone().into_pascal()).collect();
     let rhs = Box::new(items.3);
