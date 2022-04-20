@@ -14,6 +14,7 @@ mod function_definition;
 mod ifdef_like;
 mod label_declaration;
 mod modulified_declaration;
+mod preprocessor_directive;
 mod program_definition;
 mod standalone;
 mod statement;
@@ -56,6 +57,9 @@ pub enum WebToplevel<'a> {
 
     /// A meta-comment for WEB's version of `#ifdef` processing
     IfdefLike(ifdef_like::WebIfdefLike<'a>),
+
+    /// A Pascal preprocessor directive comment.
+    PreprocessorDirective(preprocessor_directive::WebPreprocessorDirective<'a>),
 }
 
 /// A block of WEB code: a sequence of parsed-out WEB toplevels
@@ -115,6 +119,8 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         label_declaration::parse_label_declaration,
         modulified_declaration::parse_modulified_declaration,
         function_definition::parse_function_definition,
+        // This goes before ifdef-like since it's more specific:
+        preprocessor_directive::parse_preprocessor_directive,
         ifdef_like::parse_ifdef_like,
         // This goes second-to-last since it will match nearly anything:
         standalone::parse_standalone,
