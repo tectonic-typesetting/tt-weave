@@ -60,6 +60,9 @@ pub enum WebToplevel<'a> {
 
     /// A Pascal preprocessor directive comment.
     PreprocessorDirective(preprocessor_directive::WebPreprocessorDirective<'a>),
+
+    /// A Pascal statement.
+    Statement(statement::WebStatement<'a>),
 }
 
 /// A block of WEB code: a sequence of parsed-out WEB toplevels
@@ -122,6 +125,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         // This goes before ifdef-like since it's more specific:
         preprocessor_directive::parse_preprocessor_directive,
         ifdef_like::parse_ifdef_like,
+        statement::parse_statement,
         // This goes second-to-last since it will match nearly anything:
         standalone::parse_standalone,
         // This goes last for debugging:

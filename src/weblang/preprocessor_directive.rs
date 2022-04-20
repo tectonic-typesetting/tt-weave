@@ -3,7 +3,11 @@
 //! These are special constructs that would matter if we were actually compiling
 //! this Pascal code. We just implement them because we have to.
 
-use nom::{combinator::opt, multi::many0, sequence::tuple};
+use nom::{
+    combinator::{map, opt},
+    multi::many0,
+    sequence::tuple,
+};
 
 use super::{base::*, WebToplevel};
 
@@ -16,7 +20,9 @@ pub struct WebPreprocessorDirective<'a> {
     comment: Option<Vec<TypesetComment<'a>>>,
 }
 
-pub fn parse_preprocessor_directive<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+pub fn parse_preprocessor_directive_base<'a>(
+    input: ParseInput<'a>,
+) -> ParseResult<'a, WebPreprocessorDirective<'a>> {
     let (input, mut items) = tuple((
         pascal_token(PascalToken::OpenDelimiter(DelimiterKind::MetaComment)),
         pascal_token(PascalToken::PasteText),
@@ -31,10 +37,13 @@ pub fn parse_preprocessor_directive<'a>(input: ParseInput<'a>) -> ParseResult<'a
 
     let comment = items.4;
 
-    Ok((
-        input,
-        WebToplevel::PreprocessorDirective(WebPreprocessorDirective { tokens, comment }),
-    ))
+    Ok((input, WebPreprocessorDirective { tokens, comment }))
+}
+
+pub fn parse_preprocessor_directive<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+    map(parse_preprocessor_directive_base, |d| {
+        WebToplevel::PreprocessorDirective(d)
+    })(input)
 }
 
 fn any_pascal_except_close_meta<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
