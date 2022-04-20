@@ -3,7 +3,7 @@
 //! This has the general form `@d LHS == RHS`. The LHS might not be simple
 //! identifier if it has macro parameter, and the RHS can be any toplevel.
 
-use nom::{branch::alt, bytes::complete::take_while1, sequence::tuple};
+use nom::{branch::alt, bytes::complete::take_while1, combinator::opt, sequence::tuple};
 
 use super::{base::*, parse_toplevel, WebToplevel};
 
@@ -15,6 +15,9 @@ pub struct WebDefine<'a> {
 
     /// The RHS. This could be anything, including partial bits of syntax.
     rhs: Box<WebToplevel<'a>>,
+
+    /// Optional trailing comment.
+    comment: Option<Vec<TypesetComment<'a>>>,
 }
 
 pub fn parse_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
@@ -37,13 +40,12 @@ pub fn parse_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a
             pascal_token(PascalToken::Equals),
         )),
         parse_toplevel,
+        opt(comment),
     ))(input)?;
 
-    Ok((
-        input,
-        WebToplevel::Define(WebDefine {
-            lhs: items.1 .0.iter().map(|t| t.clone().into_pascal()).collect(),
-            rhs: Box::new(items.3),
-        }),
-    ))
+    let lhs = items.1 .0.iter().map(|t| t.clone().into_pascal()).collect();
+    let rhs = Box::new(items.3);
+    let comment = items.4;
+
+    Ok((input, WebToplevel::Define(WebDefine { lhs, rhs, comment })))
 }
