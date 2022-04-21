@@ -5,6 +5,7 @@
 
 use nom::{
     combinator::{map, opt},
+    multi::separated_list0,
     sequence::tuple,
 };
 
@@ -16,10 +17,10 @@ use super::{
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebVarDeclaration<'a> {
-    /// The name of the constant.
-    name: StringSpan<'a>,
+    /// The name(s) of the constant(s).
+    names: Vec<StringSpan<'a>>,
 
-    /// The type of the constant.
+    /// The type of the constant(s).
     ty: WebType<'a>,
 
     /// Optional comment.
@@ -27,9 +28,11 @@ pub struct WebVarDeclaration<'a> {
 }
 
 pub fn parse_var_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+    eprintln!("VD: {:?}", input);
+
     map(
         tuple((
-            identifier,
+            separated_list0(pascal_token(PascalToken::Comma), identifier),
             pascal_token(PascalToken::Colon),
             parse_type,
             pascal_token(PascalToken::Semicolon),
@@ -37,7 +40,7 @@ pub fn parse_var_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebTo
         )),
         |tup| {
             WebToplevel::VarDeclaration(WebVarDeclaration {
-                name: tup.0,
+                names: tup.0,
                 ty: tup.2,
                 comment: tup.4,
             })

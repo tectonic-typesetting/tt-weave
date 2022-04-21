@@ -5,7 +5,7 @@
 use nom::{
     branch::alt,
     combinator::{map, opt},
-    multi::separated_list0,
+    multi::{many1, separated_list0},
     sequence::tuple,
 };
 
@@ -19,6 +19,7 @@ pub enum WebType<'a> {
     Range(RangeBound<'a>, RangeBound<'a>),
     PackedFileOf(StringSpan<'a>),
     Array(WebArrayType<'a>),
+    Record(WebRecordType<'a>),
     UserDefined(StringSpan<'a>),
 }
 
@@ -35,6 +36,7 @@ pub fn parse_type<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
         named("real", WebType::Real),
         named("boolean", WebType::Boolean),
         parse_packed_file_of,
+        parse_record,
         parse_array,
         parse_range,
         map(identifier, |s| WebType::UserDefined(s)),
@@ -130,6 +132,47 @@ fn parse_array<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
                 axes: t.3,
                 element: t.6,
             })
+        },
+    )(input)
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebRecordType<'a> {
+    fields: Vec<WebRecordField<'a>>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebRecordField<'a> {
+    name: StringSpan<'a>,
+    ty: Box<WebType<'a>>,
+    comment: Option<Vec<TypesetComment<'a>>>,
+}
+
+fn parse_record<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
+    map(
+        tuple((
+            reserved_word(PascalReservedWord::Packed),
+            reserved_word(PascalReservedWord::Record),
+            many1(parse_record_field),
+            reserved_word(PascalReservedWord::End),
+        )),
+        |t| WebType::Record(WebRecordType { fields: t.2 }),
+    )(input)
+}
+
+fn parse_record_field<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebRecordField<'a>> {
+    map(
+        tuple((
+            identifier,
+            pascal_token(PascalToken::Colon),
+            parse_type,
+            pascal_token(PascalToken::Semicolon),
+            opt(comment),
+        )),
+        |t| WebRecordField {
+            name: t.0,
+            ty: Box::new(t.2),
+            comment: t.4,
         },
     )(input)
 }
