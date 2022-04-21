@@ -34,6 +34,9 @@ pub enum WebExpr<'a> {
     /// Indexing an array.
     Index(WebIndexExpr<'a>),
 
+    /// Field access.
+    Field(WebFieldAccessExpr<'a>),
+
     /// A width specifier in a call like `write_ln`
     Format(WebFormatExpr<'a>),
 
@@ -47,6 +50,7 @@ pub fn parse_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
         parse_prefix_unary_expr,
         parse_paren_expr,
         parse_call_expr,
+        parse_field_expr,
         parse_index_expr,
         parse_strings,
         parse_format_expr,
@@ -176,7 +180,7 @@ fn parse_paren_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
             parse_expr,
             pascal_token(PascalToken::CloseDelimiter(DelimiterKind::Paren)),
         )),
-        |t| t.1,
+        |t| WebExpr::Paren(Box::new(t.1)),
     )(input)
 }
 
@@ -265,4 +269,20 @@ fn parse_format_expr<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
     let width = items.2;
 
     Ok((s, WebExpr::Format(WebFormatExpr { inner, width })))
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebFieldAccessExpr<'a> {
+    item: Box<WebExpr<'a>>,
+    field: StringSpan<'a>,
+}
+
+#[recursive_parser]
+fn parse_field_expr<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
+    let (s, items) = tuple((parse_expr, pascal_token(PascalToken::Period), identifier))(s)?;
+
+    let item = Box::new(items.0);
+    let field = items.2;
+
+    Ok((s, WebExpr::Field(WebFieldAccessExpr { item, field })))
 }
