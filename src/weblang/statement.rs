@@ -30,8 +30,11 @@ pub enum WebStatement<'a> {
     /// A goto
     Goto(WebGoto<'a>),
 
-    /// An if statement
+    /// An if statement.
     If(WebIf<'a>),
+
+    /// A statement that's just an expression.
+    Expr(WebExpr<'a>, Option<Vec<TypesetComment<'a>>>),
 }
 
 pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
@@ -45,11 +48,23 @@ pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebSta
         parse_goto,
         parse_if,
         parse_assignment,
+        parse_expr_statement,
     ))(input)
 }
 
 pub fn parse_statement<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
     map(parse_statement_base, |s| WebToplevel::Statement(s))(input)
+}
+
+pub fn parse_expr_statement<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
+    map(
+        tuple((
+            parse_expr,
+            opt(pascal_token(PascalToken::Semicolon)),
+            opt(comment),
+        )),
+        |t| WebStatement::Expr(t.0, t.2),
+    )(input)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

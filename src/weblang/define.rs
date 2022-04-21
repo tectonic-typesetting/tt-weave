@@ -45,8 +45,10 @@ pub fn parse_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a
             pascal_token(PascalToken::Equivalence),
             pascal_token(PascalToken::Equals),
         )),
-        parse_define_rhs,
-        opt(comment),
+        alt((
+            parse_inverted_statement,
+            tuple((parse_define_rhs, opt(comment))),
+        )),
     ))(input)?;
 
     if input.input_len() != 0 {
@@ -55,8 +57,8 @@ pub fn parse_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a
     }
 
     let lhs = items.1 .0.iter().map(|t| t.clone().into_pascal()).collect();
-    let rhs = items.3;
-    let comment = items.4;
+    let rhs = items.3 .0;
+    let comment = items.3 .1;
 
     Ok((input, WebToplevel::Define(WebDefine { lhs, rhs, comment })))
 }
@@ -97,6 +99,23 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
             WebDefineRhs::Standalone(s)
         }),
     ))(input)
+}
+
+/// There are some constructs rendered as `@d foo = { comment } begin ... end`.
+/// We handle fiddle with these to treat them homogeneously with other statements
+fn parse_inverted_statement<'a>(
+    input: ParseInput<'a>,
+) -> ParseResult<'a, (WebDefineRhs<'a>, Option<Vec<TypesetComment<'a>>>)> {
+    map(
+        tuple((
+            map(comment, |c| Some(c)),
+            map(statement::parse_statement_base, |s| {
+                WebDefineRhs::Statement(s)
+            }),
+            peek_end_of_define,
+        )),
+        |t| (t.1, t.0),
+    )(input)
 }
 
 /// Verify that the current input position is an "edge" of define content:

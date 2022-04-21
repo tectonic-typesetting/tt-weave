@@ -123,7 +123,11 @@ fn parse_fails<'b>(input: ParseInput<'b>) -> ParseResult<'b, WebToplevel<'b>> {
     if input.input_len() == 0 {
         new_parse_err(input, WebErrorKind::Eof)
     } else {
-        eprintln!("\n\nTL fail at: {:?}\n", input);
+        eprintln!("\n\nTL fail at:");
+        for t in input.0 {
+            eprintln!("  {:?}", t);
+        }
+        eprintln!();
         new_parse_err(input, WebErrorKind::ExpectedToplevel)
     }
 }
