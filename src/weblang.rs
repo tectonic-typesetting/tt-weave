@@ -21,6 +21,7 @@ mod preprocessor_directive;
 mod program_definition;
 mod standalone;
 mod statement;
+mod type_declaration;
 mod var_declaration;
 mod webtype;
 
@@ -71,6 +72,9 @@ pub enum WebToplevel<'a> {
 
     /// Declaration of a variable.
     VarDeclaration(var_declaration::WebVarDeclaration<'a>),
+
+    /// Declaration of a type.
+    TypeDeclaration(type_declaration::WebTypeDeclaration<'a>),
 
     /// A Pascal statement.
     Statement(statement::WebStatement<'a>),
@@ -141,6 +145,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         ifdef_like::parse_ifdef_like,
         const_declaration::parse_constant_declaration,
         var_declaration::parse_var_declaration,
+        type_declaration::parse_type_declaration,
         statement::parse_statement,
         map(expr::parse_expr, |e| WebToplevel::Expr(e)),
         // This goes second-to-last since it will match nearly anything:
