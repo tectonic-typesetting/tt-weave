@@ -36,6 +36,9 @@ pub enum WebStatement<'a> {
     /// A `while` loop.
     While(WebWhile<'a>),
 
+    /// A `for` loop.
+    For(WebFor<'a>),
+
     /// A statement that's just an expression.
     Expr(WebExpr<'a>, Option<Vec<TypesetComment<'a>>>),
 }
@@ -51,6 +54,7 @@ pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebSta
         parse_goto,
         parse_if,
         parse_while,
+        parse_for,
         parse_assignment,
         parse_expr_statement,
     ))(input)
@@ -258,12 +262,54 @@ fn parse_while<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
         reserved_word(PascalReservedWord::While),
         parse_expr,
         reserved_word(PascalReservedWord::Do),
-        debug("WHILE DO"),
         parse_statement_base,
     ))(input)?;
 
     let test = Box::new(items.1);
-    let do_ = Box::new(items.4); // 3
+    let do_ = Box::new(items.3);
 
     Ok((input, WebStatement::While(WebWhile { test, do_ })))
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebFor<'a> {
+    /// The loop variable
+    var: StringSpan<'a>,
+
+    /// The start expression.
+    start: Box<WebExpr<'a>>,
+
+    /// The end expression.
+    end: Box<WebExpr<'a>>,
+
+    /// The `do` statement, which may be a block.
+    do_: Box<WebStatement<'a>>,
+}
+
+fn parse_for<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
+    let (input, items) = tuple((
+        reserved_word(PascalReservedWord::For),
+        identifier,
+        pascal_token(PascalToken::Gets),
+        parse_expr,
+        reserved_word(PascalReservedWord::To),
+        parse_expr,
+        reserved_word(PascalReservedWord::Do),
+        parse_statement_base,
+    ))(input)?;
+
+    let var = items.1;
+    let start = Box::new(items.3);
+    let end = Box::new(items.5);
+    let do_ = Box::new(items.7);
+
+    Ok((
+        input,
+        WebStatement::For(WebFor {
+            var,
+            start,
+            end,
+            do_,
+        }),
+    ))
 }
