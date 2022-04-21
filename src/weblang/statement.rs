@@ -72,13 +72,14 @@ fn parse_block<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
         block_opener,
         many0(map(parse_statement_base, |s| Box::new(s))),
         block_closer,
+        opt(pascal_token(PascalToken::Semicolon)),
         opt(comment),
     ))(input)?;
 
     let opener = items.0;
     let stmts = items.1;
     let closer = items.2;
-    let post_comment = items.3;
+    let post_comment = items.4;
 
     Ok((
         input,
@@ -148,12 +149,13 @@ fn parse_assignment<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'
         identifier,
         pascal_token(PascalToken::Gets),
         parse_expr,
+        opt(pascal_token(PascalToken::Semicolon)),
         opt(comment),
     ))(input)?;
 
     let lhs = items.0;
     let rhs = Box::new(items.2);
-    let comment = items.3;
+    let comment = items.4;
 
     Ok((
         input,
@@ -174,11 +176,12 @@ fn parse_goto<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     let (input, items) = tuple((
         reserved_word(PascalReservedWord::Goto),
         identifier,
+        opt(pascal_token(PascalToken::Semicolon)),
         opt(comment),
     ))(input)?;
 
     let label = items.1;
-    let comment = items.2;
+    let comment = items.3;
 
     Ok((input, WebStatement::Goto(WebGoto { label, comment })))
 }
