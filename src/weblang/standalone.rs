@@ -18,7 +18,7 @@ pub struct WebStandalone<'a> {
     comment: Option<Vec<TypesetComment<'a>>>,
 }
 
-pub fn parse_standalone<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+pub fn parse_standalone_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStandalone<'a>> {
     let (input, token) = alt((
         map(identifier, |s| PascalToken::Identifier(s)),
         map(any_reserved_word, |s| PascalToken::ReservedWord(s)),
@@ -29,10 +29,11 @@ pub fn parse_standalone<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebTopleve
 
     let (input, comment) = opt(comment)(input)?;
 
-    Ok((
-        input,
-        WebToplevel::Standalone(WebStandalone { token, comment }),
-    ))
+    Ok((input, WebStandalone { token, comment }))
+}
+
+pub fn parse_standalone<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+    map(parse_standalone_base, |s| WebToplevel::Standalone(s))(input)
 }
 
 fn transmute_formatted<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {

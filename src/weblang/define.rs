@@ -4,10 +4,14 @@
 //! identifier if it has macro parameter, and the RHS can be any toplevel.
 
 use nom::{
-    branch::alt, bytes::complete::take_while1, combinator::opt, sequence::tuple, InputLength,
+    branch::alt,
+    bytes::complete::take_while1,
+    combinator::{map, opt},
+    sequence::tuple,
+    Err as NomErr, InputLength,
 };
 
-use super::{base::*, parse_toplevel, WebToplevel};
+use super::{base::*, standalone, statement, WebToplevel};
 
 /// A `@d` definition
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -15,8 +19,8 @@ pub struct WebDefine<'a> {
     /// The LHS of the define. This may be a sequence of tokens like `blah(#)`.
     lhs: Vec<PascalToken<'a>>,
 
-    /// The RHS. This could be anything, including partial bits of syntax.
-    rhs: Box<WebToplevel<'a>>,
+    /// The right hand side.
+    rhs: WebDefineRhs<'a>,
 
     /// Optional trailing comment.
     comment: Option<Vec<TypesetComment<'a>>>,
@@ -41,7 +45,7 @@ pub fn parse_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a
             pascal_token(PascalToken::Equivalence),
             pascal_token(PascalToken::Equals),
         )),
-        parse_toplevel,
+        parse_define_rhs,
         opt(comment),
     ))(input)?;
 
@@ -51,8 +55,52 @@ pub fn parse_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a
     }
 
     let lhs = items.1 .0.iter().map(|t| t.clone().into_pascal()).collect();
-    let rhs = Box::new(items.3);
+    let rhs = items.3;
     let comment = items.4;
 
     Ok((input, WebToplevel::Define(WebDefine { lhs, rhs, comment })))
+}
+
+/// The right-hand-side of a `@d` definition
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum WebDefineRhs<'a> {
+    Standalone(standalone::WebStandalone<'a>),
+
+    /// The boolean specifies whether it's an opener or closer
+    IfdefLike(bool),
+
+    Statement(statement::WebStatement<'a>),
+}
+
+fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    alt((
+        parse_ifdef_like,
+        map(statement::parse_statement_base, |s| {
+            WebDefineRhs::Statement(s)
+        }),
+        map(standalone::parse_standalone_base, |s| {
+            WebDefineRhs::Standalone(s)
+        }),
+    ))(input)
+}
+
+fn parse_ifdef_like<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    let (input, tok) = alt((
+        pascal_token(PascalToken::OpenDelimiter(DelimiterKind::MetaComment)),
+        pascal_token(PascalToken::CloseDelimiter(DelimiterKind::MetaComment)),
+    ))(input)?;
+
+    // Make sure that's it, or there's a comment next.
+    match comment(input) {
+        Ok(..) | Err(NomErr::Error((_, WebErrorKind::Eof))) => {}
+        _ => return new_parse_err(input, WebErrorKind::ExpectedComment),
+    }
+
+    let is_open = if let PascalToken::OpenDelimiter(DelimiterKind::MetaComment) = tok {
+        true
+    } else {
+        false
+    };
+
+    Ok((input, WebDefineRhs::IfdefLike(is_open)))
 }

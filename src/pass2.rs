@@ -176,7 +176,8 @@ fn scan_pascal_only<'a>(
             PascalToken::IndexEntry(_, _)
             | PascalToken::DefinitionFlag
             | PascalToken::CancelDefinitionFlag
-            | PascalToken::Formatting => {}
+            | PascalToken::Formatting
+            | PascalToken::TexString(_) => {}
 
             other => {
                 ptoks.push(other);
