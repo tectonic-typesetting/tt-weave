@@ -42,7 +42,7 @@ pub enum WebStatement<'a> {
 
 pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     alt((
-        map(module_reference, |t| WebStatement::ModuleReference(t)),
+        parse_mod_ref_statement,
         parse_block,
         map(
             preprocessor_directive::parse_preprocessor_directive_base,
@@ -60,7 +60,14 @@ pub fn parse_statement<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel
     map(parse_statement_base, |s| WebToplevel::Statement(s))(input)
 }
 
-pub fn parse_expr_statement<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
+fn parse_mod_ref_statement<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
+    map(
+        tuple((module_reference, opt(pascal_token(PascalToken::Semicolon)))),
+        |t| WebStatement::ModuleReference(t.0),
+    )(input)
+}
+
+fn parse_expr_statement<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     map(
         tuple((
             parse_expr,
