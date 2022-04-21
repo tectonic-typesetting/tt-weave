@@ -9,7 +9,7 @@ use nom::{
 
 use super::{
     base::*,
-    expr::{parse_expr, WebExpr},
+    expr::{parse_expr, parse_lhs_expr, WebExpr},
     preprocessor_directive, WebToplevel,
 };
 
@@ -135,7 +135,7 @@ pub fn block_closer<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebAssignment<'a> {
     /// The left-hand side.
-    lhs: StringSpan<'a>,
+    lhs: Box<WebExpr<'a>>,
 
     /// The right-hand side.
     rhs: Box<WebExpr<'a>>,
@@ -146,14 +146,14 @@ pub struct WebAssignment<'a> {
 
 fn parse_assignment<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     let (input, items) = tuple((
-        identifier,
+        parse_lhs_expr,
         pascal_token(PascalToken::Gets),
         parse_expr,
         opt(pascal_token(PascalToken::Semicolon)),
         opt(comment),
     ))(input)?;
 
-    let lhs = items.0;
+    let lhs = Box::new(items.0);
     let rhs = Box::new(items.2);
     let comment = items.4;
 
