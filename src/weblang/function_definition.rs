@@ -25,8 +25,7 @@ pub struct WebFunctionDefinition<'a> {
     /// The name of the function.
     name: StringSpan<'a>,
 
-    /// The function's arguments. Each of these WebVariables items should
-    /// contain only one name.
+    /// The function's arguments.
     args: Vec<WebVariables<'a>>,
 
     /// The return type. If `Some`, this is a function; otherwise it is a
@@ -47,6 +46,10 @@ pub struct WebFunctionDefinition<'a> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebVariables<'a> {
+    /// Whether a function argument is marked with the `var` keyword. This may
+    /// be more properly per-name, but this is sufficient for our use case.
+    is_var: bool,
+
     /// The name(s) of the variable(s).
     names: Vec<StringSpan<'a>>,
 
@@ -60,7 +63,7 @@ pub enum WebVarBlockItem<'a> {
     ModuleReference(StringSpan<'a>),
 
     /// Actual in-place definitions
-    InPlace(WebVariables<'a>),
+    InPlace(WebVariables<'a>, Option<Vec<TypesetComment<'a>>>),
 }
 
 fn parse_var_block_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVarBlockItem<'a>> {
@@ -72,23 +75,34 @@ fn parse_var_block_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVarBloc
                 pascal_token(PascalToken::Colon),
                 parse_type,
                 pascal_token(PascalToken::Semicolon),
+                opt(comment),
             )),
             |tup| {
-                WebVarBlockItem::InPlace(WebVariables {
-                    names: tup.0,
-                    ty: tup.2,
-                })
+                WebVarBlockItem::InPlace(
+                    WebVariables {
+                        is_var: false,
+                        names: tup.0,
+                        ty: tup.2,
+                    },
+                    tup.4,
+                )
             },
         ),
     ))(input)
 }
 
-fn parse_single_variable<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVariables<'a>> {
+fn parse_argument_group<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVariables<'a>> {
     map(
-        tuple((identifier, pascal_token(PascalToken::Colon), parse_type)),
+        tuple((
+            opt(reserved_word(PascalReservedWord::Var)),
+            separated_list0(pascal_token(PascalToken::Comma), identifier),
+            pascal_token(PascalToken::Colon),
+            parse_type,
+        )),
         |tup| WebVariables {
-            names: vec![tup.0],
-            ty: tup.2,
+            is_var: tup.0.is_some(),
+            names: tup.1,
+            ty: tup.3,
         },
     )(input)
 }
@@ -104,7 +118,7 @@ pub fn parse_function_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, W
         identifier,
         opt(tuple((
             open_delimiter(DelimiterKind::Paren),
-            separated_list0(pascal_token(PascalToken::Comma), parse_single_variable),
+            separated_list0(pascal_token(PascalToken::Semicolon), parse_argument_group),
             close_delimiter(DelimiterKind::Paren),
         ))),
         opt(tuple((pascal_token(PascalToken::Colon), parse_type))),
