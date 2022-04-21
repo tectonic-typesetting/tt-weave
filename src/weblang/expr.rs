@@ -1,6 +1,6 @@
 //! A WEB expression.
 
-use nom::{branch::alt, sequence::tuple};
+use nom::{branch::alt, combinator::map, multi::separated_list0, sequence::tuple};
 use nom_recursive::recursive_parser;
 
 use super::base::*;
@@ -12,10 +12,13 @@ pub enum WebExpr<'a> {
 
     /// Some kind of token that is a valid expression on its own.
     Token(PascalToken<'a>),
+
+    /// A function or procedure call.
+    Call(WebCallExpr<'a>),
 }
 
 pub fn parse_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    alt((parse_binary_expr, parse_token_expr))(input)
+    alt((parse_binary_expr, parse_call_expr, parse_token_expr))(input)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -77,4 +80,29 @@ fn parse_token_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
     }
 
     return new_parse_err(input, WebErrorKind::Eof);
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebCallExpr<'a> {
+    target: Box<WebExpr<'a>>,
+
+    args: Vec<Box<WebExpr<'a>>>,
+}
+
+#[recursive_parser]
+fn parse_call_expr<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
+    let (s, items) = tuple((
+        parse_expr,
+        open_delimiter(DelimiterKind::Paren),
+        separated_list0(
+            pascal_token(PascalToken::Comma),
+            map(parse_expr, |e| Box::new(e)),
+        ),
+        close_delimiter(DelimiterKind::Paren),
+    ))(s)?;
+
+    let target = Box::new(items.0);
+    let args = items.2;
+
+    Ok((s, WebExpr::Call(WebCallExpr { target, args })))
 }
