@@ -42,6 +42,8 @@ pub struct WebFunctionDefinition<'a> {
     stmts: Vec<WebStatement<'a>>,
 }
 
+// The `var` block
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebVariables<'a> {
     /// The name(s) of the variable(s).
@@ -89,6 +91,8 @@ fn parse_single_variable<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVariab
         },
     )(input)
 }
+
+// Tying it all together
 
 pub fn parse_function_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
     let (input, items) = tuple((

@@ -9,6 +9,7 @@ use nom::{
 use nom_recursive::RecursiveInfo;
 
 mod base;
+mod const_declaration;
 mod define;
 mod expr;
 mod format;
@@ -62,6 +63,9 @@ pub enum WebToplevel<'a> {
 
     /// A Pascal preprocessor directive comment.
     PreprocessorDirective(preprocessor_directive::WebPreprocessorDirective<'a>),
+
+    /// Declaration of a constant.
+    ConstDeclaration(const_declaration::WebConstantDeclaration<'a>),
 
     /// A Pascal statement.
     Statement(statement::WebStatement<'a>),
@@ -130,6 +134,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         // This goes before ifdef-like since it's more specific:
         preprocessor_directive::parse_preprocessor_directive,
         ifdef_like::parse_ifdef_like,
+        const_declaration::parse_constant_declaration,
         statement::parse_statement,
         map(expr::parse_expr, |e| WebToplevel::Expr(e)),
         // This goes second-to-last since it will match nearly anything:

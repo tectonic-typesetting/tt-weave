@@ -75,6 +75,9 @@ pub enum WebDefineRhs<'a> {
     /// Definition of `do_nothing`: an empty statement
     EmptyDefinition,
 
+    /// Definition of `othercases`: `{label}{colon}`
+    OthercasesDefinition(StringSpan<'a>),
+
     Statement(statement::WebStatement<'a>),
 }
 
@@ -83,6 +86,7 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
         parse_ifdef_like,
         parse_loop_definition,
         map(peek_end_of_define, |_| WebDefineRhs::EmptyDefinition),
+        parse_othercases,
         map(statement::parse_statement_base, |s| {
             WebDefineRhs::Statement(s)
         }),
@@ -136,4 +140,15 @@ fn parse_loop_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefine
     ))(input)?;
 
     Ok((input, WebDefineRhs::LoopDefinition(items.1)))
+}
+
+fn parse_othercases<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    map(
+        tuple((
+            identifier,
+            pascal_token(PascalToken::Colon),
+            peek_end_of_define,
+        )),
+        |t| WebDefineRhs::OthercasesDefinition(t.0),
+    )(input)
 }
