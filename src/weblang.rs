@@ -65,6 +65,9 @@ pub enum WebToplevel<'a> {
 
     /// A Pascal statement.
     Statement(statement::WebStatement<'a>),
+
+    /// A Pascal expression.
+    Expr(expr::WebExpr<'a>),
 }
 
 /// A block of WEB code: a sequence of parsed-out WEB toplevels
@@ -128,6 +131,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         preprocessor_directive::parse_preprocessor_directive,
         ifdef_like::parse_ifdef_like,
         statement::parse_statement,
+        map(expr::parse_expr, |e| WebToplevel::Expr(e)),
         // This goes second-to-last since it will match nearly anything:
         standalone::parse_standalone,
         // This goes last for debugging:

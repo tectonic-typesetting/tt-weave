@@ -26,6 +26,9 @@ pub enum WebStatement<'a> {
 
     /// A preprocessor directive.
     PreprocessorDirective(preprocessor_directive::WebPreprocessorDirective<'a>),
+
+    /// A goto
+    Goto(WebGoto<'a>),
 }
 
 pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
@@ -36,6 +39,7 @@ pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebSta
             preprocessor_directive::parse_preprocessor_directive_base,
             |d| WebStatement::PreprocessorDirective(d),
         ),
+        parse_goto,
         parse_assignment,
     ))(input)
 }
@@ -151,4 +155,26 @@ fn parse_assignment<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'
         input,
         WebStatement::Assignment(WebAssignment { lhs, rhs, comment }),
     ))
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebGoto<'a> {
+    /// The label.
+    label: StringSpan<'a>,
+
+    /// Optional comment.
+    comment: Option<Vec<TypesetComment<'a>>>,
+}
+
+fn parse_goto<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
+    let (input, items) = tuple((
+        reserved_word(PascalReservedWord::Goto),
+        identifier,
+        opt(comment),
+    ))(input)?;
+
+    let label = items.1;
+    let comment = items.2;
+
+    Ok((input, WebStatement::Goto(WebGoto { label, comment })))
 }
