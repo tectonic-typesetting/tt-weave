@@ -77,7 +77,7 @@ pub enum WebToplevel<'a> {
     TypeDeclaration(type_declaration::WebTypeDeclaration<'a>),
 
     /// A Pascal statement.
-    Statement(statement::WebStatement<'a>),
+    Statement(statement::WebStatement<'a>, Option<Vec<TypesetComment<'a>>>),
 
     /// A Pascal expression.
     Expr(expr::WebExpr<'a>),

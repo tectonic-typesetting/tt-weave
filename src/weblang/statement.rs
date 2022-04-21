@@ -61,7 +61,9 @@ pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebSta
 }
 
 pub fn parse_statement<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
-    map(parse_statement_base, |s| WebToplevel::Statement(s))(input)
+    map(tuple((parse_statement_base, opt(comment))), |t| {
+        WebToplevel::Statement(t.0, t.1)
+    })(input)
 }
 
 fn parse_mod_ref_statement<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {

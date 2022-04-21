@@ -59,8 +59,10 @@ pub fn parse_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
     ))(input)
 }
 
+/// Due to WEB's macros, things that look like function calls can appear
+/// as LHSes.
 pub fn parse_lhs_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    alt((parse_index_expr, parse_token_expr))(input)
+    alt((parse_index_expr, parse_call_expr, parse_token_expr))(input)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
