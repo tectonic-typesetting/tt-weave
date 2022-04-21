@@ -33,6 +33,9 @@ pub enum WebExpr<'a> {
 
     /// Indexing an array.
     Index(WebIndexExpr<'a>),
+
+    /// A width specifier in a call like `write_ln`
+    Format(WebFormatExpr<'a>),
 }
 
 pub fn parse_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
@@ -42,6 +45,7 @@ pub fn parse_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
         parse_call_expr,
         parse_index_expr,
         parse_strings,
+        parse_format_expr,
         parse_postfix_unary_expr,
         parse_token_expr,
     ))(input)
@@ -226,4 +230,20 @@ fn parse_index_expr<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
     let args = items.2;
 
     Ok((s, WebExpr::Index(WebIndexExpr { target, args })))
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebFormatExpr<'a> {
+    inner: Box<WebExpr<'a>>,
+    width: PascalToken<'a>,
+}
+
+#[recursive_parser]
+fn parse_format_expr<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
+    let (s, items) = tuple((parse_expr, pascal_token(PascalToken::Colon), int_literal))(s)?;
+
+    let inner = Box::new(items.0);
+    let width = items.2;
+
+    Ok((s, WebExpr::Format(WebFormatExpr { inner, width })))
 }
