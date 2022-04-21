@@ -11,7 +11,7 @@ use nom::{
     InputLength,
 };
 
-use super::{base::*, standalone, statement, WebToplevel};
+use super::{base::*, expr, standalone, statement, WebToplevel};
 
 /// A `@d` definition
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -79,6 +79,8 @@ pub enum WebDefineRhs<'a> {
     OthercasesDefinition(StringSpan<'a>),
 
     Statement(statement::WebStatement<'a>),
+
+    Expr(expr::WebExpr<'a>),
 }
 
 fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
@@ -90,6 +92,7 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
         map(statement::parse_statement_base, |s| {
             WebDefineRhs::Statement(s)
         }),
+        map(expr::parse_expr, |e| WebDefineRhs::Expr(e)),
         map(standalone::parse_standalone_base, |s| {
             WebDefineRhs::Standalone(s)
         }),
