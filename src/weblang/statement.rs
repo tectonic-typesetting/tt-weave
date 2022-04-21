@@ -29,6 +29,9 @@ pub enum WebStatement<'a> {
 
     /// A goto
     Goto(WebGoto<'a>),
+
+    /// An if statement
+    If(WebIf<'a>),
 }
 
 pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
@@ -40,6 +43,7 @@ pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebSta
             |d| WebStatement::PreprocessorDirective(d),
         ),
         parse_goto,
+        parse_if,
         parse_assignment,
     ))(input)
 }
@@ -177,4 +181,36 @@ fn parse_goto<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     let comment = items.2;
 
     Ok((input, WebStatement::Goto(WebGoto { label, comment })))
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebIf<'a> {
+    /// The test expression
+    test: Box<WebExpr<'a>>,
+
+    /// The `then` statement, which may be a block.
+    then: Box<WebStatement<'a>>,
+
+    /// The optional `else` statement, which may be a block, or may be another
+    /// `if` statement.
+    else_: Option<Box<WebStatement<'a>>>,
+}
+
+fn parse_if<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
+    let (input, items) = tuple((
+        reserved_word(PascalReservedWord::If),
+        parse_expr,
+        reserved_word(PascalReservedWord::Then),
+        parse_statement_base,
+        opt(tuple((
+            reserved_word(PascalReservedWord::Else),
+            parse_statement_base,
+        ))),
+    ))(input)?;
+
+    let test = Box::new(items.1);
+    let then = Box::new(items.3);
+    let else_ = items.4.map(|t| Box::new(t.1));
+
+    Ok((input, WebStatement::If(WebIf { test, then, else_ })))
 }

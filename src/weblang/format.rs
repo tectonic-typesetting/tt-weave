@@ -42,6 +42,6 @@ fn identifier_or_formatted<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringS
     } else if let WebToken::Pascal(PascalToken::FormattedIdentifier(s, _)) = wt {
         Ok((input, s))
     } else {
-        return new_parse_err(input, WebErrorKind::ExpectedIdentifer);
+        return new_parse_err(input, WebErrorKind::ExpectedIdentifier);
     }
 }

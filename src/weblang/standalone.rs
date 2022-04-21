@@ -42,6 +42,6 @@ fn transmute_formatted<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken
     if let WebToken::Pascal(PascalToken::FormattedIdentifier(s, _)) = wt {
         Ok((input, PascalToken::Identifier(s)))
     } else {
-        return new_parse_err(input, WebErrorKind::ExpectedIdentifer);
+        return new_parse_err(input, WebErrorKind::ExpectedIdentifier);
     }
 }

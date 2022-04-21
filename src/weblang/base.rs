@@ -166,7 +166,7 @@ impl<'a> AsBytes for ParseInput<'a> {
 pub enum WebErrorKind {
     Eof,
     ExpectedPascalToken,
-    ExpectedIdentifer,
+    ExpectedIdentifier,
     ExpectedStringLiteral,
     ExpectedIntLiteral,
     ExpectedComment,
@@ -249,7 +249,7 @@ pub fn identifier<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan<'a>> 
             },
         ))
     } else {
-        return new_parse_err(input, WebErrorKind::ExpectedIdentifer);
+        return new_parse_err(input, WebErrorKind::ExpectedIdentifier);
     }
 }
 
@@ -353,6 +353,6 @@ pub fn module_reference<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan
     if let WebToken::ModuleReference(s) = wt {
         Ok((input, s))
     } else {
-        return new_parse_err(input, WebErrorKind::ExpectedIdentifer);
+        return new_parse_err(input, WebErrorKind::ExpectedIdentifier);
     }
 }

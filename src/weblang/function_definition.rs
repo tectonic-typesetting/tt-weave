@@ -13,6 +13,7 @@ use nom::{
 use super::{
     base::*,
     statement::{parse_statement_base, WebStatement},
+    webtype::{parse_type, WebType},
     WebToplevel,
 };
 
@@ -30,7 +31,7 @@ pub struct WebFunctionDefinition<'a> {
 
     /// The return type. If `Some`, this is a function; otherwise it is a
     /// procedure.
-    return_type: Option<StringSpan<'a>>,
+    return_type: Option<WebType<'a>>,
 
     /// The comment associated with the definition of the function.
     opening_comment: Option<Vec<TypesetComment<'a>>>,
@@ -50,7 +51,7 @@ pub struct WebVariables<'a> {
     names: Vec<StringSpan<'a>>,
 
     /// The type of the variable(s).
-    ty: StringSpan<'a>,
+    ty: WebType<'a>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -69,7 +70,7 @@ fn parse_var_block_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVarBloc
             tuple((
                 separated_list0(pascal_token(PascalToken::Comma), identifier),
                 pascal_token(PascalToken::Colon),
-                identifier,
+                parse_type,
                 pascal_token(PascalToken::Semicolon),
             )),
             |tup| {
@@ -84,7 +85,7 @@ fn parse_var_block_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVarBloc
 
 fn parse_single_variable<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVariables<'a>> {
     map(
-        tuple((identifier, pascal_token(PascalToken::Colon), identifier)),
+        tuple((identifier, pascal_token(PascalToken::Colon), parse_type)),
         |tup| WebVariables {
             names: vec![tup.0],
             ty: tup.2,
@@ -106,7 +107,7 @@ pub fn parse_function_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, W
             separated_list0(pascal_token(PascalToken::Comma), parse_single_variable),
             close_delimiter(DelimiterKind::Paren),
         ))),
-        opt(tuple((pascal_token(PascalToken::Colon), identifier))),
+        opt(tuple((pascal_token(PascalToken::Colon), parse_type))),
         pascal_token(PascalToken::Semicolon),
         opt(comment),
         opt(tuple((
