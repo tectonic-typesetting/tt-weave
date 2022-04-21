@@ -2,7 +2,12 @@
 //!
 //! I.e., Pascal types.
 
-use nom::{branch::alt, combinator::map, multi::separated_list0, sequence::tuple};
+use nom::{
+    branch::alt,
+    combinator::{map, opt},
+    multi::separated_list0,
+    sequence::tuple,
+};
 
 use super::base::*;
 
@@ -20,7 +25,8 @@ pub enum WebType<'a> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RangeBound<'a> {
     Literal(PascalToken<'a>),
-    Symbolic(StringSpan<'a>),
+    Symbolic1(StringSpan<'a>),
+    Symbolic2(StringSpan<'a>, PascalToken<'a>, PascalToken<'a>),
 }
 
 pub fn parse_type<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
@@ -64,8 +70,25 @@ fn parse_range<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
 fn parse_range_bound<'a>(input: ParseInput<'a>) -> ParseResult<'a, RangeBound<'a>> {
     alt((
         map(int_literal, |t| RangeBound::Literal(t)),
-        map(identifier, |i| RangeBound::Symbolic(i)),
+        parse_binary_range_bound,
+        map(identifier, |i| RangeBound::Symbolic1(i)),
     ))(input)
+}
+
+/// This is for WEB range bounds that rely on math performed on @define
+/// constants by the WEB preprocessor.
+fn parse_binary_range_bound<'a>(input: ParseInput<'a>) -> ParseResult<'a, RangeBound<'a>> {
+    map(
+        tuple((
+            identifier,
+            alt((
+                pascal_token(PascalToken::Plus),
+                pascal_token(PascalToken::Minus),
+            )),
+            int_literal,
+        )),
+        |t| RangeBound::Symbolic2(t.0, t.1, t.2),
+    )(input)
 }
 
 fn parse_packed_file_of<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
@@ -82,6 +105,7 @@ fn parse_packed_file_of<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebArrayType<'a> {
+    is_packed: bool,
     axes: Vec<Box<WebType<'a>>>,
     element: Box<WebType<'a>>,
 }
@@ -89,6 +113,7 @@ pub struct WebArrayType<'a> {
 fn parse_array<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
     map(
         tuple((
+            opt(reserved_word(PascalReservedWord::Packed)),
             reserved_word(PascalReservedWord::Array),
             pascal_token(PascalToken::OpenDelimiter(DelimiterKind::SquareBracket)),
             separated_list0(
@@ -101,8 +126,9 @@ fn parse_array<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
         )),
         |t| {
             WebType::Array(WebArrayType {
-                axes: t.2,
-                element: t.5,
+                is_packed: t.0.is_some(),
+                axes: t.3,
+                element: t.6,
             })
         },
     )(input)

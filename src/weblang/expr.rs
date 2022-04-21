@@ -36,12 +36,16 @@ pub enum WebExpr<'a> {
 
     /// A width specifier in a call like `write_ln`
     Format(WebFormatExpr<'a>),
+
+    /// A parenthesized subexpression.
+    Paren(Box<WebExpr<'a>>),
 }
 
 pub fn parse_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
     alt((
         parse_binary_expr,
         parse_prefix_unary_expr,
+        parse_paren_expr,
         parse_call_expr,
         parse_index_expr,
         parse_strings,
@@ -89,7 +93,11 @@ fn binary_expr_op<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>>
             | PascalToken::Less
             | PascalToken::LessEquals
             | PascalToken::Equals
-            | PascalToken::NotEquals => return Ok((input, pt)),
+            | PascalToken::NotEquals
+            | PascalToken::ReservedWord(SpanValue {
+                value: PascalReservedWord::Mod,
+                ..
+            }) => return Ok((input, pt)),
 
             _ => {}
         }
@@ -159,6 +167,17 @@ fn postfix_unary_expr_op<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalTok
     }
 
     return new_parse_err(input, WebErrorKind::Eof);
+}
+
+fn parse_paren_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
+    map(
+        tuple((
+            pascal_token(PascalToken::OpenDelimiter(DelimiterKind::Paren)),
+            parse_expr,
+            pascal_token(PascalToken::CloseDelimiter(DelimiterKind::Paren)),
+        )),
+        |t| t.1,
+    )(input)
 }
 
 fn parse_token_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
