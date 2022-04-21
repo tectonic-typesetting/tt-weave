@@ -69,12 +69,20 @@ pub enum WebDefineRhs<'a> {
     /// The boolean specifies whether it's an opener or closer
     IfdefLike(bool),
 
+    /// Definition of `loop`
+    LoopDefinition(StringSpan<'a>),
+
+    /// Definition of `do_nothing`: an empty statement
+    EmptyDefinition,
+
     Statement(statement::WebStatement<'a>),
 }
 
 fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
     alt((
         parse_ifdef_like,
+        parse_loop_definition,
+        map(peek_end_of_define, |_| WebDefineRhs::EmptyDefinition),
         map(statement::parse_statement_base, |s| {
             WebDefineRhs::Statement(s)
         }),
@@ -84,23 +92,48 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
     ))(input)
 }
 
-fn parse_ifdef_like<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
-    let (input, tok) = alt((
-        pascal_token(PascalToken::OpenDelimiter(DelimiterKind::MetaComment)),
-        pascal_token(PascalToken::CloseDelimiter(DelimiterKind::MetaComment)),
-    ))(input)?;
-
-    // Make sure that's it, or there's a comment next.
-    match comment(input) {
-        Ok(..) | Err(NomErr::Error((_, WebErrorKind::Eof))) => {}
-        _ => return new_parse_err(input, WebErrorKind::ExpectedComment),
+/// Verify that the current input position is an "edge" of define content:
+/// either an empty input, or there's a comment coming up. But we don't
+/// consume the comment.
+fn peek_end_of_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, ()> {
+    match input.input_len() {
+        0 => return Ok((input, ())),
+        1 => {}
+        _ => return new_parse_err(input, WebErrorKind::NotDefineEdge),
     }
 
-    let is_open = if let PascalToken::OpenDelimiter(DelimiterKind::MetaComment) = tok {
+    if comment(input).is_ok() {
+        Ok((input, ()))
+    } else {
+        new_parse_err(input, WebErrorKind::NotDefineEdge)
+    }
+}
+
+fn parse_ifdef_like<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    let (input, items) = tuple((
+        alt((
+            pascal_token(PascalToken::OpenDelimiter(DelimiterKind::MetaComment)),
+            pascal_token(PascalToken::CloseDelimiter(DelimiterKind::MetaComment)),
+        )),
+        peek_end_of_define,
+    ))(input)?;
+
+    let is_open = if let PascalToken::OpenDelimiter(DelimiterKind::MetaComment) = items.0 {
         true
     } else {
         false
     };
 
     Ok((input, WebDefineRhs::IfdefLike(is_open)))
+}
+
+fn parse_loop_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    let (input, items) = tuple((
+        reserved_word(PascalReservedWord::While),
+        identifier,
+        reserved_word(PascalReservedWord::Do),
+        peek_end_of_define,
+    ))(input)?;
+
+    Ok((input, WebDefineRhs::LoopDefinition(items.1)))
 }
