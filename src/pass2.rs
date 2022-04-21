@@ -1,13 +1,13 @@
 //! The second pass -- emitting TeX
 
 use nom::{bytes::complete::take_while, character::complete::char, error::ErrorKind, Finish};
-use std::fmt::Write;
+use std::{borrow::Cow, fmt::Write};
 use syntect::highlighting::ThemeSet;
 use tectonic_errors::prelude::*;
 
 use crate::{
     control::ControlKind,
-    parse_base::{new_parse_error, ParseResult, Span, SpanValue},
+    parse_base::{new_parse_error, ParseResult, Span, SpanValue, StringSpan},
     pascal_token::PascalToken,
     reserved::PascalReservedWord,
     state::{ModuleId, State},
@@ -176,8 +176,27 @@ fn scan_pascal_only<'a>(
             PascalToken::IndexEntry(_, _)
             | PascalToken::DefinitionFlag
             | PascalToken::CancelDefinitionFlag
-            | PascalToken::Formatting
-            | PascalToken::TexString(_) => {}
+            | PascalToken::Formatting => {}
+
+            // Occasionally TexStrings are used as placeholders inside Pascal
+            // expressions in inline Pascal expressions. If we elide them
+            // entirely, this causes WEB parser to choke. Our current hack is to
+            // try to pick out the ones that are used this way and transform
+            // them into identifiers. It *looks* like we can do this by
+            // searching for ones that wrap math expressions.
+            PascalToken::TexString(sv) => {
+                let text = sv.value.as_ref();
+
+                if let Some(t) = text.strip_prefix("$") {
+                    if let Some(t) = t.strip_suffix("$") {
+                        ptoks.push(PascalToken::Identifier(StringSpan {
+                            start: sv.start.clone(),
+                            end: sv.start.clone(),
+                            value: Cow::Owned(t.to_owned()),
+                        }));
+                    }
+                }
+            }
 
             other => {
                 ptoks.push(other);
