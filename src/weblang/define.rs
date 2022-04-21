@@ -8,7 +8,7 @@ use nom::{
     bytes::complete::take_while1,
     combinator::{map, opt},
     sequence::tuple,
-    Err as NomErr, InputLength,
+    InputLength,
 };
 
 use super::{base::*, standalone, statement, WebToplevel};

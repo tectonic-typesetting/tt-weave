@@ -1,6 +1,6 @@
 //! A WEB expression.
 
-use nom::{branch::alt, combinator::map, sequence::tuple};
+use nom::{branch::alt, sequence::tuple};
 use nom_recursive::recursive_parser;
 
 use super::base::*;

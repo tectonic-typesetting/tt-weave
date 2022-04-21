@@ -8,7 +8,7 @@ use tectonic_errors::prelude::*;
 use crate::{
     control::ControlKind,
     parse_base::{new_parse_error, ParseResult, Span, SpanValue},
-    pascal_token::{match_pascal_token, PascalToken},
+    pascal_token::PascalToken,
     reserved::PascalReservedWord,
     state::{ModuleId, State},
     token::{next_token, Token},
