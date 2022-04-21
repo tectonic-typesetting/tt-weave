@@ -30,8 +30,11 @@ pub enum WebStatement<'a> {
     /// A goto
     Goto(WebGoto<'a>),
 
-    /// An if statement.
+    /// An `if` statement.
     If(WebIf<'a>),
+
+    /// A `while` loop.
+    While(WebWhile<'a>),
 
     /// A statement that's just an expression.
     Expr(WebExpr<'a>, Option<Vec<TypesetComment<'a>>>),
@@ -47,6 +50,7 @@ pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebSta
         ),
         parse_goto,
         parse_if,
+        parse_while,
         parse_assignment,
         parse_expr_statement,
     ))(input)
@@ -231,4 +235,28 @@ fn parse_if<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     let else_ = items.4.map(|t| Box::new(t.1));
 
     Ok((input, WebStatement::If(WebIf { test, then, else_ })))
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebWhile<'a> {
+    /// The loop test expression
+    test: Box<WebExpr<'a>>,
+
+    /// The `do` statement, which may be a block.
+    do_: Box<WebStatement<'a>>,
+}
+
+fn parse_while<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
+    let (input, items) = tuple((
+        reserved_word(PascalReservedWord::While),
+        parse_expr,
+        reserved_word(PascalReservedWord::Do),
+        debug("WHILE DO"),
+        parse_statement_base,
+    ))(input)?;
+
+    let test = Box::new(items.1);
+    let do_ = Box::new(items.4); // 3
+
+    Ok((input, WebStatement::While(WebWhile { test, do_ })))
 }

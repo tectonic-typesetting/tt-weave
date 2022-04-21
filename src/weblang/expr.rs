@@ -15,6 +15,12 @@ pub enum WebExpr<'a> {
     /// A binary expression.
     Binary(WebBinaryExpr<'a>),
 
+    /// A prefix unary expression.
+    PrefixUnary(WebPrefixUnaryExpr<'a>),
+
+    /// A postfix unary expression.
+    PostfixUnary(WebPostfixUnaryExpr<'a>),
+
     /// Some kind of token that is a valid expression on its own.
     Token(PascalToken<'a>),
 
@@ -32,9 +38,11 @@ pub enum WebExpr<'a> {
 pub fn parse_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
     alt((
         parse_binary_expr,
+        parse_prefix_unary_expr,
         parse_call_expr,
         parse_index_expr,
         parse_strings,
+        parse_postfix_unary_expr,
         parse_token_expr,
     ))(input)
 }
@@ -79,6 +87,69 @@ fn binary_expr_op<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>>
             | PascalToken::Equals
             | PascalToken::NotEquals => return Ok((input, pt)),
 
+            _ => {}
+        }
+    }
+
+    return new_parse_err(input, WebErrorKind::Eof);
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebPrefixUnaryExpr<'a> {
+    op: PascalToken<'a>,
+
+    inner: Box<WebExpr<'a>>,
+}
+
+fn parse_prefix_unary_expr<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
+    let (s, items) = tuple((prefix_unary_expr_op, parse_expr))(s)?;
+
+    let op = items.0;
+    let inner = Box::new(items.1);
+
+    Ok((s, WebExpr::PrefixUnary(WebPrefixUnaryExpr { op, inner })))
+}
+
+fn prefix_unary_expr_op<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+    let (input, wt) = next_token(input)?;
+
+    if let WebToken::Pascal(pt) = wt {
+        match pt {
+            PascalToken::ReservedWord(SpanValue {
+                value: PascalReservedWord::Not,
+                ..
+            }) => return Ok((input, pt)),
+
+            _ => {}
+        }
+    }
+
+    return new_parse_err(input, WebErrorKind::Eof);
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebPostfixUnaryExpr<'a> {
+    op: PascalToken<'a>,
+
+    inner: Box<WebExpr<'a>>,
+}
+
+#[recursive_parser]
+fn parse_postfix_unary_expr<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
+    let (s, items) = tuple((parse_expr, postfix_unary_expr_op))(s)?;
+
+    let inner = Box::new(items.0);
+    let op = items.1;
+
+    Ok((s, WebExpr::PostfixUnary(WebPostfixUnaryExpr { op, inner })))
+}
+
+fn postfix_unary_expr_op<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+    let (input, wt) = next_token(input)?;
+
+    if let WebToken::Pascal(pt) = wt {
+        match pt {
+            PascalToken::Caret => return Ok((input, pt)),
             _ => {}
         }
     }

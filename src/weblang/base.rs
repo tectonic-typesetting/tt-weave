@@ -356,3 +356,16 @@ pub fn module_reference<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan
         return new_parse_err(input, WebErrorKind::ExpectedIdentifier);
     }
 }
+
+#[allow(dead_code)]
+pub fn debug<'a>(tag: &'static str) -> impl Fn(ParseInput<'a>) -> ParseResult<'a, ()> {
+    move |input: ParseInput<'a>| {
+        let n = usize::min(4, input.0.len());
+        if n > 0 {
+            eprintln!("*** {}: {:?}", tag, &input.0[..n - 1]);
+        } else {
+            eprintln!("*** {}: (nothing left)", tag);
+        }
+        Ok((input, ()))
+    }
+}
