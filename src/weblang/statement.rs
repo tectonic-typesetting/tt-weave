@@ -39,6 +39,9 @@ pub enum WebStatement<'a> {
     /// A `for` loop.
     For(WebFor<'a>),
 
+    /// A `loop` loop, implemented with a @define formatted like `Xclause`
+    Loop(WebLoop<'a>),
+
     /// A label.
     Label(StringSpan<'a>),
 
@@ -60,6 +63,7 @@ pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebSta
         parse_for,
         parse_assignment,
         parse_label,
+        parse_loop,
         parse_expr_statement,
     ))(input)
 }
@@ -318,6 +322,35 @@ fn parse_for<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
             do_,
         }),
     ))
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebLoop<'a> {
+    /// The identifier use in the loop definition
+    keyword: StringSpan<'a>,
+
+    /// The `do` statement, which may be a block.
+    do_: Box<WebStatement<'a>>,
+}
+
+fn parse_loop<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
+    map(tuple((loop_like_identifier, parse_statement_base)), |t| {
+        WebStatement::Loop(WebLoop {
+            keyword: t.0,
+            do_: Box::new(t.1),
+        })
+    })(input)
+}
+
+pub fn loop_like_identifier<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan<'a>> {
+    let (input, wt) = next_token(input)?;
+
+    if let WebToken::Pascal(PascalToken::FormattedIdentifier(ss, PascalReservedWord::Xclause)) = wt
+    {
+        Ok((input, ss))
+    } else {
+        new_parse_err(input, WebErrorKind::Eof)
+    }
 }
 
 fn parse_label<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
