@@ -3,7 +3,7 @@
 use nom::{
     branch::alt,
     combinator::{map, opt},
-    multi::many0,
+    multi::{many0, many1, separated_list1},
     sequence::tuple,
 };
 
@@ -45,6 +45,9 @@ pub enum WebStatement<'a> {
     /// A label.
     Label(StringSpan<'a>),
 
+    /// A case statement.
+    Case(WebCase<'a>),
+
     /// A statement that's just an expression.
     Expr(WebExpr<'a>, Option<Vec<TypesetComment<'a>>>),
 }
@@ -61,6 +64,7 @@ pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebSta
         parse_if,
         parse_while,
         parse_for,
+        parse_case,
         parse_assignment,
         parse_label,
         parse_loop,
@@ -326,7 +330,7 @@ fn parse_for<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebLoop<'a> {
-    /// The identifier use in the loop definition
+    /// The identifier used in the loop definition
     keyword: StringSpan<'a>,
 
     /// The `do` statement, which may be a block.
@@ -357,4 +361,154 @@ fn parse_label<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     map(tuple((identifier, pascal_token(PascalToken::Colon))), |t| {
         WebStatement::Label(t.0)
     })(input)
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebCase<'a> {
+    /// The variable of the case statement.
+    var: StringSpan<'a>,
+
+    /// Items within the case statement.
+    items: Vec<WebCaseItem<'a>>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum WebCaseItem<'a> {
+    ModuleReference(StringSpan<'a>),
+    Standard(WebStandardCaseItem<'a>),
+    OtherCases(WebOtherCasesItem<'a>),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebStandardCaseItem<'a> {
+    /// The matched cases. These may be identifiers or string literals
+    /// or integer literals.
+    matches: Vec<PascalToken<'a>>,
+
+    /// The associated statement.
+    stmt: Box<WebStatement<'a>>,
+
+    /// Optional comment.
+    comment: Option<Vec<TypesetComment<'a>>>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebOtherCasesItem<'a> {
+    /// The formatted identifier used to tag this item.
+    tag: StringSpan<'a>,
+
+    /// The associated statement.
+    stmt: Box<WebStatement<'a>>,
+
+    /// Optional comment.
+    comment: Option<Vec<TypesetComment<'a>>>,
+}
+
+fn parse_case<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
+    map(
+        tuple((
+            reserved_word(PascalReservedWord::Case),
+            identifier,
+            reserved_word(PascalReservedWord::Of),
+            many1(debug(
+                "CI",
+                alt((
+                    parse_mod_ref_case_item,
+                    parse_other_cases_item,
+                    parse_standard_case_item,
+                )),
+            )),
+            parse_case_terminator,
+            opt(pascal_token(PascalToken::Semicolon)),
+        )),
+        |t| {
+            WebStatement::Case(WebCase {
+                var: t.1,
+                items: t.3,
+            })
+        },
+    )(input)
+}
+
+/// `endcases` is a formatted identifier formatted like `End`
+fn parse_case_terminator<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan<'a>> {
+    let (input, wt) = next_token(input)?;
+
+    if let WebToken::Pascal(PascalToken::FormattedIdentifier(ss, PascalReservedWord::End)) = wt {
+        Ok((input, ss))
+    } else {
+        new_parse_err(input, WebErrorKind::Eof)
+    }
+}
+
+fn parse_mod_ref_case_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebCaseItem<'a>> {
+    map(
+        tuple((module_reference, opt(pascal_token(PascalToken::Semicolon)))),
+        |t| WebCaseItem::ModuleReference(t.0),
+    )(input)
+}
+
+fn parse_other_cases_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebCaseItem<'a>> {
+    map(
+        tuple((
+            parse_other_cases_tag,
+            parse_statement_base,
+            opt(pascal_token(PascalToken::Semicolon)),
+            opt(comment),
+        )),
+        |t| {
+            WebCaseItem::OtherCases(WebOtherCasesItem {
+                tag: t.0,
+                stmt: Box::new(t.1),
+                comment: t.3,
+            })
+        },
+    )(input)
+}
+
+/// `endcases` is a formatted identifier formatted like `Else`
+fn parse_other_cases_tag<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan<'a>> {
+    let (input, wt) = next_token(input)?;
+
+    if let WebToken::Pascal(PascalToken::FormattedIdentifier(ss, PascalReservedWord::Else)) = wt {
+        Ok((input, ss))
+    } else {
+        new_parse_err(input, WebErrorKind::Eof)
+    }
+}
+
+fn parse_standard_case_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebCaseItem<'a>> {
+    map(
+        tuple((
+            separated_list1(
+                pascal_token(PascalToken::Comma),
+                alt((merged_string_literals, case_match_token)),
+            ),
+            pascal_token(PascalToken::Colon),
+            parse_statement_base,
+            opt(pascal_token(PascalToken::Semicolon)),
+            opt(comment),
+        )),
+        |t| {
+            WebCaseItem::Standard(WebStandardCaseItem {
+                matches: t.0,
+                stmt: Box::new(t.2),
+                comment: t.4,
+            })
+        },
+    )(input)
+}
+
+fn case_match_token<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+    let (input, wt) = next_token(input)?;
+
+    if let WebToken::Pascal(pt) = wt {
+        match pt {
+            PascalToken::Identifier(..) | PascalToken::IntLiteral(..) => return Ok((input, pt)),
+
+            _ => {}
+        }
+    }
+
+    return new_parse_err(input, WebErrorKind::Eof);
 }

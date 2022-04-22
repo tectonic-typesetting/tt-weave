@@ -4,9 +4,11 @@
 
 use nom::{
     error::{ErrorKind, ParseError as NomParseError},
+    multi::many1,
     Err, IResult, InputIter, InputLength, InputTake, Needed, Parser, Slice, UnspecializedInput,
 };
 use std::{
+    borrow::Cow,
     iter::{Cloned, Enumerate},
     slice::Iter,
 };
@@ -14,7 +16,7 @@ use std::{
 // Some utility imports for asterisk importers.
 pub use crate::{
     parse_base::{SpanValue, StringSpan},
-    pascal_token::{DelimiterKind, PascalToken},
+    pascal_token::{DelimiterKind, PascalToken, StringLiteralKind},
     reserved::PascalReservedWord,
 };
 
@@ -151,6 +153,7 @@ pub enum WebErrorKind {
     ExpectedCloseDelimiter(DelimiterKind),
     IncompleteDefine,
     NotDefineEdge,
+    StringLiteralMergeFail,
     Nom(ErrorKind),
 }
 
@@ -329,6 +332,70 @@ pub fn module_reference<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan
     } else {
         return new_parse_err(input, WebErrorKind::ExpectedIdentifier);
     }
+}
+
+pub fn merged_string_literals<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+    let (input, mut stoks) = many1(string_literal)(input)?;
+
+    if stoks.len() < 2 {
+        return Ok((input, stoks.pop().unwrap()));
+    }
+
+    fn unpack<'b>(tok: PascalToken<'b>) -> (StringLiteralKind, StringSpan<'b>) {
+        match tok {
+            PascalToken::StringLiteral(kind, sv) => (kind, sv),
+            _ => unreachable!(),
+        }
+    }
+
+    // Isolate the first (head) literal and set up everything.
+
+    let mut head = stoks;
+    let mut rest = head.split_off(1);
+
+    let (kind, head_ss) = unpack(head.pop().unwrap());
+    let start = head_ss.start;
+    let mut text = head_ss.value.into_owned();
+
+    // Isolate the final (tail) literal, then work through the middle ones.
+
+    let mut tail = rest.split_off(rest.len() - 1);
+
+    for s in rest.drain(..) {
+        let (ikind, iss) = unpack(s);
+
+        if ikind != kind {
+            return new_parse_err(input, WebErrorKind::StringLiteralMergeFail);
+        }
+
+        text.push('"');
+        text.push_str(iss.value.as_ref());
+    }
+
+    // Apply the tail literal.
+
+    let (tkind, tail_ss) = unpack(tail.pop().unwrap());
+
+    if tkind != kind {
+        return new_parse_err(input, WebErrorKind::StringLiteralMergeFail);
+    }
+
+    let end = tail_ss.end;
+    text.push('"');
+    text.push_str(tail_ss.value.as_ref());
+
+    // Synthesize our result.
+
+    let tok = PascalToken::StringLiteral(
+        kind,
+        SpanValue {
+            start,
+            end,
+            value: Cow::Owned(text),
+        },
+    );
+
+    Ok((input, tok))
 }
 
 #[allow(dead_code)]
