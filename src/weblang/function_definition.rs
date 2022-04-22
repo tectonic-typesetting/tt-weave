@@ -6,7 +6,7 @@
 use nom::{
     branch::alt,
     combinator::{map, opt},
-    multi::{many1, separated_list0},
+    multi::{many1, separated_list0, separated_list1},
     sequence::tuple,
 };
 
@@ -34,6 +34,9 @@ pub struct WebFunctionDefinition<'a> {
 
     /// The comment associated with the definition of the function.
     opening_comment: Option<Vec<TypesetComment<'a>>>,
+
+    /// Labels
+    labels: Vec<StringSpan<'a>>,
 
     /// Records in the function's `var` block.
     vars: Vec<WebVarBlockItem<'a>>,
@@ -125,6 +128,11 @@ pub fn parse_function_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, W
         pascal_token(PascalToken::Semicolon),
         opt(comment),
         opt(tuple((
+            reserved_word(PascalReservedWord::Label),
+            separated_list1(pascal_token(PascalToken::Comma), identifier),
+            pascal_token(PascalToken::Semicolon),
+        ))),
+        opt(tuple((
             reserved_word(PascalReservedWord::Var),
             many1(parse_var_block_item),
         ))),
@@ -138,8 +146,9 @@ pub fn parse_function_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, W
     let args = items.2.map(|t| t.1).unwrap_or_default();
     let return_type = items.3.map(|t| t.1);
     let opening_comment = items.5;
-    let vars = items.6.map(|t| t.1).unwrap_or_default();
-    let stmts = items.8;
+    let labels = items.6.map(|t| t.1).unwrap_or_default();
+    let vars = items.7.map(|t| t.1).unwrap_or_default();
+    let stmts = items.9;
 
     Ok((
         input,
@@ -148,6 +157,7 @@ pub fn parse_function_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, W
             args,
             return_type,
             opening_comment,
+            labels,
             vars,
             stmts,
         }),

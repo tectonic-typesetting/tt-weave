@@ -39,6 +39,9 @@ pub enum WebStatement<'a> {
     /// A `for` loop.
     For(WebFor<'a>),
 
+    /// A label.
+    Label(StringSpan<'a>),
+
     /// A statement that's just an expression.
     Expr(WebExpr<'a>, Option<Vec<TypesetComment<'a>>>),
 }
@@ -314,4 +317,10 @@ fn parse_for<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
             do_,
         }),
     ))
+}
+
+fn parse_label<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
+    map(tuple((identifier, pascal_token(PascalToken::Colon))), |t| {
+        WebStatement::Label(t.0)
+    })(input)
 }
