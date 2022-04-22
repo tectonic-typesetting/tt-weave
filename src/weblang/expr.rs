@@ -45,71 +45,113 @@ pub enum WebExpr<'a> {
 }
 
 pub fn parse_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    alt((
-        parse_binary_expr,
+    // First try the "advancing" forms, which may recurse with an advanced input,
+    // and the "atom" forms, which won't recurse:
+
+    let result = alt((
         parse_prefix_unary_expr,
         parse_paren_expr,
-        parse_call_expr,
-        parse_field_expr,
-        parse_index_expr,
         parse_strings,
-        parse_format_expr,
-        parse_postfix_unary_expr,
         parse_token_expr,
-    ))(input)
+    ))(input);
+
+    let (mut input, mut expr) = match result {
+        Ok(t) => t,
+        _ => {
+            return result;
+        }
+    };
+
+    // If that worked, now gobble up as many left-recursive forms as we can.
+    // These may recurse, but with an advanced input since we've eaten the
+    // "head" subexpression.
+
+    loop {
+        let result = alt((
+            binary_tail,
+            call_tail,
+            index_tail,
+            field_tail,
+            format_tail,
+            postfix_unary_tail,
+        ))(input);
+
+        if let Ok((new_input, tail)) = result {
+            input = new_input;
+            expr = tail.finalize(Box::new(expr));
+        } else {
+            return Ok((input, expr));
+        }
+    }
 }
 
+/// This is like `parse_expr`, but limiting to things that can appear on the
+/// left-hand side of an assignment ... pretty much.
+///
 /// Due to WEB's macros, things that look like function calls can appear
 /// as LHSes.
 pub fn parse_lhs_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    alt((parse_index_expr, parse_call_expr, parse_token_expr))(input)
+    // LHS-valid advancing/atom forms:
+
+    let result = alt((parse_strings, parse_token_expr))(input);
+
+    let (mut input, mut expr) = match result {
+        Ok(t) => t,
+        _ => {
+            return result;
+        }
+    };
+
+    // LHS-valid left-recursive forms:
+
+    loop {
+        let result = alt((call_tail, index_tail, field_tail))(input);
+
+        if let Ok((new_input, tail)) = result {
+            input = new_input;
+            expr = tail.finalize(Box::new(expr));
+        } else {
+            return Ok((input, expr));
+        }
+    }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct WebBinaryExpr<'a> {
-    lhs: Box<WebExpr<'a>>,
+// "Atom" forms that do not include sub-expressions
 
-    op: PascalToken<'a>,
-
-    rhs: Box<WebExpr<'a>>,
-}
-
-#[recursive_parser]
-fn parse_binary_expr<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    let (s, items) = tuple((parse_expr, binary_expr_op, parse_expr))(s)?;
-
-    let lhs = Box::new(items.0);
-    let op = items.1;
-    let rhs = Box::new(items.2);
-
-    Ok((s, WebExpr::Binary(WebBinaryExpr { lhs, op, rhs })))
-}
-
-fn binary_expr_op<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+fn parse_token_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
     let (input, wt) = next_token(input)?;
 
     if let WebToken::Pascal(pt) = wt {
         match pt {
-            PascalToken::Plus
-            | PascalToken::Minus
-            | PascalToken::Times
-            | PascalToken::Divide
-            | PascalToken::Greater
-            | PascalToken::GreaterEquals
-            | PascalToken::Less
-            | PascalToken::LessEquals
-            | PascalToken::Equals
-            | PascalToken::NotEquals
-            | PascalToken::ReservedWord(SpanValue {
-                value: PascalReservedWord::Mod,
-                ..
-            }) => return Ok((input, pt)),
+            PascalToken::Identifier(..)
+            | PascalToken::FormattedIdentifier(_, PascalReservedWord::Nil)
+            | PascalToken::Hash(..)
+            | PascalToken::IntLiteral(..)
+            | PascalToken::StringPoolChecksum => return Ok((input, WebExpr::Token(pt))),
 
             _ => {}
         }
     }
 
     return new_parse_err(input, WebErrorKind::Eof);
+}
+
+fn parse_strings<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
+    map(many1(string_literal), |v| WebExpr::Strings(v))(input)
+}
+
+// "Advancing" forms that include sub-expressions, but also require leading
+// non-expression tokens, so that they're not left-recursive.
+
+fn parse_paren_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
+    map(
+        tuple((
+            pascal_token(PascalToken::OpenDelimiter(DelimiterKind::Paren)),
+            parse_expr,
+            pascal_token(PascalToken::CloseDelimiter(DelimiterKind::Paren)),
+        )),
+        |t| WebExpr::Paren(Box::new(t.1)),
+    )(input)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -145,6 +187,95 @@ fn prefix_unary_expr_op<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToke
     return new_parse_err(input, WebErrorKind::Eof);
 }
 
+// "Left-recursive" forms that start with a subexpression. We have to
+// handle these specially because a naive left-recursion in nom will
+// lead to an infinite call stack.
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum LeftRecursiveTail<'a> {
+    Binary(PascalToken<'a>, Box<WebExpr<'a>>),
+    PostfixUnary(PascalToken<'a>),
+    Call(Vec<Box<WebExpr<'a>>>),
+    Index(Vec<Box<WebExpr<'a>>>),
+    Field(StringSpan<'a>),
+    Format(PascalToken<'a>),
+}
+
+impl<'a> LeftRecursiveTail<'a> {
+    fn finalize(self, head: Box<WebExpr<'a>>) -> WebExpr<'a> {
+        match self {
+            LeftRecursiveTail::Binary(op, rhs) => {
+                WebExpr::Binary(WebBinaryExpr { lhs: head, op, rhs })
+            }
+            LeftRecursiveTail::PostfixUnary(op) => {
+                WebExpr::PostfixUnary(WebPostfixUnaryExpr { inner: head, op })
+            }
+            LeftRecursiveTail::Call(args) => WebExpr::Call(WebCallExpr { target: head, args }),
+            LeftRecursiveTail::Index(args) => WebExpr::Index(WebIndexExpr { target: head, args }),
+            LeftRecursiveTail::Field(field) => {
+                WebExpr::Field(WebFieldAccessExpr { item: head, field })
+            }
+            LeftRecursiveTail::Format(width) => {
+                WebExpr::Format(WebFormatExpr { inner: head, width })
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebBinaryExpr<'a> {
+    lhs: Box<WebExpr<'a>>,
+
+    op: PascalToken<'a>,
+
+    rhs: Box<WebExpr<'a>>,
+}
+
+fn binary_tail<'a>(s: ParseInput<'a>) -> ParseResult<'a, LeftRecursiveTail<'a>> {
+    map(tuple((binary_expr_op, parse_expr)), |t| {
+        LeftRecursiveTail::Binary(t.0, Box::new(t.1))
+    })(s)
+}
+
+fn binary_expr_op<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+    let (input, wt) = next_token(input)?;
+
+    if let WebToken::Pascal(pt) = wt {
+        match pt {
+            PascalToken::Plus
+            | PascalToken::Minus
+            | PascalToken::Times
+            | PascalToken::Divide
+            | PascalToken::Greater
+            | PascalToken::GreaterEquals
+            | PascalToken::Less
+            | PascalToken::LessEquals
+            | PascalToken::Equals
+            | PascalToken::NotEquals
+            | PascalToken::ReservedWord(SpanValue {
+                value: PascalReservedWord::And,
+                ..
+            })
+            | PascalToken::ReservedWord(SpanValue {
+                value: PascalReservedWord::Div,
+                ..
+            })
+            | PascalToken::ReservedWord(SpanValue {
+                value: PascalReservedWord::Mod,
+                ..
+            })
+            | PascalToken::ReservedWord(SpanValue {
+                value: PascalReservedWord::Or,
+                ..
+            }) => return Ok((input, pt)),
+
+            _ => {}
+        }
+    }
+
+    return new_parse_err(input, WebErrorKind::Eof);
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebPostfixUnaryExpr<'a> {
     op: PascalToken<'a>,
@@ -152,14 +283,10 @@ pub struct WebPostfixUnaryExpr<'a> {
     inner: Box<WebExpr<'a>>,
 }
 
-#[recursive_parser]
-fn parse_postfix_unary_expr<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    let (s, items) = tuple((parse_expr, postfix_unary_expr_op))(s)?;
-
-    let inner = Box::new(items.0);
-    let op = items.1;
-
-    Ok((s, WebExpr::PostfixUnary(WebPostfixUnaryExpr { op, inner })))
+fn postfix_unary_tail<'a>(s: ParseInput<'a>) -> ParseResult<'a, LeftRecursiveTail<'a>> {
+    map(postfix_unary_expr_op, |o| {
+        LeftRecursiveTail::PostfixUnary(o)
+    })(s)
 }
 
 fn postfix_unary_expr_op<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
@@ -175,38 +302,6 @@ fn postfix_unary_expr_op<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalTok
     return new_parse_err(input, WebErrorKind::Eof);
 }
 
-fn parse_paren_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    map(
-        tuple((
-            pascal_token(PascalToken::OpenDelimiter(DelimiterKind::Paren)),
-            parse_expr,
-            pascal_token(PascalToken::CloseDelimiter(DelimiterKind::Paren)),
-        )),
-        |t| WebExpr::Paren(Box::new(t.1)),
-    )(input)
-}
-
-fn parse_token_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    let (input, wt) = next_token(input)?;
-
-    if let WebToken::Pascal(pt) = wt {
-        match pt {
-            PascalToken::Identifier(..)
-            | PascalToken::Hash(..)
-            | PascalToken::IntLiteral(..)
-            | PascalToken::StringPoolChecksum => return Ok((input, WebExpr::Token(pt))),
-
-            _ => {}
-        }
-    }
-
-    return new_parse_err(input, WebErrorKind::Eof);
-}
-
-fn parse_strings<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    map(many1(string_literal), |v| WebExpr::Strings(v))(input)
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebCallExpr<'a> {
     target: Box<WebExpr<'a>>,
@@ -214,22 +309,18 @@ pub struct WebCallExpr<'a> {
     args: Vec<Box<WebExpr<'a>>>,
 }
 
-#[recursive_parser]
-fn parse_call_expr<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    let (s, items) = tuple((
-        parse_expr,
-        open_delimiter(DelimiterKind::Paren),
-        separated_list0(
-            pascal_token(PascalToken::Comma),
-            map(parse_expr, |e| Box::new(e)),
-        ),
-        close_delimiter(DelimiterKind::Paren),
-    ))(s)?;
-
-    let target = Box::new(items.0);
-    let args = items.2;
-
-    Ok((s, WebExpr::Call(WebCallExpr { target, args })))
+fn call_tail<'a>(s: ParseInput<'a>) -> ParseResult<'a, LeftRecursiveTail<'a>> {
+    map(
+        tuple((
+            open_delimiter(DelimiterKind::Paren),
+            separated_list0(
+                pascal_token(PascalToken::Comma),
+                map(parse_expr, |e| Box::new(e)),
+            ),
+            close_delimiter(DelimiterKind::Paren),
+        )),
+        |t| LeftRecursiveTail::Call(t.1),
+    )(s)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -239,22 +330,18 @@ pub struct WebIndexExpr<'a> {
     args: Vec<Box<WebExpr<'a>>>,
 }
 
-#[recursive_parser]
-fn parse_index_expr<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    let (s, items) = tuple((
-        parse_expr,
-        open_delimiter(DelimiterKind::SquareBracket),
-        separated_list0(
-            pascal_token(PascalToken::Comma),
-            map(parse_expr, |e| Box::new(e)),
-        ),
-        close_delimiter(DelimiterKind::SquareBracket),
-    ))(s)?;
-
-    let target = Box::new(items.0);
-    let args = items.2;
-
-    Ok((s, WebExpr::Index(WebIndexExpr { target, args })))
+fn index_tail<'a>(s: ParseInput<'a>) -> ParseResult<'a, LeftRecursiveTail<'a>> {
+    map(
+        tuple((
+            open_delimiter(DelimiterKind::SquareBracket),
+            separated_list0(
+                pascal_token(PascalToken::Comma),
+                map(parse_expr, |e| Box::new(e)),
+            ),
+            close_delimiter(DelimiterKind::SquareBracket),
+        )),
+        |t| LeftRecursiveTail::Index(t.1),
+    )(s)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -263,14 +350,11 @@ pub struct WebFormatExpr<'a> {
     width: PascalToken<'a>,
 }
 
-#[recursive_parser]
-fn parse_format_expr<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    let (s, items) = tuple((parse_expr, pascal_token(PascalToken::Colon), int_literal))(s)?;
-
-    let inner = Box::new(items.0);
-    let width = items.2;
-
-    Ok((s, WebExpr::Format(WebFormatExpr { inner, width })))
+fn format_tail<'a>(s: ParseInput<'a>) -> ParseResult<'a, LeftRecursiveTail<'a>> {
+    map(
+        tuple((pascal_token(PascalToken::Colon), int_literal)),
+        |t| LeftRecursiveTail::Format(t.1),
+    )(s)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -279,12 +363,9 @@ pub struct WebFieldAccessExpr<'a> {
     field: StringSpan<'a>,
 }
 
-#[recursive_parser]
-fn parse_field_expr<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    let (s, items) = tuple((parse_expr, pascal_token(PascalToken::Period), identifier))(s)?;
-
-    let item = Box::new(items.0);
-    let field = items.2;
-
-    Ok((s, WebExpr::Field(WebFieldAccessExpr { item, field })))
+fn field_tail<'a>(s: ParseInput<'a>) -> ParseResult<'a, LeftRecursiveTail<'a>> {
+    map(
+        tuple((pascal_token(PascalToken::Period), identifier)),
+        |t| LeftRecursiveTail::Field(t.1),
+    )(s)
 }
