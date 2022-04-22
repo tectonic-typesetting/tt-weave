@@ -7,6 +7,7 @@ use nom::{
     branch::alt,
     bytes::complete::take_while1,
     combinator::{map, opt},
+    multi::many1,
     sequence::tuple,
     InputLength,
 };
@@ -80,7 +81,7 @@ pub enum WebDefineRhs<'a> {
     /// Definition of `othercases`: `{label}{colon}`
     OthercasesDefinition(StringSpan<'a>),
 
-    Statement(statement::WebStatement<'a>),
+    Statements(Vec<statement::WebStatement<'a>>),
 
     Expr(expr::WebExpr<'a>),
 }
@@ -91,8 +92,8 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
         parse_loop_definition,
         map(peek_end_of_define, |_| WebDefineRhs::EmptyDefinition),
         parse_othercases,
-        map(statement::parse_statement_base, |s| {
-            WebDefineRhs::Statement(s)
+        map(many1(statement::parse_statement_base), |s| {
+            WebDefineRhs::Statements(s)
         }),
         map(expr::parse_expr, |e| WebDefineRhs::Expr(e)),
         map(standalone::parse_standalone_base, |s| {
@@ -109,8 +110,8 @@ fn parse_inverted_statement<'a>(
     map(
         tuple((
             map(comment, |c| Some(c)),
-            map(statement::parse_statement_base, |s| {
-                WebDefineRhs::Statement(s)
+            map(many1(statement::parse_statement_base), |s| {
+                WebDefineRhs::Statements(s)
             }),
             peek_end_of_define,
         )),
