@@ -195,7 +195,7 @@ pub enum LeftRecursiveTail<'a> {
     Binary(PascalToken<'a>, Box<WebExpr<'a>>),
     PostfixUnary(PascalToken<'a>),
     Call(Vec<Box<WebExpr<'a>>>),
-    Index(Vec<Box<WebExpr<'a>>>),
+    Index(Vec<WebIndexTerm<'a>>),
     Field(StringSpan<'a>),
     Format(PascalToken<'a>),
 }
@@ -326,20 +326,42 @@ fn call_tail<'a>(s: ParseInput<'a>) -> ParseResult<'a, LeftRecursiveTail<'a>> {
 pub struct WebIndexExpr<'a> {
     target: Box<WebExpr<'a>>,
 
-    args: Vec<Box<WebExpr<'a>>>,
+    args: Vec<WebIndexTerm<'a>>,
+}
+
+/// The `Range` option is needed for some inline Pascal such as in WEAVE#65.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum WebIndexTerm<'a> {
+    Expr(Box<WebExpr<'a>>),
+    Range(Box<WebExpr<'a>>, Box<WebExpr<'a>>),
 }
 
 fn index_tail<'a>(s: ParseInput<'a>) -> ParseResult<'a, LeftRecursiveTail<'a>> {
     map(
         tuple((
             open_delimiter(DelimiterKind::SquareBracket),
-            separated_list0(
-                pascal_token(PascalToken::Comma),
-                map(parse_expr, |e| Box::new(e)),
-            ),
+            separated_list0(pascal_token(PascalToken::Comma), index_term),
             close_delimiter(DelimiterKind::SquareBracket),
         )),
         |t| LeftRecursiveTail::Index(t.1),
+    )(s)
+}
+
+fn index_term<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebIndexTerm<'a>> {
+    alt((
+        range_index_term,
+        map(parse_expr, |e| WebIndexTerm::Expr(Box::new(e))),
+    ))(s)
+}
+
+fn range_index_term<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebIndexTerm<'a>> {
+    map(
+        tuple((
+            parse_token_expr,
+            pascal_token(PascalToken::DoubleDot),
+            parse_token_expr,
+        )),
+        |t| WebIndexTerm::Range(Box::new(t.0), Box::new(t.2)),
     )(s)
 }
 
