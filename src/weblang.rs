@@ -6,7 +6,6 @@
 use nom::{
     branch::alt, bytes::complete::take_while, combinator::map, multi::many1, Finish, InputLength,
 };
-use nom_recursive::RecursiveInfo;
 
 mod base;
 mod const_declaration;
@@ -90,7 +89,7 @@ pub struct WebCode<'a>(pub Vec<WebToplevel<'a>>);
 impl<'a> WebCode<'a> {
     /// Parse a sequence of WEB tokens into sequence of toplevels.
     pub fn parse(syntax: &'a WebSyntax<'a>) -> Option<WebCode<'a>> {
-        let input = ParseInput(&syntax.0[..], RecursiveInfo::default());
+        let input = ParseInput(&syntax.0[..]);
 
         match many1(parse_toplevel)(input).finish() {
             Ok((remainder, value)) => {

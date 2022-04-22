@@ -59,6 +59,7 @@ pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebSta
         parse_while,
         parse_for,
         parse_assignment,
+        parse_label,
         parse_expr_statement,
     ))(input)
 }

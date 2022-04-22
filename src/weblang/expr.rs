@@ -6,7 +6,6 @@ use nom::{
     multi::{many1, separated_list0},
     sequence::tuple,
 };
-use nom_recursive::recursive_parser;
 
 use super::base::*;
 
