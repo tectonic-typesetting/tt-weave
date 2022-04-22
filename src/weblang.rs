@@ -119,23 +119,10 @@ fn is_ignored_token(t: WebToken) -> bool {
     }
 }
 
-fn parse_fails<'b>(input: ParseInput<'b>) -> ParseResult<'b, WebToplevel<'b>> {
-    if input.input_len() == 0 {
-        new_parse_err(input, WebErrorKind::Eof)
-    } else {
-        eprintln!("\n\nTL fail at:");
-        for t in input.0 {
-            eprintln!("  {:?}", t);
-        }
-        eprintln!();
-        new_parse_err(input, WebErrorKind::ExpectedToplevel)
-    }
-}
-
 fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
     let (input, _) = take_while(is_ignored_token)(input)?;
 
-    alt((
+    let result = alt((
         // Define comes first since its tail is a toplevel in and of itself.
         define::parse_define,
         format::parse_format,
@@ -154,7 +141,27 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         map(expr::parse_expr, |e| WebToplevel::Expr(e)),
         // This goes second-to-last since it will match nearly anything:
         standalone::parse_standalone,
-        // This goes last for debugging:
-        parse_fails,
-    ))(input)
+    ))(input);
+
+    match &result {
+        Ok((_, v)) => {
+            eprintln!("TL OK: {:?}", v);
+        }
+
+        Err(nom::Err::Error((input, kind))) => {
+            if kind != &WebErrorKind::Eof {
+                eprintln!("TL error {:?}", kind);
+                let n = usize::min(input.input_len(), 20);
+                for tok in &input.0[..n] {
+                    eprintln!("- {:?}", tok);
+                }
+            }
+        }
+
+        _ => {
+            eprintln!("TL other failure???");
+        }
+    }
+
+    result
 }

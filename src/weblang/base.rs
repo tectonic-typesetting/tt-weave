@@ -4,7 +4,8 @@
 
 use nom::{
     error::{ErrorKind, ParseError as NomParseError},
-    AsBytes, Err, IResult, InputIter, InputLength, InputTake, Needed, Slice, UnspecializedInput,
+    AsBytes, Err, IResult, InputIter, InputLength, InputTake, Needed, Parser, Slice,
+    UnspecializedInput,
 };
 use nom_recursive::{HasRecursiveInfo, RecursiveInfo};
 use std::{
@@ -358,14 +359,41 @@ pub fn module_reference<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan
 }
 
 #[allow(dead_code)]
-pub fn debug<'a>(tag: &'static str) -> impl Fn(ParseInput<'a>) -> ParseResult<'a, ()> {
+pub fn debug<'a, T, O: std::fmt::Debug>(
+    tag: &'static str,
+    mut inner: T,
+) -> impl FnMut(ParseInput<'a>) -> ParseResult<'a, O>
+where
+    T: Parser<ParseInput<'a>, O, ParseError<'a>>,
+{
     move |input: ParseInput<'a>| {
         let n = usize::min(4, input.0.len());
         if n > 0 {
-            eprintln!("*** {}: {:?}", tag, &input.0[..n - 1]);
+            eprintln!("*** {} >> {:?}", tag, &input.0[..n - 1]);
         } else {
-            eprintln!("*** {}: (nothing left)", tag);
+            eprintln!("*** {} >> (nothing left)", tag);
         }
-        Ok((input, ()))
+
+        let result = inner.parse(input);
+
+        match &result {
+            Ok((_, v)) => {
+                eprintln!("*** {} << OK: {:?}", tag, v);
+            }
+
+            Err(nom::Err::Error((input, kind))) => {
+                eprintln!("*** {} << err: {:?}", tag, kind);
+                let n = usize::min(input.input_len(), 6);
+                for tok in &input.0[..n] {
+                    eprintln!("- {:?}", tok);
+                }
+            }
+
+            _ => {
+                eprintln!("TL other failure???");
+            }
+        }
+
+        result
     }
 }

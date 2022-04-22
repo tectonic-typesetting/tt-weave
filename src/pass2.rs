@@ -325,14 +325,10 @@ fn emit_pascal<'a>(code: WebSyntax<'a>, inline: bool) {
 
     // parsing!!!
 
+    eprintln!();
     let code = WebCode::parse(&code);
 
-    if let Some(c) = code {
-        eprintln!("\nOK!");
-        for tl in &c.0 {
-            eprintln!("- {:?}", tl);
-        }
-    } else {
+    if code.is_none() {
         panic!("parse failed");
     }
 }

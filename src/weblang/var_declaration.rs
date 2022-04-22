@@ -28,8 +28,6 @@ pub struct WebVarDeclaration<'a> {
 }
 
 pub fn parse_var_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
-    eprintln!("VD: {:?}", input);
-
     map(
         tuple((
             separated_list0(pascal_token(PascalToken::Comma), identifier),
