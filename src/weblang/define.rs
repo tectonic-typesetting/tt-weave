@@ -90,6 +90,15 @@ pub enum WebDefineRhs<'a> {
     /// A comma-separated group of exprs, needed for WEAVE#95.
     CommaExprs(Vec<Box<WebExpr<'a>>>),
 
+    /// An expr followed by End, needed for WEAVE#125.
+    ExprEnd(Box<WebExpr<'a>>),
+
+    /// An expr followed by an identifier, also needed for WEAVE#125.
+    ExprIdent(Box<WebExpr<'a>>, StringSpan<'a>),
+
+    /// Begin followed by an identifier, also needed for WEAVE#125.
+    BeginIdent(StringSpan<'a>),
+
     Expr(Box<WebExpr<'a>>),
 }
 
@@ -102,6 +111,14 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
         map(
             tuple((many1(statement::parse_statement_base), peek_end_of_define)),
             |t| WebDefineRhs::Statements(t.0),
+        ),
+        map(
+            tuple((
+                reserved_word(PascalReservedWord::Begin),
+                identifier,
+                peek_end_of_define,
+            )),
+            |t| WebDefineRhs::BeginIdent(t.1),
         ),
         parse_exprs,
         map(standalone::parse_standalone_base, |s| {
@@ -189,7 +206,16 @@ fn parse_exprs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
         separated_list1(pascal_token(PascalToken::Comma), map(parse_expr, Box::new))(input)?;
 
     if exprs.len() == 1 {
-        Ok((input, WebDefineRhs::Expr(exprs.pop().unwrap())))
+        if let Ok((next_input, _)) = reserved_word(PascalReservedWord::End)(input) {
+            Ok((next_input, WebDefineRhs::ExprEnd(exprs.pop().unwrap())))
+        } else if let Ok((next_input, ss)) = identifier(input) {
+            Ok((
+                next_input,
+                WebDefineRhs::ExprIdent(exprs.pop().unwrap(), ss),
+            ))
+        } else {
+            Ok((input, WebDefineRhs::Expr(exprs.pop().unwrap())))
+        }
     } else {
         Ok((input, WebDefineRhs::CommaExprs(exprs)))
     }

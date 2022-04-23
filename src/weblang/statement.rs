@@ -243,6 +243,9 @@ pub struct WebIf<'a> {
     /// The test expression
     test: Box<WebExpr<'a>>,
 
+    /// Optional comment after the test
+    test_comment: Option<Vec<TypesetComment<'a>>>,
+
     /// The `then` statement, which may be a block.
     then: Box<WebStatement<'a>>,
 
@@ -256,6 +259,7 @@ fn parse_if<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
         reserved_word(PascalReservedWord::If),
         parse_expr,
         reserved_word(PascalReservedWord::Then),
+        opt(comment),
         parse_statement_base,
         opt(tuple((
             reserved_word(PascalReservedWord::Else),
@@ -264,10 +268,19 @@ fn parse_if<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     ))(input)?;
 
     let test = Box::new(items.1);
-    let then = Box::new(items.3);
-    let else_ = items.4.map(|t| Box::new(t.1));
+    let test_comment = items.3;
+    let then = Box::new(items.4);
+    let else_ = items.5.map(|t| Box::new(t.1));
 
-    Ok((input, WebStatement::If(WebIf { test, then, else_ })))
+    Ok((
+        input,
+        WebStatement::If(WebIf {
+            test,
+            test_comment,
+            then,
+            else_,
+        }),
+    ))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
