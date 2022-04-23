@@ -85,6 +85,12 @@ pub enum WebToplevel<'a> {
 
     /// `[]`, needed for WEAVE:143
     SpecialEmptyBrackets,
+
+    /// `$relational_op $ident`, needed for WEAVE:144
+    SpecialRelationalIdent(PascalToken<'a>, StringSpan<'a>),
+
+    /// `$int .. $int`, needed for WEAVE:144
+    SpecialIntRange(PascalToken<'a>, PascalToken<'a>),
 }
 
 /// A block of WEB code: a sequence of parsed-out WEB toplevels
@@ -142,6 +148,8 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         type_declaration::parse_type_declaration,
         tl_specials::parse_special_paren_two_ident,
         tl_specials::parse_special_empty_brackets,
+        tl_specials::parse_special_relational_ident,
+        tl_specials::parse_special_int_range,
         statement::parse_statement,
         map(expr::parse_expr, |e| WebToplevel::Expr(e)),
         // This goes second-to-last since it will match nearly anything:
@@ -202,7 +210,45 @@ mod tl_specials {
                 open_delimiter(DelimiterKind::SquareBracket),
                 close_delimiter(DelimiterKind::SquareBracket),
             )),
-            |t| WebToplevel::SpecialEmptyBrackets,
+            |_| WebToplevel::SpecialEmptyBrackets,
+        )(input)
+    }
+
+    pub fn parse_special_relational_ident<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(tuple((relational_ident_op, identifier)), |t| {
+            WebToplevel::SpecialRelationalIdent(t.0, t.1)
+        })(input)
+    }
+
+    fn relational_ident_op<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+        let (input, wt) = next_token(input)?;
+
+        if let WebToken::Pascal(pt) = wt {
+            match pt {
+                PascalToken::Greater
+                | PascalToken::GreaterEquals
+                | PascalToken::Less
+                | PascalToken::LessEquals
+                | PascalToken::Equals
+                | PascalToken::NotEquals => return Ok((input, pt)),
+
+                _ => {}
+            }
+        }
+
+        return new_parse_err(input, WebErrorKind::Eof);
+    }
+
+    pub fn parse_special_int_range<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                int_literal,
+                pascal_token(PascalToken::DoubleDot),
+                int_literal,
+            )),
+            |t| WebToplevel::SpecialIntRange(t.0, t.2),
         )(input)
     }
 }
