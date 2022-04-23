@@ -137,7 +137,7 @@ pub fn parse_function_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, W
             many1(parse_var_block_item),
         ))),
         reserved_word(PascalReservedWord::Begin),
-        many1(debug("S", parse_statement_base)),
+        many1(parse_statement_base),
         reserved_word(PascalReservedWord::End),
         pascal_token(PascalToken::Semicolon),
     ))(input)?;

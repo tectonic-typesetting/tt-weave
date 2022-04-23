@@ -415,8 +415,8 @@ fn parse_label<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebCase<'a> {
-    /// The variable of the case statement.
-    var: StringSpan<'a>,
+    /// The input to the case statement.
+    var: Box<WebExpr<'a>>,
 
     /// Items within the case statement.
     items: Vec<WebCaseItem<'a>>,
@@ -458,7 +458,7 @@ fn parse_case<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     map(
         tuple((
             reserved_word(PascalReservedWord::Case),
-            identifier,
+            map(parse_expr, Box::new),
             reserved_word(PascalReservedWord::Of),
             many1(alt((
                 parse_mod_ref_case_item,
