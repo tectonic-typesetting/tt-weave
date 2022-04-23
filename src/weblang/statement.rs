@@ -50,6 +50,9 @@ pub enum WebStatement<'a> {
 
     /// A statement that's just an expression.
     Expr(WebExpr<'a>, Option<Vec<TypesetComment<'a>>>),
+
+    /// A free-floating case statement, needed for WEAVE#88.
+    SpecialFreeCase(SpecialFreeCase<'a>),
 }
 
 pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
@@ -68,6 +71,7 @@ pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebSta
         parse_assignment,
         parse_label,
         parse_loop,
+        parse_special_free_case,
         parse_expr_statement,
     ))(input)
 }
@@ -511,4 +515,32 @@ fn case_match_token<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a
     }
 
     return new_parse_err(input, WebErrorKind::Eof);
+}
+
+// "Special" statements that we need to have for funky WEB structures
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SpecialFreeCase<'a> {
+    /// The matched cases.
+    matches: Vec<PascalToken<'a>>,
+
+    /// The associated statement.
+    stmt: Box<WebStatement<'a>>,
+}
+
+fn parse_special_free_case<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
+    map(
+        tuple((
+            separated_list1(pascal_token(PascalToken::Comma), merged_string_literals),
+            pascal_token(PascalToken::Colon),
+            parse_statement_base,
+            opt(pascal_token(PascalToken::Semicolon)),
+        )),
+        |t| {
+            WebStatement::SpecialFreeCase(SpecialFreeCase {
+                matches: t.0,
+                stmt: Box::new(t.2),
+            })
+        },
+    )(input)
 }
