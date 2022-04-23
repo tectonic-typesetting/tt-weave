@@ -359,7 +359,7 @@ fn range_index_term<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebIndexTerm<'a>> 
         tuple((
             parse_token_expr,
             pascal_token(PascalToken::DoubleDot),
-            parse_token_expr,
+            parse_expr,
         )),
         |t| WebIndexTerm::Range(Box::new(t.0), Box::new(t.2)),
     )(s)
