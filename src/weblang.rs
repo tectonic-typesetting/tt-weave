@@ -34,6 +34,8 @@ pub use self::base::{TypesetComment, WebSyntax, WebToken};
 /// can be expressed as a series of toplevels, including `@define` and `@format`
 /// statements. Because we're not actually compiling the WEB language in any
 /// meaningful way, we're not very intellectually rigorous.
+///
+/// Toplevel module references are captured as Statements.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum WebToplevel<'a> {
     /// A `@d` definition.
@@ -41,9 +43,6 @@ pub enum WebToplevel<'a> {
 
     /// A `@f` format definition.
     Format(format::WebFormat<'a>),
-
-    /// A module reference.
-    ModuleReference(StringSpan<'a>),
 
     /// A single Pascal token (with optional comment).
     Standalone(standalone::WebStandalone<'a>),
@@ -125,7 +124,6 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         // Define comes first since its tail is a toplevel in and of itself.
         define::parse_define,
         format::parse_format,
-        map(module_reference, |s| WebToplevel::ModuleReference(s)),
         program_definition::parse_program_definition,
         label_declaration::parse_label_declaration,
         modulified_declaration::parse_modulified_declaration,
