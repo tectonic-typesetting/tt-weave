@@ -79,6 +79,12 @@ pub enum WebToplevel<'a> {
 
     /// A Pascal expression.
     Expr(expr::WebExpr<'a>),
+
+    /// `( $ident $ident )`, needed for WEAVE:143
+    SpecialParenTwoIdent(StringSpan<'a>, StringSpan<'a>),
+
+    /// `[]`, needed for WEAVE:143
+    SpecialEmptyBrackets,
 }
 
 /// A block of WEB code: a sequence of parsed-out WEB toplevels
@@ -134,6 +140,8 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         const_declaration::parse_constant_declaration,
         var_declaration::parse_var_declaration,
         type_declaration::parse_type_declaration,
+        tl_specials::parse_special_paren_two_ident,
+        tl_specials::parse_special_empty_brackets,
         statement::parse_statement,
         map(expr::parse_expr, |e| WebToplevel::Expr(e)),
         // This goes second-to-last since it will match nearly anything:
@@ -141,8 +149,12 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
     ))(input);
 
     match &result {
-        Ok((_, v)) => {
+        Ok((input, v)) => {
             eprintln!("TL OK: {:?}", v);
+            let n = usize::min(input.input_len(), 8);
+            for tok in &input.0[..n] {
+                eprintln!("- {:?}", tok);
+            }
         }
 
         Err(nom::Err::Error((input, kind))) => {
@@ -161,4 +173,36 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
     }
 
     result
+}
+
+mod tl_specials {
+    use nom::{combinator::map, sequence::tuple};
+
+    use super::*;
+
+    pub fn parse_special_paren_two_ident<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                open_delimiter(DelimiterKind::Paren),
+                identifier,
+                identifier,
+                close_delimiter(DelimiterKind::Paren),
+            )),
+            |t| WebToplevel::SpecialParenTwoIdent(t.1, t.2),
+        )(input)
+    }
+
+    pub fn parse_special_empty_brackets<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                open_delimiter(DelimiterKind::SquareBracket),
+                close_delimiter(DelimiterKind::SquareBracket),
+            )),
+            |t| WebToplevel::SpecialEmptyBrackets,
+        )(input)
+    }
 }
