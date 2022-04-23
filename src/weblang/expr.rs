@@ -199,7 +199,9 @@ fn prefix_unary_expr_op<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToke
 
     if let WebToken::Pascal(pt) = wt {
         match pt {
-            PascalToken::ReservedWord(SpanValue {
+            PascalToken::Plus
+            | PascalToken::Minus
+            | PascalToken::ReservedWord(SpanValue {
                 value: PascalReservedWord::Not,
                 ..
             }) => return Ok((input, pt)),
