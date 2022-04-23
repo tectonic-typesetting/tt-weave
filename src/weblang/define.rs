@@ -7,12 +7,16 @@ use nom::{
     branch::alt,
     bytes::complete::take_while1,
     combinator::{map, opt},
-    multi::many1,
+    multi::{many1, separated_list1},
     sequence::tuple,
     InputLength,
 };
 
-use super::{base::*, expr, standalone, statement, WebToplevel};
+use super::{
+    base::*,
+    expr::{parse_expr, WebExpr},
+    standalone, statement, WebToplevel,
+};
 
 /// A `@d` definition
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -83,7 +87,10 @@ pub enum WebDefineRhs<'a> {
 
     Statements(Vec<statement::WebStatement<'a>>),
 
-    Expr(expr::WebExpr<'a>),
+    /// A comma-separated group of exprs, needed for WEAVE#95.
+    CommaExprs(Vec<Box<WebExpr<'a>>>),
+
+    Expr(Box<WebExpr<'a>>),
 }
 
 fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
@@ -92,10 +99,11 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
         parse_loop_definition,
         map(peek_end_of_define, |_| WebDefineRhs::EmptyDefinition),
         parse_othercases,
-        map(many1(statement::parse_statement_base), |s| {
-            WebDefineRhs::Statements(s)
-        }),
-        map(expr::parse_expr, |e| WebDefineRhs::Expr(e)),
+        map(
+            tuple((many1(statement::parse_statement_base), peek_end_of_define)),
+            |t| WebDefineRhs::Statements(t.0),
+        ),
+        parse_exprs,
         map(standalone::parse_standalone_base, |s| {
             WebDefineRhs::Standalone(s)
         }),
@@ -174,4 +182,15 @@ fn parse_othercases<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
         )),
         |t| WebDefineRhs::OthercasesDefinition(t.0),
     )(input)
+}
+
+fn parse_exprs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    let (input, mut exprs) =
+        separated_list1(pascal_token(PascalToken::Comma), map(parse_expr, Box::new))(input)?;
+
+    if exprs.len() == 1 {
+        Ok((input, WebDefineRhs::Expr(exprs.pop().unwrap())))
+    } else {
+        Ok((input, WebDefineRhs::CommaExprs(exprs)))
+    }
 }

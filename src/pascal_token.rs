@@ -228,11 +228,13 @@ fn match_pascal_control_code_token(span: Span) -> ParseResult<PascalToken> {
         Token::Control(ControlKind::PasteText) => PascalToken::PasteText,
         Token::Control(ControlKind::PascalForceEol) => PascalToken::ForcedEol,
 
-        // Is this right? "This control code is treated like a semicolon, for
-        // formatting purposes, except that it is invisible. You can use it, for
-        // example, after a module name when the Pascal text represented by that
-        // module name ends with a semicolon."
-        Token::Control(ControlKind::FormatLikeSemicolon) => PascalToken::Semicolon,
+        // "This control code is treated like a semicolon, for formatting
+        // purposes, except that it is invisible. You can use it, for example,
+        // after a module name when the Pascal text represented by that module
+        // name ends with a semicolon." Empirically, it seems to work better to
+        // ignore this token (which happens for Formatting ones) than to treat
+        // it as a syntactic semicolon.
+        Token::Control(ControlKind::FormatLikeSemicolon) => PascalToken::Formatting,
 
         Token::Control(ControlKind::StringPoolChecksum) => PascalToken::StringPoolChecksum,
 

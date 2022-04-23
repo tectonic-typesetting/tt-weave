@@ -115,6 +115,31 @@ pub fn parse_lhs_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>>
     }
 }
 
+/// Another specialized expr parser for matches in case statements. These are
+/// really all integers, but due to WEB's macros may look like integer literals,
+/// double-quoted string literals, identifiers, or function calls (WEB macros).
+pub fn parse_case_match_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
+    let result = alt((parse_strings, parse_token_expr))(input);
+
+    let (mut input, mut expr) = match result {
+        Ok(t) => t,
+        _ => {
+            return result;
+        }
+    };
+
+    // Check for call() form.
+
+    let result = call_tail(input);
+
+    if let Ok((new_input, tail)) = result {
+        input = new_input;
+        expr = tail.finalize(Box::new(expr));
+    }
+
+    Ok((input, expr))
+}
+
 // "Atom" forms that do not include sub-expressions
 
 fn parse_token_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {

@@ -407,7 +407,7 @@ where
     T: Parser<ParseInput<'a>, O, ParseError<'a>>,
 {
     move |input: ParseInput<'a>| {
-        let n = usize::min(4, input.0.len());
+        let n = usize::min(12, input.0.len());
         if n > 0 {
             eprintln!("*** {} >> {:?}", tag, &input.0[..n - 1]);
         } else {

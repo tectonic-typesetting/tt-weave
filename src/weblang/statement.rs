@@ -9,7 +9,7 @@ use nom::{
 
 use super::{
     base::*,
-    expr::{parse_expr, parse_lhs_expr, WebExpr},
+    expr::{parse_case_match_expr, parse_expr, parse_lhs_expr, WebExpr},
     preprocessor_directive, WebToplevel,
 };
 
@@ -418,9 +418,9 @@ pub enum WebCaseItem<'a> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebStandardCaseItem<'a> {
-    /// The matched cases. These may be identifiers or string literals
-    /// or integer literals.
-    matches: Vec<PascalToken<'a>>,
+    /// The- matched cases. These may be identifiers, string literals,
+    /// integer literals, or WEB macros that look like function calls.
+    matches: Vec<Box<WebExpr<'a>>>,
 
     /// The associated statement.
     stmt: Box<WebStatement<'a>>,
@@ -447,14 +447,11 @@ fn parse_case<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
             reserved_word(PascalReservedWord::Case),
             identifier,
             reserved_word(PascalReservedWord::Of),
-            many1(debug(
-                "CI",
-                alt((
-                    parse_mod_ref_case_item,
-                    parse_other_cases_item,
-                    parse_standard_case_item,
-                )),
-            )),
+            many1(alt((
+                parse_mod_ref_case_item,
+                parse_other_cases_item,
+                parse_standard_case_item,
+            ))),
             parse_case_terminator,
             opt(pascal_token(PascalToken::Semicolon)),
         )),
@@ -519,7 +516,7 @@ fn parse_standard_case_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebCas
         tuple((
             separated_list1(
                 pascal_token(PascalToken::Comma),
-                alt((merged_string_literals, case_match_token)),
+                map(parse_case_match_expr, Box::new),
             ),
             pascal_token(PascalToken::Colon),
             parse_statement_base,
@@ -534,20 +531,6 @@ fn parse_standard_case_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebCas
             })
         },
     )(input)
-}
-
-fn case_match_token<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
-    let (input, wt) = next_token(input)?;
-
-    if let WebToken::Pascal(pt) = wt {
-        match pt {
-            PascalToken::Identifier(..) | PascalToken::IntLiteral(..) => return Ok((input, pt)),
-
-            _ => {}
-        }
-    }
-
-    return new_parse_err(input, WebErrorKind::Eof);
 }
 
 // "Special" statements that we need to have for funky WEB structures
