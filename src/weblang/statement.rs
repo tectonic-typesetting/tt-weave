@@ -39,6 +39,9 @@ pub enum WebStatement<'a> {
     /// A `for` loop.
     For(WebFor<'a>),
 
+    /// A `repeat`/`until` loop.
+    Repeat(WebRepeat<'a>),
+
     /// A `loop` loop, implemented with a @define formatted like `Xclause`
     Loop(WebLoop<'a>),
 
@@ -68,6 +71,7 @@ pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebSta
         parse_while,
         parse_for,
         parse_case,
+        parse_repeat,
         parse_assignment,
         parse_label,
         parse_loop,
@@ -330,6 +334,35 @@ fn parse_for<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
             do_,
         }),
     ))
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebRepeat<'a> {
+    /// The loop test expression
+    test: Box<WebExpr<'a>>,
+
+    /// The statements comprising the loop. Unlike most other compound
+    /// statements, these come in a sequence without being encased in a
+    /// begin/end block.
+    stmts: Vec<Box<WebStatement<'a>>>,
+}
+
+fn parse_repeat<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
+    map(
+        tuple((
+            reserved_word(PascalReservedWord::Repeat),
+            many1(map(parse_statement_base, |s| Box::new(s))),
+            reserved_word(PascalReservedWord::Until),
+            parse_expr,
+            pascal_token(PascalToken::Semicolon),
+        )),
+        |t| {
+            WebStatement::Repeat(WebRepeat {
+                test: Box::new(t.3),
+                stmts: t.1,
+            })
+        },
+    )(input)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
