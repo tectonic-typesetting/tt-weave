@@ -99,6 +99,15 @@ pub enum WebDefineRhs<'a> {
     /// Begin followed by an identifier, also needed for WEAVE#125.
     BeginIdent(StringSpan<'a>),
 
+    /// A series of statements, then an imbalanced `end` keyword. Needed for
+    /// WEAVE#148.
+    StatementsThenEnd(Vec<statement::WebStatement<'a>>),
+
+    /// An imbalanced `begin` keyword, then a series of statements. Needed
+    /// for WEAVE#148.
+    BeginThenStatements(Vec<statement::WebStatement<'a>>),
+
+    /// A free-standing expression.
     Expr(Box<WebExpr<'a>>),
 }
 
@@ -108,10 +117,7 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
         parse_loop_definition,
         map(peek_end_of_define, |_| WebDefineRhs::EmptyDefinition),
         parse_othercases,
-        map(
-            tuple((many1(statement::parse_statement_base), peek_end_of_define)),
-            |t| WebDefineRhs::Statements(t.0),
-        ),
+        parse_statement_series,
         map(
             tuple((
                 reserved_word(PascalReservedWord::Begin),
@@ -120,6 +126,7 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
             )),
             |t| WebDefineRhs::BeginIdent(t.1),
         ),
+        parse_begin_then_statements,
         parse_exprs,
         map(standalone::parse_standalone_base, |s| {
             WebDefineRhs::Standalone(s)
@@ -159,6 +166,34 @@ fn peek_end_of_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, ()> {
     } else {
         new_parse_err(input, WebErrorKind::NotDefineEdge)
     }
+}
+
+/// Parse a sequence of statements, potentially followed by an imbalanced `end`
+/// keyword.
+fn parse_statement_series<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    let (input, tup) = tuple((
+        many1(statement::parse_statement_base),
+        opt(reserved_word(PascalReservedWord::End)),
+        peek_end_of_define,
+    ))(input)?;
+
+    if tup.1.is_some() {
+        Ok((input, WebDefineRhs::StatementsThenEnd(tup.0)))
+    } else {
+        Ok((input, WebDefineRhs::Statements(tup.0)))
+    }
+}
+
+/// Parse an imbalanced `begin` keyword, followed by a series of statements.
+fn parse_begin_then_statements<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    map(
+        tuple((
+            reserved_word(PascalReservedWord::Begin),
+            many1(statement::parse_statement_base),
+            peek_end_of_define,
+        )),
+        |t| WebDefineRhs::BeginThenStatements(t.1),
+    )(input)
 }
 
 fn parse_ifdef_like<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
