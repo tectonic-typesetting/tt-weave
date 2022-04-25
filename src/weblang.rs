@@ -13,7 +13,6 @@ mod define;
 mod expr;
 mod format;
 mod function_definition;
-mod ifdef_like;
 mod label_declaration;
 mod modulified_declaration;
 mod preprocessor_directive;
@@ -58,12 +57,6 @@ pub enum WebToplevel<'a> {
 
     /// Definition of a procedure or function
     FunctionDefinition(function_definition::WebFunctionDefinition<'a>),
-
-    /// A meta-comment for WEB's version of `#ifdef` processing
-    IfdefLike(ifdef_like::WebIfdefLike<'a>),
-
-    /// A Pascal preprocessor directive comment.
-    PreprocessorDirective(preprocessor_directive::WebPreprocessorDirective<'a>),
 
     /// Declaration of a constant.
     ConstDeclaration(const_declaration::WebConstantDeclaration<'a>),
@@ -147,9 +140,6 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         label_declaration::parse_label_declaration,
         modulified_declaration::parse_modulified_declaration,
         function_definition::parse_function_definition,
-        // This goes before ifdef-like since it's more specific:
-        preprocessor_directive::parse_preprocessor_directive,
-        ifdef_like::parse_ifdef_like,
         const_declaration::parse_constant_declaration,
         var_declaration::parse_var_declaration,
         type_declaration::parse_type_declaration,
