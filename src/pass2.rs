@@ -259,12 +259,21 @@ fn scan_pascal<'a>(mut span: Span<'a>, state: &State) -> ParseResult<'a, (WebSyn
     }
 }
 
-fn emit_pascal<'a>(code: WebSyntax<'a>, inline: bool) {
-    // tmp!
+fn emit_pascal<'a>(syntax: WebSyntax<'a>, inline: bool) {
+    // parse into the AST
+
+    let code = WebCode::parse(&syntax);
+
+    if code.is_none() {
+        panic!("parse failed");
+    }
+
+    // tmp!! stringify without code
+
     let mut flat = String::new();
     let mut first = true;
 
-    for piece in &code.0[..] {
+    for piece in &syntax.0[..] {
         if first {
             first = false;
         } else {
@@ -318,19 +327,13 @@ fn emit_pascal<'a>(code: WebSyntax<'a>, inline: bool) {
         }
     }
 
-    let pc = crate::prettify::PrettifiedCode::new(flat);
+    let pc = crate::prettify::PrettifiedCode::new_placeholder(flat);
+
+    // Emit with highlighting.
 
     let ts = ThemeSet::load_defaults();
     let theme = &ts.themes["InspiredGitHub"];
     pc.emit(theme, inline);
-
-    // parsing!!!
-
-    let code = WebCode::parse(&code);
-
-    if code.is_none() {
-        panic!("parse failed");
-    }
 }
 
 /// WEAVE:222

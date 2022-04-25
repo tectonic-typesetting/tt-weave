@@ -10,7 +10,7 @@ use syntect::{
     parsing::{Scope, ScopeStack, ScopeStackOp},
 };
 
-use crate::{reserved::PascalReservedWord, weblang::WebToken};
+const INITIAL_SCOPES: &str = "source.c";
 
 lazy_static! {
     static ref KEYWORD_SCOPE: Scope = Scope::new("keyword.control.c").unwrap();
@@ -68,33 +68,8 @@ impl PrettifiedCode {
         self.text.push(' ');
         1
     }
-}
 
-fn prettify(code: &[WebToken], context: &FormatContext) -> Option<PrettifiedCode> {
-    // No tokens? No problem!
-    if code.is_empty() {
-        return Some(PrettifiedCode::default());
-    }
-
-    None
-}
-
-/// `@define sym(#) === anything ...`
-///
-/// When called we know that code[0] is the @define token.
-fn prettify_define_statement(code: &[WebToken], context: &FormatContext) -> Option<PrettifiedCode> {
-    let mut pc = PrettifiedCode::default();
-
-    let mut amount = pc.scope_push(*KEYWORD_SCOPE, code[0].as_pascal().unwrap());
-    amount += pc.space();
-
-    Some(pc)
-}
-
-const INITIAL_SCOPES: &str = "source.c";
-
-impl PrettifiedCode {
-    pub fn new<S: ToString>(text: S) -> Self {
+    pub fn new_placeholder<S: ToString>(text: S) -> Self {
         let text = text.to_string();
 
         // TEMP!
