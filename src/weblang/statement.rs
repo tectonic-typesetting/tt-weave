@@ -6,6 +6,7 @@ use nom::{
     multi::{many0, many1, separated_list1},
     sequence::tuple,
 };
+use std::borrow::Cow;
 
 use super::{
     base::*,
@@ -146,7 +147,7 @@ fn parse_block<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
 
 /// Match a token that opens a block: either `begin`, or a formatted identifier
 /// that behaves like it.
-pub fn block_opener<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+fn block_opener<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
     let (input, wt) = next_token(input)?;
 
     if let WebToken::Pascal(ptok) = wt {
@@ -166,7 +167,7 @@ pub fn block_opener<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a
 
 /// Match a token that closes a block: either `end`, or a formatted identifier
 /// that behaves like it.
-pub fn block_closer<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+fn block_closer<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
     let (input, wt) = next_token(input)?;
 
     if let WebToken::Pascal(ptok) = wt {
@@ -314,6 +315,9 @@ pub struct WebFor<'a> {
     /// The start expression.
     start: Box<WebExpr<'a>>,
 
+    /// Whether this is a "downto" (decreasing) loop, rather than increasing.
+    is_down: bool,
+
     /// The end expression.
     end: Box<WebExpr<'a>>,
 
@@ -327,7 +331,7 @@ fn parse_for<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
         identifier,
         pascal_token(PascalToken::Gets),
         parse_expr,
-        reserved_word(PascalReservedWord::To),
+        parse_for_direction_word,
         parse_expr,
         reserved_word(PascalReservedWord::Do),
         parse_statement_base,
@@ -335,6 +339,7 @@ fn parse_for<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
 
     let var = items.1;
     let start = Box::new(items.3);
+    let is_down = items.4;
     let end = Box::new(items.5);
     let do_ = Box::new(items.7);
 
@@ -343,10 +348,18 @@ fn parse_for<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
         WebStatement::For(WebFor {
             var,
             start,
+            is_down,
             end,
             do_,
         }),
     ))
+}
+
+fn parse_for_direction_word<'a>(input: ParseInput<'a>) -> ParseResult<'a, bool> {
+    alt((
+        map(reserved_word(PascalReservedWord::To), |_| false),
+        map(reserved_word(PascalReservedWord::Downto), |_| true),
+    ))(input)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -478,10 +491,24 @@ fn parse_case<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
 }
 
 /// `endcases` is a formatted identifier formatted like `End`
+///
+/// WEAVE#192 ends the case state with an actual End keyword.
 fn parse_case_terminator<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan<'a>> {
     let (input, wt) = next_token(input)?;
 
     if let WebToken::Pascal(PascalToken::FormattedIdentifier(ss, PascalReservedWord::End)) = wt {
+        Ok((input, ss))
+    } else if let WebToken::Pascal(PascalToken::ReservedWord(SpanValue {
+        value: PascalReservedWord::End,
+        start,
+        end,
+    })) = wt
+    {
+        let ss = StringSpan {
+            start,
+            end,
+            value: Cow::Owned("end".to_owned()),
+        };
         Ok((input, ss))
     } else {
         new_parse_err(input, WebErrorKind::Eof)

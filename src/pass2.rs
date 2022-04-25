@@ -176,6 +176,7 @@ fn scan_pascal_only<'a>(
             PascalToken::IndexEntry(_, _)
             | PascalToken::DefinitionFlag
             | PascalToken::CancelDefinitionFlag
+            | PascalToken::ForcedEol
             | PascalToken::Formatting => {}
 
             // Occasionally TexStrings are used as placeholders inside Pascal

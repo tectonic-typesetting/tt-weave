@@ -66,32 +66,51 @@ pub enum WebVarBlockItem<'a> {
     ModuleReference(StringSpan<'a>),
 
     /// Actual in-place definitions
-    InPlace(WebVariables<'a>, Option<Vec<TypesetComment<'a>>>),
+    InPlace(WebInPlaceVariables<'a>),
+
+    /// In-place definitions guarded by an ifdef-like block
+    IfdefInPlace(PascalToken<'a>, WebInPlaceVariables<'a>, PascalToken<'a>),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebInPlaceVariables<'a> {
+    vars: WebVariables<'a>,
+    comment: Option<Vec<TypesetComment<'a>>>,
 }
 
 fn parse_var_block_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVarBlockItem<'a>> {
     alt((
         map(module_reference, |t| WebVarBlockItem::ModuleReference(t)),
+        map(parse_in_place_vars, |v| WebVarBlockItem::InPlace(v)),
         map(
             tuple((
-                separated_list0(pascal_token(PascalToken::Comma), identifier),
-                pascal_token(PascalToken::Colon),
-                parse_type,
-                pascal_token(PascalToken::Semicolon),
-                opt(comment),
+                formatted_identifier_like(PascalReservedWord::Begin),
+                parse_in_place_vars,
+                formatted_identifier_like(PascalReservedWord::End),
             )),
-            |tup| {
-                WebVarBlockItem::InPlace(
-                    WebVariables {
-                        is_var: false,
-                        names: tup.0,
-                        ty: tup.2,
-                    },
-                    tup.4,
-                )
-            },
+            |t| WebVarBlockItem::IfdefInPlace(t.0, t.1, t.2),
         ),
     ))(input)
+}
+
+fn parse_in_place_vars<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebInPlaceVariables<'a>> {
+    map(
+        tuple((
+            separated_list0(pascal_token(PascalToken::Comma), identifier),
+            pascal_token(PascalToken::Colon),
+            parse_type,
+            pascal_token(PascalToken::Semicolon),
+            opt(comment),
+        )),
+        |tup| WebInPlaceVariables {
+            vars: WebVariables {
+                is_var: false,
+                names: tup.0,
+                ty: tup.2,
+            },
+            comment: tup.4,
+        },
+    )(input)
 }
 
 fn parse_argument_group<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVariables<'a>> {
@@ -112,7 +131,9 @@ fn parse_argument_group<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVariabl
 
 // Tying it all together
 
-pub fn parse_function_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+pub fn parse_function_definition_base<'a>(
+    input: ParseInput<'a>,
+) -> ParseResult<'a, WebFunctionDefinition<'a>> {
     let (input, items) = tuple((
         alt((
             reserved_word(PascalReservedWord::Function),
@@ -152,7 +173,7 @@ pub fn parse_function_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, W
 
     Ok((
         input,
-        WebToplevel::FunctionDefinition(WebFunctionDefinition {
+        WebFunctionDefinition {
             name,
             args,
             return_type,
@@ -160,6 +181,12 @@ pub fn parse_function_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, W
             labels,
             vars,
             stmts,
-        }),
+        },
     ))
+}
+
+pub fn parse_function_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+    map(parse_function_definition_base, |d| {
+        WebToplevel::FunctionDefinition(d)
+    })(input)
 }

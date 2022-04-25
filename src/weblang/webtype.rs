@@ -138,6 +138,7 @@ fn parse_array<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebRecordType<'a> {
+    is_packed: bool,
     fields: Vec<WebRecordField<'a>>,
 }
 
@@ -151,12 +152,17 @@ pub struct WebRecordField<'a> {
 fn parse_record<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
     map(
         tuple((
-            reserved_word(PascalReservedWord::Packed),
+            opt(reserved_word(PascalReservedWord::Packed)),
             reserved_word(PascalReservedWord::Record),
             many1(parse_record_field),
             reserved_word(PascalReservedWord::End),
         )),
-        |t| WebType::Record(WebRecordType { fields: t.2 }),
+        |t| {
+            WebType::Record(WebRecordType {
+                is_packed: t.0.is_some(),
+                fields: t.2,
+            })
+        },
     )(input)
 }
 

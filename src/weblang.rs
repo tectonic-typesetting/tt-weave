@@ -91,6 +91,13 @@ pub enum WebToplevel<'a> {
 
     /// `$int .. $int`, needed for WEAVE:144
     SpecialIntRange(PascalToken<'a>, PascalToken<'a>),
+
+    /// `$begin_like $function $end_like`, neede for WEAVE:260
+    SpecialIfdefFunction(
+        PascalToken<'a>,
+        function_definition::WebFunctionDefinition<'a>,
+        PascalToken<'a>,
+    ),
 }
 
 /// A block of WEB code: a sequence of parsed-out WEB toplevels
@@ -146,6 +153,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         const_declaration::parse_constant_declaration,
         var_declaration::parse_var_declaration,
         type_declaration::parse_type_declaration,
+        tl_specials::parse_special_ifdef_function,
         tl_specials::parse_special_paren_two_ident,
         tl_specials::parse_special_empty_brackets,
         tl_specials::parse_special_relational_ident,
@@ -249,6 +257,19 @@ mod tl_specials {
                 int_literal,
             )),
             |t| WebToplevel::SpecialIntRange(t.0, t.2),
+        )(input)
+    }
+
+    pub fn parse_special_ifdef_function<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                formatted_identifier_like(PascalReservedWord::Begin),
+                function_definition::parse_function_definition_base,
+                formatted_identifier_like(PascalReservedWord::End),
+            )),
+            |t| WebToplevel::SpecialIfdefFunction(t.0, t.1, t.2),
         )(input)
     }
 }

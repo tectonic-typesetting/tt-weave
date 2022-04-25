@@ -398,6 +398,25 @@ pub fn merged_string_literals<'a>(input: ParseInput<'a>) -> ParseResult<'a, Pasc
     Ok((input, tok))
 }
 
+/// A "formatted identifier" behaving like the specified reserved word.
+pub fn formatted_identifier_like<'a>(
+    rw: PascalReservedWord,
+) -> impl Fn(ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+    move |input: ParseInput<'a>| {
+        let (input, wt) = next_token(input)?;
+
+        if let WebToken::Pascal(ptok) = wt {
+            if let PascalToken::FormattedIdentifier(_, found_rw) = ptok {
+                if rw == found_rw {
+                    return Ok((input, ptok));
+                }
+            }
+        }
+
+        return new_parse_err(input, WebErrorKind::Eof);
+    }
+}
+
 #[allow(dead_code)]
 pub fn debug<'a, T, O: std::fmt::Debug>(
     tag: &'static str,
