@@ -3,9 +3,7 @@
 //! This is *mostly* Pascal, but with a few additions. We implement parsing with
 //! `nom` where the underlying datatype is a sequence of tokens.
 
-use nom::{
-    branch::alt, bytes::complete::take_while, combinator::map, multi::many1, Finish, InputLength,
-};
+use nom::{branch::alt, bytes::complete::take_while, multi::many1, Finish, InputLength};
 
 mod base;
 mod const_declaration;
@@ -69,9 +67,6 @@ pub enum WebToplevel<'a> {
 
     /// A Pascal statement.
     Statement(statement::WebStatement<'a>, Option<Vec<TypesetComment<'a>>>),
-
-    /// A Pascal expression.
-    Expr(expr::WebExpr<'a>),
 
     /// `( $ident $ident )`, needed for WEAVE:143
     SpecialParenTwoIdent(StringSpan<'a>, StringSpan<'a>),
@@ -149,8 +144,6 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         tl_specials::parse_special_relational_ident,
         tl_specials::parse_special_int_range,
         statement::parse_statement,
-        map(expr::parse_expr, |e| WebToplevel::Expr(e)),
-        // This goes second-to-last since it will match nearly anything:
         standalone::parse_standalone,
     ))(input);
 
