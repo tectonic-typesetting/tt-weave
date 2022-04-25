@@ -326,7 +326,6 @@ fn emit_pascal<'a>(code: WebSyntax<'a>, inline: bool) {
 
     // parsing!!!
 
-    eprintln!();
     let code = WebCode::parse(&code);
 
     if code.is_none() {
@@ -401,7 +400,6 @@ fn handle_tex<'a>(
             }
 
             other => {
-                //(span, tok) = copy_tex(span)?;
                 eprintln!("** unhandled TeX control code in pass2: {:?}", other);
                 return new_parse_error(span, ErrorKind::Char);
             }
