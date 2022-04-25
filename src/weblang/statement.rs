@@ -126,13 +126,14 @@ fn parse_block<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
         many0(map(parse_statement_base, |s| Box::new(s))),
         block_closer,
         opt(pascal_token(PascalToken::Semicolon)),
+        opt(pascal_token(PascalToken::Period)), // for the very end of program
         opt(comment),
     ))(input)?;
 
     let opener = items.0;
     let stmts = items.1;
     let closer = items.2;
-    let post_comment = items.4;
+    let post_comment = items.5;
 
     Ok((
         input,
