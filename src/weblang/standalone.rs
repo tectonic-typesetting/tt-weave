@@ -7,6 +7,8 @@ use nom::{
     combinator::{map, opt},
 };
 
+use crate::prettify::{self, FormatContext, PrettifiedCode};
+
 use super::{base::*, WebToplevel};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -43,5 +45,27 @@ fn transmute_formatted<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken
         Ok((input, PascalToken::Identifier(s)))
     } else {
         return new_parse_err(input, WebErrorKind::ExpectedIdentifier);
+    }
+}
+
+impl<'a> WebStandalone<'a> {
+    pub fn measure_horz(&self) -> usize {
+        self.token.measure_inline()
+            + self
+                .comment
+                .as_ref()
+                .map(|c| 1 + prettify::comment_measure_inline(c))
+                .unwrap_or(0)
+    }
+
+    pub fn render_horz(&self, ctxt: &FormatContext, dest: &mut PrettifiedCode) {
+        self.token.render_inline(ctxt, dest);
+
+        if let Some(c) = self.comment.as_ref() {
+            dest.space();
+            prettify::comment_render_inline(c, ctxt, dest);
+        }
+
+        dest.newline(ctxt);
     }
 }

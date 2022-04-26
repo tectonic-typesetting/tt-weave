@@ -266,6 +266,10 @@ impl<'a> WebToplevel<'a> {
                 tl_prettify::statement(stmt, comment, ctxt, dest)
             }
 
+            WebToplevel::Standalone(s) => s.render_horz(ctxt, dest),
+
+            WebToplevel::Define(d) => d.prettify(ctxt, dest),
+
             _ => {
                 eprintln!("P: {:?}", self);
             }

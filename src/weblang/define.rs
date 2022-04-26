@@ -12,6 +12,8 @@ use nom::{
     InputLength,
 };
 
+use crate::prettify::{self, FormatContext, PrettifiedCode};
+
 use super::{
     base::*,
     expr::{parse_expr, WebExpr},
@@ -253,5 +255,75 @@ fn parse_exprs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
         }
     } else {
         Ok((input, WebDefineRhs::CommaExprs(exprs)))
+    }
+}
+
+// Prettification
+
+impl<'a> WebDefine<'a> {
+    pub fn prettify(&self, ctxt: &FormatContext, dest: &mut PrettifiedCode) {
+        let lhs_width: usize = self.lhs.iter().map(|t| t.measure_inline()).sum();
+        let rhs_width = measure_rhs_inline(&self.rhs);
+        let c_width = self
+            .comment
+            .as_ref()
+            .map(|c| 1 + prettify::comment_measure_inline(c))
+            .unwrap_or(0);
+
+        if ctxt.fits(10 + lhs_width + rhs_width + c_width) {
+            dest.noscope_push("@define ");
+
+            for t in &self.lhs {
+                dest.noscope_push(t);
+            }
+
+            dest.noscope_push(" = ");
+            render_rhs_inline(&self.rhs, ctxt, dest);
+
+            if let Some(c) = self.comment.as_ref() {
+                dest.space();
+                prettify::comment_render_inline(c, ctxt, dest);
+            }
+        } else {
+            // ...
+        }
+
+        dest.newline(ctxt);
+    }
+}
+
+fn measure_rhs_inline<'a>(rhs: &WebDefineRhs<'a>) -> usize {
+    match rhs {
+        WebDefineRhs::Standalone(s) => s.measure_horz(),
+        WebDefineRhs::IfdefLike(_) => 2, // XXXX
+        WebDefineRhs::LoopDefinition(_) => 0,
+        WebDefineRhs::EmptyDefinition => 4,
+        WebDefineRhs::OthercasesDefinition(_) => 1,
+        WebDefineRhs::Statements(_) => 0,
+        WebDefineRhs::CommaExprs(_) => 0,
+        WebDefineRhs::ExprEnd(_expr) => 0,
+        WebDefineRhs::ExprIdent(_expr, _ss) => 0,
+        WebDefineRhs::BeginIdent(_ss) => 0,
+        WebDefineRhs::StatementsThenEnd(_stmts) => 0,
+        WebDefineRhs::BeginThenStatements(_stmts) => 0,
+        WebDefineRhs::Expr(expr) => expr.measure_inline(),
+    }
+}
+
+fn render_rhs_inline<'a>(rhs: &WebDefineRhs<'a>, ctxt: &FormatContext, dest: &mut PrettifiedCode) {
+    match rhs {
+        WebDefineRhs::Standalone(s) => s.render_horz(ctxt, dest),
+        WebDefineRhs::IfdefLike(_) => {}
+        WebDefineRhs::LoopDefinition(_) => {}
+        WebDefineRhs::EmptyDefinition => {}
+        WebDefineRhs::OthercasesDefinition(_) => {}
+        WebDefineRhs::Statements(_) => {}
+        WebDefineRhs::CommaExprs(_) => {}
+        WebDefineRhs::ExprEnd(_expr) => {}
+        WebDefineRhs::ExprIdent(_expr, _ss) => {}
+        WebDefineRhs::BeginIdent(_ss) => {}
+        WebDefineRhs::StatementsThenEnd(_stmts) => {}
+        WebDefineRhs::BeginThenStatements(_stmts) => {}
+        WebDefineRhs::Expr(expr) => expr.render_inline(ctxt, dest),
     }
 }
