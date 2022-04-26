@@ -1,7 +1,7 @@
 //! The second pass -- emitting TeX
 
 use nom::{bytes::complete::take_while, character::complete::char, error::ErrorKind, Finish};
-use std::{borrow::Cow, fmt::Write};
+use std::borrow::Cow;
 use syntect::highlighting::ThemeSet;
 use tectonic_errors::prelude::*;
 
@@ -9,6 +9,7 @@ use crate::{
     control::ControlKind,
     parse_base::{new_parse_error, ParseResult, Span, SpanValue, StringSpan},
     pascal_token::PascalToken,
+    prettify::{FormatContext, PrettifiedCode},
     reserved::PascalReservedWord,
     state::{ModuleId, State},
     token::{next_token, Token},
@@ -262,72 +263,23 @@ fn scan_pascal<'a>(mut span: Span<'a>, state: &State) -> ParseResult<'a, (WebSyn
 fn emit_pascal<'a>(syntax: WebSyntax<'a>, inline: bool) {
     // parse into the AST
 
-    let code = WebCode::parse(&syntax);
+    let code = WebCode::parse(&syntax).expect("parse failed");
 
-    if code.is_none() {
-        panic!("parse failed");
-    }
+    // Prettify
 
-    // tmp!! stringify without code
-
-    let mut flat = String::new();
+    let ctxt = FormatContext::new_inline(inline);
+    let mut pc = PrettifiedCode::default();
     let mut first = true;
 
-    for piece in &syntax.0[..] {
+    for tl in &code.0 {
         if first {
             first = false;
         } else {
-            flat.push('\n');
+            pc.toplevel_separator();
         }
 
-        match piece {
-            WebToken::Pascal(ptok) => {
-                write!(flat, "{}", ptok).unwrap();
-            }
-
-            WebToken::ModuleReference(modname) => {
-                write!(flat, "{{{}}}", modname.value).unwrap();
-            }
-
-            WebToken::Comment(ttoks) => {
-                flat.push_str("/*");
-
-                let mut inner_first = true;
-
-                for ttok in &ttoks[..] {
-                    if inner_first {
-                        inner_first = false;
-                    } else {
-                        flat.push(' ');
-                    }
-
-                    match ttok {
-                        TypesetComment::Pascal(ptoks) => {
-                            let mut innerer_first = true;
-
-                            for ptok in &ptoks[..] {
-                                if innerer_first {
-                                    innerer_first = false;
-                                } else {
-                                    flat.push(' ');
-                                }
-
-                                write!(flat, "{}", ptok).unwrap();
-                            }
-                        }
-
-                        TypesetComment::Tex(s) => {
-                            flat.push_str(&s);
-                        }
-                    }
-                }
-
-                flat.push_str("*/");
-            }
-        }
+        tl.prettify(&ctxt, &mut pc);
     }
-
-    let pc = crate::prettify::PrettifiedCode::new_placeholder(flat);
 
     // Emit with highlighting.
 

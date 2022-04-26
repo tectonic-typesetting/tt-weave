@@ -7,6 +7,8 @@ use nom::{
     sequence::tuple,
 };
 
+use crate::prettify::{FormatContext, PrettifiedCode};
+
 use super::base::*;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -416,4 +418,27 @@ fn field_tail<'a>(s: ParseInput<'a>) -> ParseResult<'a, LeftRecursiveTail<'a>> {
         tuple((pascal_token(PascalToken::Period), identifier)),
         |t| LeftRecursiveTail::Field(t.1),
     )(s)
+}
+
+// Prettification
+
+impl<'a> WebExpr<'a> {
+    pub fn measure_inline(&self) -> usize {
+        match self {
+            WebExpr::Token(tok) => tok.measure_inline(),
+
+            _ => {
+                eprintln!("EMI: {:?}", self);
+                1
+            }
+        }
+    }
+
+    pub fn render_inline(&self, ctxt: &FormatContext, dest: &mut PrettifiedCode) {
+        match self {
+            WebExpr::Token(tok) => tok.render_inline(ctxt, dest),
+
+            _ => {}
+        }
+    }
 }

@@ -8,6 +8,8 @@ use nom::{
 };
 use std::borrow::Cow;
 
+use crate::prettify::{self, FormatContext, PrettifiedCode};
+
 use super::{
     base::*,
     expr::{parse_case_match_expr, parse_expr, parse_lhs_expr, WebExpr},
@@ -600,4 +602,44 @@ fn parse_special_free_case<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStat
             })
         },
     )(input)
+}
+
+// Prettification
+
+impl<'a> WebStatement<'a> {
+    pub fn measure_horz(&self) -> usize {
+        match self {
+            WebStatement::Expr(expr, comment) => {
+                expr.measure_inline()
+                    + comment
+                        .as_ref()
+                        .map(|c| 1 + prettify::comment_measure_inline(c))
+                        .unwrap_or(0)
+            }
+
+            _ => {
+                eprintln!("SMH: {:?}", self);
+                1
+            }
+        }
+    }
+
+    pub fn render_horz(&self, ctxt: &FormatContext, dest: &mut PrettifiedCode) {
+        match self {
+            WebStatement::Expr(expr, comment) => {
+                expr.render_inline(ctxt, dest);
+
+                if let Some(c) = comment.as_ref() {
+                    dest.space();
+                    prettify::comment_render_inline(c, ctxt, dest);
+                }
+
+                dest.newline(ctxt);
+            }
+
+            _ => {
+                eprintln!("SRH: {:?}", self);
+            }
+        }
+    }
 }

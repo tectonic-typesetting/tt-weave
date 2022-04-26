@@ -21,7 +21,9 @@ mod type_declaration;
 mod var_declaration;
 mod webtype;
 
-use self::base::*;
+use crate::prettify::{self, FormatContext, PrettifiedCode};
+
+use self::{base::*, statement::WebStatement};
 
 pub use self::base::{TypesetComment, WebSyntax, WebToken};
 
@@ -66,7 +68,7 @@ pub enum WebToplevel<'a> {
     TypeDeclaration(type_declaration::WebTypeDeclaration<'a>),
 
     /// A Pascal statement.
-    Statement(statement::WebStatement<'a>, Option<Vec<TypesetComment<'a>>>),
+    Statement(WebStatement<'a>, Option<Vec<TypesetComment<'a>>>),
 
     /// `( $ident $ident )`, needed for WEAVE:143
     SpecialParenTwoIdent(StringSpan<'a>, StringSpan<'a>),
@@ -254,5 +256,57 @@ mod tl_specials {
             )),
             |t| WebToplevel::SpecialIfdefFunction(t.0, t.1, t.2),
         )(input)
+    }
+}
+
+impl<'a> WebToplevel<'a> {
+    pub fn prettify(&self, ctxt: &FormatContext, dest: &mut PrettifiedCode) {
+        match self {
+            WebToplevel::Statement(stmt, comment) => {
+                tl_prettify::statement(stmt, comment, ctxt, dest)
+            }
+
+            _ => {
+                eprintln!("P: {:?}", self);
+            }
+        }
+    }
+}
+
+mod tl_prettify {
+    use super::*;
+
+    pub fn statement<'a>(
+        stmt: &WebStatement<'a>,
+        comment: &Option<Vec<TypesetComment<'a>>>,
+        ctxt: &FormatContext,
+        dest: &mut PrettifiedCode,
+    ) {
+        let clen = comment
+            .as_ref()
+            .map(|c| prettify::comment_measure_inline(c))
+            .unwrap_or(0);
+        let slen = stmt.measure_horz();
+
+        if ctxt.fits(clen + slen + 1) {
+            stmt.render_horz(ctxt, dest);
+
+            if clen > 0 {
+                dest.space();
+                prettify::comment_render_inline(comment.as_ref().unwrap(), ctxt, dest);
+            }
+
+            dest.newline(ctxt);
+        } else if ctxt.fits(slen) {
+            if clen > 0 {
+                prettify::comment_render_inline(comment.as_ref().unwrap(), ctxt, dest);
+                dest.newline(ctxt);
+            }
+
+            stmt.render_horz(ctxt, dest);
+            dest.newline(ctxt);
+        } else {
+            eprintln!("TLS needs vert {:?}", stmt);
+        }
     }
 }

@@ -17,6 +17,7 @@ use crate::{
     control::ControlKind,
     index::IndexEntryKind,
     parse_base::{new_parse_error, ParseError, ParseResult, Span, SpanValue, StringSpan},
+    prettify::{FormatContext, PrettifiedCode},
     reserved::PascalReservedWord,
     token::{expect_token, next_token, take_until_terminator, Token},
 };
@@ -502,4 +503,210 @@ pub fn match_pascal_token<'a>(
         match_string_literal,
         match_index_entry,
     ))(span)
+}
+
+// Prettification
+
+impl<'a> PascalToken<'a> {
+    pub fn measure_inline(&self) -> usize {
+        match self {
+            PascalToken::TexString(_) => 0,
+            PascalToken::ReservedWord(sv) => sv.value.to_string().len(),
+            PascalToken::Identifier(ss) => ss.value.len(),
+            PascalToken::FormattedIdentifier(ss, _) => ss.value.len(),
+
+            PascalToken::OpenDelimiter(dk) => match dk {
+                DelimiterKind::MetaComment => 2,
+                _ => 1,
+            },
+
+            PascalToken::CloseDelimiter(dk) => match dk {
+                DelimiterKind::MetaComment => 2,
+                _ => 1,
+            },
+
+            PascalToken::Comma => 1,
+            PascalToken::Semicolon => 1,
+            PascalToken::Formatting => 0,
+            PascalToken::PasteText => 0,
+            PascalToken::ForcedEol => 0,
+            PascalToken::DollarSign => 1,
+            PascalToken::Plus => 1,
+            PascalToken::Minus => 1,
+            PascalToken::Times => 1,
+            PascalToken::Divide => 1,
+            PascalToken::Greater => 1,
+            PascalToken::GreaterEquals => 2,
+            PascalToken::Less => 1,
+            PascalToken::LessEquals => 2,
+            PascalToken::Equals => 2,
+            PascalToken::NotEquals => 2,
+            PascalToken::DoubleDot => 2,
+            PascalToken::Gets => 2,
+            PascalToken::Equivalence => 3,
+            PascalToken::Colon => 1,
+            PascalToken::Caret => 1,
+            PascalToken::Period => 1,
+            PascalToken::Hash(_) => 1,
+            PascalToken::StringPoolChecksum => "stringpoolchecksum!()".len(),
+            PascalToken::DefinitionFlag => 0,
+            PascalToken::CancelDefinitionFlag => 0,
+            PascalToken::IntLiteral(kind, n) => 1,     // TODO
+            PascalToken::StringLiteral(kind, ss) => 1, // TODO
+            PascalToken::IndexEntry(..) => 0,
+            PascalToken::VerbatimPascal(ss) => ss.value.len(),
+        }
+    }
+
+    pub fn render_inline(&self, ctxt: &FormatContext, dest: &mut PrettifiedCode) {
+        match self {
+            PascalToken::TexString(ss) => {}
+
+            PascalToken::ReservedWord(sv) => {
+                dest.noscope_push(sv.value);
+            }
+
+            PascalToken::Identifier(ss) => {
+                dest.noscope_push(ss.value.as_ref());
+            }
+
+            PascalToken::FormattedIdentifier(ss, _) => {
+                dest.noscope_push(ss.value.as_ref());
+            }
+
+            PascalToken::OpenDelimiter(dk) => {
+                dest.noscope_push(match dk {
+                    DelimiterKind::MetaComment => "/*",
+                    DelimiterKind::Paren => "(",
+                    DelimiterKind::SquareBracket => "[",
+                });
+            }
+
+            PascalToken::CloseDelimiter(dk) => {
+                dest.noscope_push(match dk {
+                    DelimiterKind::MetaComment => "*/",
+                    DelimiterKind::Paren => ")",
+                    DelimiterKind::SquareBracket => "]",
+                });
+            }
+
+            PascalToken::Comma => {
+                dest.noscope_push(',');
+            }
+
+            PascalToken::Semicolon => {
+                dest.noscope_push(';');
+            }
+
+            PascalToken::Formatting => {}
+            PascalToken::PasteText => {}
+            PascalToken::ForcedEol => {}
+
+            PascalToken::DollarSign => {
+                dest.noscope_push('$');
+            }
+
+            PascalToken::Plus => {
+                dest.noscope_push('+');
+            }
+
+            PascalToken::Minus => {
+                dest.noscope_push('-');
+            }
+
+            PascalToken::Times => {
+                dest.noscope_push('*');
+            }
+
+            PascalToken::Divide => {
+                dest.noscope_push('/');
+            }
+
+            PascalToken::Greater => {
+                dest.noscope_push('>');
+            }
+
+            PascalToken::GreaterEquals => {
+                dest.noscope_push(">=");
+            }
+
+            PascalToken::Less => {
+                dest.noscope_push(',');
+            }
+
+            PascalToken::LessEquals => {
+                dest.noscope_push("<=");
+            }
+
+            PascalToken::Equals => {
+                dest.noscope_push("==");
+            }
+
+            PascalToken::NotEquals => {
+                dest.noscope_push("!=");
+            }
+
+            PascalToken::DoubleDot => {
+                dest.noscope_push("..");
+            }
+
+            PascalToken::Gets => {
+                dest.noscope_push(":=");
+            }
+
+            PascalToken::Equivalence => {
+                dest.noscope_push("===");
+            }
+
+            PascalToken::Colon => {
+                dest.noscope_push(':');
+            }
+
+            PascalToken::Caret => {
+                dest.noscope_push('^');
+            }
+
+            PascalToken::Period => {
+                dest.noscope_push('.');
+            }
+
+            PascalToken::Hash(_) => {
+                dest.noscope_push('#');
+            }
+
+            PascalToken::StringPoolChecksum => {
+                dest.noscope_push("stringpoolchecksum!()");
+            }
+
+            PascalToken::DefinitionFlag => {}
+            PascalToken::CancelDefinitionFlag => {}
+
+            PascalToken::IntLiteral(kind, n) => {
+                match kind {
+                    IntLiteralKind::Decimal => dest.noscope_push(n),
+
+                    // I think octal is dumb, so I present it as hex.
+                    IntLiteralKind::Octal | IntLiteralKind::Hex => {
+                        dest.noscope_push(format!("0x{:x}", n));
+                    }
+                }
+            }
+
+            PascalToken::StringLiteral(kind, ss) => match kind {
+                StringLiteralKind::SingleQuote => {
+                    dest.noscope_push(format!("{:?}", ss.value));
+                }
+
+                StringLiteralKind::DoubleQuote => {
+                    dest.noscope_push(format!("strpool!({:?})", ss.value));
+                }
+            },
+
+            PascalToken::IndexEntry(..) => {}
+
+            PascalToken::VerbatimPascal(ss) => {
+                dest.noscope_push(ss.value.as_ref());
+            }
+        }
+    }
 }
