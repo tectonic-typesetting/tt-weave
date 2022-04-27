@@ -1,11 +1,6 @@
 //! A WEB expression.
 
-use nom::{
-    branch::alt,
-    combinator::map,
-    multi::{many1, separated_list0},
-    sequence::tuple,
-};
+use nom::{branch::alt, combinator::map, multi::separated_list0, sequence::tuple};
 
 use crate::prettify::Prettifier;
 
@@ -24,10 +19,6 @@ pub enum WebExpr<'a> {
 
     /// Some kind of token that is a valid expression on its own.
     Token(PascalToken<'a>),
-
-    /// Consecutive string literals. The way that we parse these and their
-    /// escaping works, these should be treated as one expression.
-    Strings(Vec<PascalToken<'a>>),
 
     /// A function or procedure call.
     Call(WebCallExpr<'a>),
@@ -52,7 +43,7 @@ pub fn parse_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
     let result = alt((
         parse_prefix_unary_expr,
         parse_paren_expr,
-        parse_strings,
+        map(merged_string_literals, |t| WebExpr::Token(t)),
         parse_token_expr,
     ))(input);
 
@@ -94,7 +85,7 @@ pub fn parse_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
 pub fn parse_lhs_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
     // LHS-valid advancing/atom forms:
 
-    let result = alt((parse_strings, parse_token_expr))(input);
+    let result = parse_token_expr(input);
 
     let (mut input, mut expr) = match result {
         Ok(t) => t,
@@ -121,7 +112,10 @@ pub fn parse_lhs_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>>
 /// really all integers, but due to WEB's macros may look like integer literals,
 /// double-quoted string literals, identifiers, or function calls (WEB macros).
 pub fn parse_case_match_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    let result = alt((parse_strings, parse_token_expr))(input);
+    let result = alt((
+        map(merged_string_literals, |t| WebExpr::Token(t)),
+        parse_token_expr,
+    ))(input);
 
     let (mut input, mut expr) = match result {
         Ok(t) => t,
@@ -160,10 +154,6 @@ fn parse_token_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
     }
 
     return new_parse_err(input, WebErrorKind::Eof);
-}
-
-fn parse_strings<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
-    map(many1(string_literal), |v| WebExpr::Strings(v))(input)
 }
 
 // "Advancing" forms that include sub-expressions, but also require leading
