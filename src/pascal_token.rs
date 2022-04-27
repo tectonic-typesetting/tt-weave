@@ -141,7 +141,7 @@ impl<'a> fmt::Display for PascalToken<'a> {
             PascalToken::IndexEntry(k, s) => write!(f, "IndexEntry({:?}, {:?})", k, s.value),
             PascalToken::ReservedWord(s) => write!(f, "{}", s.value),
 
-            PascalToken::FormattedIdentifier(s, k) => write!(f, "{}[~{}]", s.value, k),
+            PascalToken::FormattedIdentifier(s, _) => write!(f, "{}", s.value),
 
             PascalToken::StringLiteral(k, s) => match k {
                 StringLiteralKind::SingleQuote => write!(f, "{:?}", s.value),

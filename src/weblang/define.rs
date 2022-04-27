@@ -75,7 +75,7 @@ pub fn parse_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a
 pub enum WebDefineRhs<'a> {
     Standalone(standalone::WebStandalone<'a>),
 
-    /// The boolean specifies whether it's an opener or closer
+    /// The boolean specifies whether it's an opener (true) or closer
     IfdefLike(bool),
 
     /// Definition of `loop`
@@ -285,6 +285,11 @@ impl<'a> WebDefine<'a> {
                 prettify::comment_render_inline(c, dest);
             }
         } else {
+            if let Some(c) = self.comment.as_ref() {
+                prettify::comment_render_inline(c, dest);
+                dest.newline_indent();
+            }
+
             dest.noscope_push("@define ");
 
             for t in &self.lhs {
@@ -292,6 +297,9 @@ impl<'a> WebDefine<'a> {
             }
 
             dest.noscope_push(" =");
+            dest.indent_block();
+            dest.newline_indent();
+            render_rhs_flex(&self.rhs, dest);
         }
 
         dest.newline_needed();
@@ -301,11 +309,21 @@ impl<'a> WebDefine<'a> {
 fn measure_rhs_inline<'a>(rhs: &WebDefineRhs<'a>) -> usize {
     match rhs {
         WebDefineRhs::Standalone(s) => s.measure_horz(),
-        WebDefineRhs::IfdefLike(_) => 2, // XXXX
+
+        WebDefineRhs::IfdefLike(_) => 2,
         WebDefineRhs::LoopDefinition(_) => 0,
         WebDefineRhs::EmptyDefinition => 4,
         WebDefineRhs::OthercasesDefinition(_) => 1,
-        WebDefineRhs::Statements(_) => 0,
+
+        WebDefineRhs::Statements(stmts) => {
+            if stmts.len() > 1 {
+                // If multi-line, never try to render as inline.
+                9999
+            } else {
+                stmts[0].measure_horz()
+            }
+        }
+
         WebDefineRhs::CommaExprs(_) => 0,
         WebDefineRhs::ExprEnd(_expr) => 0,
         WebDefineRhs::ExprIdent(_expr, _ss) => 0,
@@ -319,11 +337,21 @@ fn measure_rhs_inline<'a>(rhs: &WebDefineRhs<'a>) -> usize {
 fn render_rhs_inline<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
     match rhs {
         WebDefineRhs::Standalone(s) => s.render_horz(dest),
-        WebDefineRhs::IfdefLike(_) => {}
+        WebDefineRhs::IfdefLike(is_opener) => {
+            dest.noscope_push(if *is_opener { "/*" } else { "*/" })
+        }
         WebDefineRhs::LoopDefinition(_) => {}
         WebDefineRhs::EmptyDefinition => {}
         WebDefineRhs::OthercasesDefinition(_) => {}
-        WebDefineRhs::Statements(_) => {}
+
+        WebDefineRhs::Statements(stmts) => {
+            // This should only be called if we consist of a single statement
+            for s in stmts {
+                s.render_horz(dest);
+                dest.newline_needed();
+            }
+        }
+
         WebDefineRhs::CommaExprs(_) => {}
         WebDefineRhs::ExprEnd(_expr) => {}
         WebDefineRhs::ExprIdent(_expr, _ss) => {}
@@ -331,5 +359,34 @@ fn render_rhs_inline<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
         WebDefineRhs::StatementsThenEnd(_stmts) => {}
         WebDefineRhs::BeginThenStatements(_stmts) => {}
         WebDefineRhs::Expr(expr) => expr.render_inline(dest),
+    }
+}
+
+fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
+    match rhs {
+        WebDefineRhs::Standalone(s) => s.render_horz(dest),
+
+        WebDefineRhs::IfdefLike(is_opener) => {
+            dest.noscope_push(if *is_opener { "/*" } else { "*/" })
+        }
+
+        WebDefineRhs::LoopDefinition(_) => {}
+        WebDefineRhs::EmptyDefinition => {}
+        WebDefineRhs::OthercasesDefinition(_) => {}
+
+        WebDefineRhs::Statements(stmts) => {
+            for s in stmts {
+                s.render_flex(dest);
+                dest.newline_needed();
+            }
+        }
+
+        WebDefineRhs::CommaExprs(_) => {}
+        WebDefineRhs::ExprEnd(_expr) => {}
+        WebDefineRhs::ExprIdent(_expr, _ss) => {}
+        WebDefineRhs::BeginIdent(_ss) => {}
+        WebDefineRhs::StatementsThenEnd(_stmts) => {}
+        WebDefineRhs::BeginThenStatements(_stmts) => {}
+        WebDefineRhs::Expr(expr) => expr.render_flex(dest),
     }
 }

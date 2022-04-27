@@ -617,6 +617,8 @@ impl<'a> WebStatement<'a> {
                         .unwrap_or(0)
             }
 
+            WebStatement::ModuleReference(name) => name.value.len() + 4,
+
             _ => {
                 eprintln!("SMH: {:?}", self);
                 1
@@ -635,11 +637,22 @@ impl<'a> WebStatement<'a> {
                 }
             }
 
+            WebStatement::ModuleReference(name) => {
+                dest.noscope_push("< ");
+                dest.noscope_push(name.value.as_ref());
+                dest.noscope_push(" >");
+                dest.newline_needed();
+            }
+
             _ => {
                 eprintln!("SRH: {:?}", self);
             }
         }
 
         dest.newline_needed();
+    }
+
+    pub fn render_flex(&self, dest: &mut Prettifier) {
+        self.render_horz(dest)
     }
 }

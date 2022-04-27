@@ -79,6 +79,15 @@ Sbackground-color #2^^J%
 }
 \let\S=\WebPrettifiedCodeSpan
 
+% Space for <pre> sections -- if we're indenting, consecutive spaces matter,
+% so we can't just rely on TeX to emit them correctly.
+\newcommand{\WebSp}{ \special{tdux:dt \space}}
+\let\ =\WebSp
+
+% Newline for <pre> sections -- need to insert an actual newline into the HTML
+% content, which we can do with `dt` (Direct Text).
+\newcommand{\WebNL}{\special{tdux:dt ^^J}}
+
 % Ready to go!
 
 \begin{document}

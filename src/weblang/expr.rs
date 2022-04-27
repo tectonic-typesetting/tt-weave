@@ -429,7 +429,7 @@ impl<'a> WebExpr<'a> {
 
             _ => {
                 eprintln!("EMI: {:?}", self);
-                1
+                999
             }
         }
     }
@@ -437,6 +437,43 @@ impl<'a> WebExpr<'a> {
     pub fn render_inline(&self, dest: &mut Prettifier) {
         match self {
             WebExpr::Token(tok) => tok.render_inline(dest),
+
+            _ => {}
+        }
+    }
+
+    pub fn render_flex(&self, dest: &mut Prettifier) {
+        match self {
+            WebExpr::Token(tok) => tok.render_inline(dest),
+
+            WebExpr::PrefixUnary(pu) => {
+                pu.op.render_inline(dest);
+                pu.inner.render_flex(dest);
+            }
+
+            WebExpr::Binary(be) => {
+                let wl = be.lhs.measure_inline();
+                let wr = be.rhs.measure_inline();
+                let wo = be.op.measure_inline();
+
+                if dest.fits(wl + wr + wo + 2) {
+                    be.lhs.render_inline(dest);
+                    dest.space();
+                    be.op.render_inline(dest);
+                    dest.space();
+                    be.rhs.render_inline(dest);
+                } else {
+                    dest.indent_block();
+                    dest.newline_indent();
+                    be.lhs.render_flex(dest);
+                    dest.newline_indent();
+                    be.op.render_inline(dest);
+                    dest.space();
+                    be.rhs.render_flex(dest);
+                    dest.dedent_block();
+                    dest.newline_needed();
+                }
+            }
 
             _ => {}
         }

@@ -45,7 +45,44 @@ impl Prettifier {
         width <= self.remaining_width
     }
 
+    pub fn indent_block(&mut self) {
+        if self.remaining_width > 4 {
+            self.indent += 4;
+            self.remaining_width -= 4;
+        }
+    }
+
+    pub fn dedent_block(&mut self) {
+        if self.indent > 0 {
+            self.indent -= 4;
+            self.remaining_width += 4;
+        }
+    }
+
+    pub fn newline_indent(&mut self) {
+        self.text.push('\n');
+
+        for _ in 0..self.indent {
+            self.text.push(' ');
+        }
+
+        self.newline_needed = false;
+    }
+
+    pub fn newline_needed(&mut self) {
+        self.newline_needed = true;
+    }
+
+    #[inline(always)]
+    fn maybe_newline(&mut self) {
+        if self.newline_needed {
+            self.newline_indent();
+        }
+    }
+
     pub fn scope_push<S: fmt::Display>(&mut self, scope: Scope, text: S) -> usize {
+        self.maybe_newline();
+
         let n0 = self.text.len();
         self.ops.push((n0, ScopeStackOp::Push(scope)));
         write!(self.text, "{}", text).unwrap();
@@ -56,6 +93,7 @@ impl Prettifier {
 
     pub fn noscope_push<S: fmt::Display>(&mut self, text: S) {
         // TODO: never use this? Should always have some kine of scope?
+        self.maybe_newline();
         write!(self.text, "{}", text).unwrap();
     }
 
@@ -63,12 +101,9 @@ impl Prettifier {
         self.text.push(' ');
     }
 
-    pub fn newline_needed(&mut self) {
-        self.newline_needed = true;
-    }
-
     pub fn toplevel_separator(&mut self) {
-        self.text.push_str("\n\n");
+        self.text.push('\n');
+        self.newline_indent();
     }
 
     pub fn emit(self, theme: &Theme, inline: bool) {
@@ -118,7 +153,8 @@ impl Prettifier {
                     '\\' => print!("{{\\textbackslash}}"),
                     '&' => print!("\\&"),
                     '~' => print!("\\~"),
-                    '\n' => print!("\n"), // XXXXXXXXXXXXx
+                    ' ' => print!("\\ "),
+                    '\n' => print!("\\WebNL\n"), // XXXXXXXXXXXXx
                     other => print!("{}", other),
                 }
             }
@@ -168,8 +204,18 @@ pub fn comment_render_inline<'a>(comment: &Vec<TypesetComment<'a>>, dest: &mut P
 
         match piece {
             TypesetComment::Tex(s) => {
-                // TODO TeX escaping???
-                dest.noscope_push(s)
+                // TODO be mindful of TeX escaping here ... maybe
+                let mut first = true;
+
+                for word in s.split_whitespace() {
+                    if first {
+                        first = false;
+                    } else {
+                        dest.space();
+                    }
+
+                    dest.noscope_push(word);
+                }
             }
 
             TypesetComment::Pascal(toks) => {
