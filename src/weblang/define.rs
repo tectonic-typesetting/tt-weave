@@ -92,25 +92,16 @@ pub enum WebDefineRhs<'a> {
     /// A comma-separated group of exprs, needed for WEAVE#95.
     CommaExprs(Vec<Box<WebExpr<'a>>>),
 
-    /// An expr followed by End, needed for WEAVE#125.
-    ExprEnd(Box<WebExpr<'a>>),
-
-    /// An expr followed by an identifier, also needed for WEAVE#125.
-    ExprIdent(Box<WebExpr<'a>>, StringSpan<'a>),
-
     /// Begin followed by an identifier, also needed for WEAVE#125.
     BeginIdent(StringSpan<'a>),
 
     /// A series of statements, then an imbalanced `end` keyword. Needed for
-    /// WEAVE#148.
+    /// WEAVE#125, WEAVE#148.
     StatementsThenEnd(Vec<statement::WebStatement<'a>>),
 
     /// An imbalanced `begin` keyword, then a series of statements. Needed
     /// for WEAVE#148.
     BeginThenStatements(Vec<statement::WebStatement<'a>>),
-
-    /// A free-standing expression.
-    Expr(Box<WebExpr<'a>>),
 }
 
 fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
@@ -129,7 +120,7 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
             |t| WebDefineRhs::BeginIdent(t.1),
         ),
         parse_begin_then_statements,
-        parse_exprs,
+        parse_comma_exprs,
         map(standalone::parse_standalone_base, |s| {
             WebDefineRhs::Standalone(s)
         }),
@@ -238,21 +229,12 @@ fn parse_othercases<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
     )(input)
 }
 
-fn parse_exprs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
-    let (input, mut exprs) =
+fn parse_comma_exprs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    let (input, exprs) =
         separated_list1(pascal_token(PascalToken::Comma), map(parse_expr, Box::new))(input)?;
 
     if exprs.len() == 1 {
-        if let Ok((next_input, _)) = reserved_word(PascalReservedWord::End)(input) {
-            Ok((next_input, WebDefineRhs::ExprEnd(exprs.pop().unwrap())))
-        } else if let Ok((next_input, ss)) = identifier(input) {
-            Ok((
-                next_input,
-                WebDefineRhs::ExprIdent(exprs.pop().unwrap(), ss),
-            ))
-        } else {
-            Ok((input, WebDefineRhs::Expr(exprs.pop().unwrap())))
-        }
+        return new_parse_err(input, WebErrorKind::Eof);
     } else {
         Ok((input, WebDefineRhs::CommaExprs(exprs)))
     }
@@ -325,12 +307,9 @@ fn measure_rhs_inline<'a>(rhs: &WebDefineRhs<'a>) -> usize {
         }
 
         WebDefineRhs::CommaExprs(_) => 0,
-        WebDefineRhs::ExprEnd(_expr) => 0,
-        WebDefineRhs::ExprIdent(_expr, _ss) => 0,
         WebDefineRhs::BeginIdent(_ss) => 0,
         WebDefineRhs::StatementsThenEnd(_stmts) => 0,
         WebDefineRhs::BeginThenStatements(_stmts) => 0,
-        WebDefineRhs::Expr(expr) => expr.measure_inline(),
     }
 }
 
@@ -353,12 +332,9 @@ fn render_rhs_inline<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
         }
 
         WebDefineRhs::CommaExprs(_) => {}
-        WebDefineRhs::ExprEnd(_expr) => {}
-        WebDefineRhs::ExprIdent(_expr, _ss) => {}
         WebDefineRhs::BeginIdent(_ss) => {}
         WebDefineRhs::StatementsThenEnd(_stmts) => {}
         WebDefineRhs::BeginThenStatements(_stmts) => {}
-        WebDefineRhs::Expr(expr) => expr.render_inline(dest),
     }
 }
 
@@ -382,11 +358,8 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
         }
 
         WebDefineRhs::CommaExprs(_) => {}
-        WebDefineRhs::ExprEnd(_expr) => {}
-        WebDefineRhs::ExprIdent(_expr, _ss) => {}
         WebDefineRhs::BeginIdent(_ss) => {}
         WebDefineRhs::StatementsThenEnd(_stmts) => {}
         WebDefineRhs::BeginThenStatements(_stmts) => {}
-        WebDefineRhs::Expr(expr) => expr.render_flex(dest),
     }
 }
