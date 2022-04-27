@@ -99,6 +99,9 @@ pub enum WebDefineRhs<'a> {
     /// An imbalanced `begin` keyword, then a series of statements. Needed
     /// for WEAVE#148.
     BeginThenStatements(Vec<statement::WebStatement<'a>>),
+
+    /// A synthesized identifier, needed for XeTeX(2022.0)#4
+    SynthesizedIdentifier(Vec<StringSpan<'a>>),
 }
 
 fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
@@ -111,6 +114,7 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
         parse_begin_then_statements,
         parse_comma_exprs,
         map(any_reserved_word, |rw| WebDefineRhs::ReservedWord(rw)),
+        parse_synthesized_identifier,
     ))(input)
 }
 
@@ -227,6 +231,16 @@ fn parse_comma_exprs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<
     }
 }
 
+fn parse_synthesized_identifier<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    let (input, idents) = separated_list1(pascal_token(PascalToken::PasteText), identifier)(input)?;
+
+    if idents.len() == 1 {
+        return new_parse_err(input, WebErrorKind::Eof);
+    } else {
+        Ok((input, WebDefineRhs::SynthesizedIdentifier(idents)))
+    }
+}
+
 // Prettification
 
 impl<'a> WebDefine<'a> {
@@ -296,6 +310,7 @@ fn measure_rhs_inline<'a>(rhs: &WebDefineRhs<'a>) -> usize {
         WebDefineRhs::CommaExprs(_) => 0,
         WebDefineRhs::StatementsThenEnd(_stmts) => 0,
         WebDefineRhs::BeginThenStatements(_stmts) => 0,
+        WebDefineRhs::SynthesizedIdentifier(_pieces) => 0,
     }
 }
 
@@ -320,6 +335,7 @@ fn render_rhs_inline<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
         WebDefineRhs::CommaExprs(_) => {}
         WebDefineRhs::StatementsThenEnd(_stmts) => {}
         WebDefineRhs::BeginThenStatements(_stmts) => {}
+        WebDefineRhs::SynthesizedIdentifier(_pieces) => {}
     }
 }
 
@@ -345,5 +361,6 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
         WebDefineRhs::CommaExprs(_) => {}
         WebDefineRhs::StatementsThenEnd(_stmts) => {}
         WebDefineRhs::BeginThenStatements(_stmts) => {}
+        WebDefineRhs::SynthesizedIdentifier(_pieces) => {}
     }
 }
