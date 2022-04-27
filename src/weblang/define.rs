@@ -17,7 +17,7 @@ use crate::prettify::{self, Prettifier};
 use super::{
     base::*,
     expr::{parse_expr, WebExpr},
-    standalone, statement, WebToplevel,
+    statement, WebToplevel,
 };
 
 /// A `@d` definition
@@ -73,7 +73,7 @@ pub fn parse_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a
 /// The right-hand-side of a `@d` definition
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum WebDefineRhs<'a> {
-    Standalone(standalone::WebStandalone<'a>),
+    ReservedWord(SpanValue<'a, PascalReservedWord>),
 
     /// The boolean specifies whether it's an opener (true) or closer
     IfdefLike(bool),
@@ -92,9 +92,6 @@ pub enum WebDefineRhs<'a> {
     /// A comma-separated group of exprs, needed for WEAVE#95.
     CommaExprs(Vec<Box<WebExpr<'a>>>),
 
-    /// Begin followed by an identifier, also needed for WEAVE#125.
-    BeginIdent(StringSpan<'a>),
-
     /// A series of statements, then an imbalanced `end` keyword. Needed for
     /// WEAVE#125, WEAVE#148.
     StatementsThenEnd(Vec<statement::WebStatement<'a>>),
@@ -111,19 +108,9 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
         map(peek_end_of_define, |_| WebDefineRhs::EmptyDefinition),
         parse_othercases,
         parse_statement_series,
-        map(
-            tuple((
-                reserved_word(PascalReservedWord::Begin),
-                identifier,
-                peek_end_of_define,
-            )),
-            |t| WebDefineRhs::BeginIdent(t.1),
-        ),
         parse_begin_then_statements,
         parse_comma_exprs,
-        map(standalone::parse_standalone_base, |s| {
-            WebDefineRhs::Standalone(s)
-        }),
+        map(any_reserved_word, |rw| WebDefineRhs::ReservedWord(rw)),
     ))(input)
 }
 
@@ -290,7 +277,7 @@ impl<'a> WebDefine<'a> {
 
 fn measure_rhs_inline<'a>(rhs: &WebDefineRhs<'a>) -> usize {
     match rhs {
-        WebDefineRhs::Standalone(s) => s.measure_horz(),
+        WebDefineRhs::ReservedWord(s) => s.value.to_string().len(),
 
         WebDefineRhs::IfdefLike(_) => 2,
         WebDefineRhs::LoopDefinition(_) => 0,
@@ -307,7 +294,6 @@ fn measure_rhs_inline<'a>(rhs: &WebDefineRhs<'a>) -> usize {
         }
 
         WebDefineRhs::CommaExprs(_) => 0,
-        WebDefineRhs::BeginIdent(_ss) => 0,
         WebDefineRhs::StatementsThenEnd(_stmts) => 0,
         WebDefineRhs::BeginThenStatements(_stmts) => 0,
     }
@@ -315,7 +301,7 @@ fn measure_rhs_inline<'a>(rhs: &WebDefineRhs<'a>) -> usize {
 
 fn render_rhs_inline<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
     match rhs {
-        WebDefineRhs::Standalone(s) => s.render_horz(dest),
+        WebDefineRhs::ReservedWord(s) => {}
         WebDefineRhs::IfdefLike(is_opener) => {
             dest.noscope_push(if *is_opener { "/*" } else { "*/" })
         }
@@ -332,7 +318,6 @@ fn render_rhs_inline<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
         }
 
         WebDefineRhs::CommaExprs(_) => {}
-        WebDefineRhs::BeginIdent(_ss) => {}
         WebDefineRhs::StatementsThenEnd(_stmts) => {}
         WebDefineRhs::BeginThenStatements(_stmts) => {}
     }
@@ -340,7 +325,7 @@ fn render_rhs_inline<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
 
 fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
     match rhs {
-        WebDefineRhs::Standalone(s) => s.render_horz(dest),
+        WebDefineRhs::ReservedWord(s) => {}
 
         WebDefineRhs::IfdefLike(is_opener) => {
             dest.noscope_push(if *is_opener { "/*" } else { "*/" })
@@ -358,7 +343,6 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
         }
 
         WebDefineRhs::CommaExprs(_) => {}
-        WebDefineRhs::BeginIdent(_ss) => {}
         WebDefineRhs::StatementsThenEnd(_stmts) => {}
         WebDefineRhs::BeginThenStatements(_stmts) => {}
     }
