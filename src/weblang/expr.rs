@@ -7,7 +7,7 @@ use nom::{
     sequence::tuple,
 };
 
-use crate::prettify::{FormatContext, PrettifiedCode};
+use crate::prettify::Prettifier;
 
 use super::base::*;
 
@@ -434,9 +434,9 @@ impl<'a> WebExpr<'a> {
         }
     }
 
-    pub fn render_inline(&self, ctxt: &FormatContext, dest: &mut PrettifiedCode) {
+    pub fn render_inline(&self, dest: &mut Prettifier) {
         match self {
-            WebExpr::Token(tok) => tok.render_inline(ctxt, dest),
+            WebExpr::Token(tok) => tok.render_inline(dest),
 
             _ => {}
         }

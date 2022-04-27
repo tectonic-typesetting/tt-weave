@@ -7,7 +7,7 @@ use nom::{
     combinator::{map, opt},
 };
 
-use crate::prettify::{self, FormatContext, PrettifiedCode};
+use crate::prettify::{self, Prettifier};
 
 use super::{base::*, WebToplevel};
 
@@ -58,14 +58,14 @@ impl<'a> WebStandalone<'a> {
                 .unwrap_or(0)
     }
 
-    pub fn render_horz(&self, ctxt: &FormatContext, dest: &mut PrettifiedCode) {
-        self.token.render_inline(ctxt, dest);
+    pub fn render_horz(&self, dest: &mut Prettifier) {
+        self.token.render_inline(dest);
 
         if let Some(c) = self.comment.as_ref() {
             dest.space();
-            prettify::comment_render_inline(c, ctxt, dest);
+            prettify::comment_render_inline(c, dest);
         }
 
-        dest.newline(ctxt);
+        dest.newline_needed();
     }
 }

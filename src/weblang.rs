@@ -21,7 +21,7 @@ mod type_declaration;
 mod var_declaration;
 mod webtype;
 
-use crate::prettify::{self, FormatContext, PrettifiedCode};
+use crate::prettify::{self, Prettifier};
 
 use self::{base::*, statement::WebStatement};
 
@@ -260,15 +260,11 @@ mod tl_specials {
 }
 
 impl<'a> WebToplevel<'a> {
-    pub fn prettify(&self, ctxt: &FormatContext, dest: &mut PrettifiedCode) {
+    pub fn prettify(&self, dest: &mut Prettifier) {
         match self {
-            WebToplevel::Statement(stmt, comment) => {
-                tl_prettify::statement(stmt, comment, ctxt, dest)
-            }
-
-            WebToplevel::Standalone(s) => s.render_horz(ctxt, dest),
-
-            WebToplevel::Define(d) => d.prettify(ctxt, dest),
+            WebToplevel::Statement(stmt, comment) => tl_prettify::statement(stmt, comment, dest),
+            WebToplevel::Standalone(s) => s.render_horz(dest),
+            WebToplevel::Define(d) => d.prettify(dest),
 
             _ => {
                 eprintln!("P: {:?}", self);
@@ -283,8 +279,7 @@ mod tl_prettify {
     pub fn statement<'a>(
         stmt: &WebStatement<'a>,
         comment: &Option<Vec<TypesetComment<'a>>>,
-        ctxt: &FormatContext,
-        dest: &mut PrettifiedCode,
+        dest: &mut Prettifier,
     ) {
         let clen = comment
             .as_ref()
@@ -292,25 +287,24 @@ mod tl_prettify {
             .unwrap_or(0);
         let slen = stmt.measure_horz();
 
-        if ctxt.fits(clen + slen + 1) {
-            stmt.render_horz(ctxt, dest);
+        if dest.fits(clen + slen + 1) {
+            stmt.render_horz(dest);
 
             if clen > 0 {
                 dest.space();
-                prettify::comment_render_inline(comment.as_ref().unwrap(), ctxt, dest);
+                prettify::comment_render_inline(comment.as_ref().unwrap(), dest);
             }
-
-            dest.newline(ctxt);
-        } else if ctxt.fits(slen) {
+        } else if dest.fits(slen) {
             if clen > 0 {
-                prettify::comment_render_inline(comment.as_ref().unwrap(), ctxt, dest);
-                dest.newline(ctxt);
+                prettify::comment_render_inline(comment.as_ref().unwrap(), dest);
+                dest.newline_needed();
             }
 
-            stmt.render_horz(ctxt, dest);
-            dest.newline(ctxt);
+            stmt.render_horz(dest);
         } else {
             eprintln!("TLS needs vert {:?}", stmt);
         }
+
+        dest.newline_needed();
     }
 }

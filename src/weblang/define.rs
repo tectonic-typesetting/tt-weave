@@ -12,7 +12,7 @@ use nom::{
     InputLength,
 };
 
-use crate::prettify::{self, FormatContext, PrettifiedCode};
+use crate::prettify::{self, Prettifier};
 
 use super::{
     base::*,
@@ -261,7 +261,7 @@ fn parse_exprs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
 // Prettification
 
 impl<'a> WebDefine<'a> {
-    pub fn prettify(&self, ctxt: &FormatContext, dest: &mut PrettifiedCode) {
+    pub fn prettify(&self, dest: &mut Prettifier) {
         let lhs_width: usize = self.lhs.iter().map(|t| t.measure_inline()).sum();
         let rhs_width = measure_rhs_inline(&self.rhs);
         let c_width = self
@@ -270,7 +270,7 @@ impl<'a> WebDefine<'a> {
             .map(|c| 1 + prettify::comment_measure_inline(c))
             .unwrap_or(0);
 
-        if ctxt.fits(10 + lhs_width + rhs_width + c_width) {
+        if dest.fits(10 + lhs_width + rhs_width + c_width) {
             dest.noscope_push("@define ");
 
             for t in &self.lhs {
@@ -278,17 +278,23 @@ impl<'a> WebDefine<'a> {
             }
 
             dest.noscope_push(" = ");
-            render_rhs_inline(&self.rhs, ctxt, dest);
+            render_rhs_inline(&self.rhs, dest);
 
             if let Some(c) = self.comment.as_ref() {
                 dest.space();
-                prettify::comment_render_inline(c, ctxt, dest);
+                prettify::comment_render_inline(c, dest);
             }
         } else {
-            // ...
+            dest.noscope_push("@define ");
+
+            for t in &self.lhs {
+                dest.noscope_push(t);
+            }
+
+            dest.noscope_push(" =");
         }
 
-        dest.newline(ctxt);
+        dest.newline_needed();
     }
 }
 
@@ -310,9 +316,9 @@ fn measure_rhs_inline<'a>(rhs: &WebDefineRhs<'a>) -> usize {
     }
 }
 
-fn render_rhs_inline<'a>(rhs: &WebDefineRhs<'a>, ctxt: &FormatContext, dest: &mut PrettifiedCode) {
+fn render_rhs_inline<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
     match rhs {
-        WebDefineRhs::Standalone(s) => s.render_horz(ctxt, dest),
+        WebDefineRhs::Standalone(s) => s.render_horz(dest),
         WebDefineRhs::IfdefLike(_) => {}
         WebDefineRhs::LoopDefinition(_) => {}
         WebDefineRhs::EmptyDefinition => {}
@@ -324,6 +330,6 @@ fn render_rhs_inline<'a>(rhs: &WebDefineRhs<'a>, ctxt: &FormatContext, dest: &mu
         WebDefineRhs::BeginIdent(_ss) => {}
         WebDefineRhs::StatementsThenEnd(_stmts) => {}
         WebDefineRhs::BeginThenStatements(_stmts) => {}
-        WebDefineRhs::Expr(expr) => expr.render_inline(ctxt, dest),
+        WebDefineRhs::Expr(expr) => expr.render_inline(dest),
     }
 }

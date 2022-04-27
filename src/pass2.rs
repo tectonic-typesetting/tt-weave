@@ -9,7 +9,7 @@ use crate::{
     control::ControlKind,
     parse_base::{new_parse_error, ParseResult, Span, SpanValue, StringSpan},
     pascal_token::PascalToken,
-    prettify::{FormatContext, PrettifiedCode},
+    prettify::Prettifier,
     reserved::PascalReservedWord,
     state::{ModuleId, State},
     token::{next_token, Token},
@@ -267,25 +267,24 @@ fn emit_pascal<'a>(syntax: WebSyntax<'a>, inline: bool) {
 
     // Prettify
 
-    let ctxt = FormatContext::new_inline(inline);
-    let mut pc = PrettifiedCode::default();
+    let mut pretty = Prettifier::new_inline(inline);
     let mut first = true;
 
     for tl in &code.0 {
         if first {
             first = false;
         } else {
-            pc.toplevel_separator();
+            pretty.toplevel_separator();
         }
 
-        tl.prettify(&ctxt, &mut pc);
+        tl.prettify(&mut pretty);
     }
 
     // Emit with highlighting.
 
     let ts = ThemeSet::load_defaults();
     let theme = &ts.themes["InspiredGitHub"];
-    pc.emit(theme, inline);
+    pretty.emit(theme, inline);
 }
 
 /// WEAVE:222

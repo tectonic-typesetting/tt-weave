@@ -8,7 +8,7 @@ use nom::{
 };
 use std::borrow::Cow;
 
-use crate::prettify::{self, FormatContext, PrettifiedCode};
+use crate::prettify::{self, Prettifier};
 
 use super::{
     base::*,
@@ -624,22 +624,22 @@ impl<'a> WebStatement<'a> {
         }
     }
 
-    pub fn render_horz(&self, ctxt: &FormatContext, dest: &mut PrettifiedCode) {
+    pub fn render_horz(&self, dest: &mut Prettifier) {
         match self {
             WebStatement::Expr(expr, comment) => {
-                expr.render_inline(ctxt, dest);
+                expr.render_inline(dest);
 
                 if let Some(c) = comment.as_ref() {
                     dest.space();
-                    prettify::comment_render_inline(c, ctxt, dest);
+                    prettify::comment_render_inline(c, dest);
                 }
-
-                dest.newline(ctxt);
             }
 
             _ => {
                 eprintln!("SRH: {:?}", self);
             }
         }
+
+        dest.newline_needed();
     }
 }

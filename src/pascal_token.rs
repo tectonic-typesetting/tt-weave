@@ -17,7 +17,7 @@ use crate::{
     control::ControlKind,
     index::IndexEntryKind,
     parse_base::{new_parse_error, ParseError, ParseResult, Span, SpanValue, StringSpan},
-    prettify::{FormatContext, PrettifiedCode},
+    prettify::Prettifier,
     reserved::PascalReservedWord,
     token::{expect_token, next_token, take_until_terminator, Token},
 };
@@ -558,7 +558,7 @@ impl<'a> PascalToken<'a> {
         }
     }
 
-    pub fn render_inline(&self, ctxt: &FormatContext, dest: &mut PrettifiedCode) {
+    pub fn render_inline(&self, dest: &mut Prettifier) {
         match self {
             PascalToken::TexString(ss) => {}
 

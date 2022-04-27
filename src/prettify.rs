@@ -15,116 +15,36 @@ use crate::weblang::TypesetComment;
 const INITIAL_SCOPES: &str = "source.c";
 
 lazy_static! {
-    static ref KEYWORD_SCOPE: Scope = Scope::new("keyword.control.c").unwrap();
+    pub static ref KEYWORD_SCOPE: Scope = Scope::new("keyword.control.c").unwrap();
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct FormatContext {
-    pub indent: usize,
-    pub remaining_width: usize,
-    pub is_inline: bool,
+#[derive(Clone, Debug)]
+pub struct Prettifier {
+    indent: usize,
+    remaining_width: usize,
+    is_inline: bool,
+    newline_needed: bool,
+    text: String,
+    ops: Vec<(usize, ScopeStackOp)>,
 }
 
-impl FormatContext {
+impl Prettifier {
     pub fn new_inline(is_inline: bool) -> Self {
-        FormatContext {
+        Prettifier {
             indent: 0,
             remaining_width: 60,
             is_inline,
+            newline_needed: false,
+            text: String::default(),
+            ops: Vec::default(),
         }
-    }
-
-    fn indent(&self, amount: usize) -> Option<Self> {
-        if amount >= self.remaining_width {
-            None
-        } else {
-            Some(FormatContext {
-                indent: self.indent + amount,
-                remaining_width: self.remaining_width - amount,
-                ..*self
-            })
-        }
-    }
-
-    fn indent_default(&self) -> Option<Self> {
-        self.indent(4)
     }
 
     #[inline(always)]
     pub fn fits(&self, width: usize) -> bool {
         width <= self.remaining_width
     }
-}
 
-/// Measure how wide a comment will be if we typeset it inline, including a
-/// leading `// `.
-pub fn comment_measure_inline<'a>(comment: &Vec<TypesetComment<'a>>) -> usize {
-    let mut n = 3; // `// `
-
-    n += comment.len() - 1; // spaces between items
-
-    for piece in &comment[..] {
-        match piece {
-            TypesetComment::Tex(s) => {
-                // This isn't quite right since we shuld be measuring the width
-                // of the comment as rendered, and TeX control sequences won't map
-                // directly to that. But it's the best we can do.
-                n += s.len();
-            }
-
-            TypesetComment::Pascal(toks) => {
-                n += toks.len() - 1;
-
-                for tok in &toks[..] {
-                    n += tok.to_string().len();
-                }
-            }
-        }
-    }
-
-    n
-}
-
-pub fn comment_render_inline<'a>(
-    comment: &Vec<TypesetComment<'a>>,
-    _ctxt: &FormatContext,
-    dest: &mut PrettifiedCode,
-) {
-    dest.noscope_push("//");
-
-    for piece in &comment[..] {
-        dest.noscope_push(' ');
-
-        match piece {
-            TypesetComment::Tex(s) => {
-                // TODO TeX escaping???
-                dest.noscope_push(s)
-            }
-
-            TypesetComment::Pascal(toks) => {
-                let mut first = true;
-
-                for tok in &toks[..] {
-                    if first {
-                        first = false;
-                    } else {
-                        dest.noscope_push(' ');
-                    }
-
-                    dest.noscope_push(tok);
-                }
-            }
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct PrettifiedCode {
-    text: String,
-    ops: Vec<(usize, ScopeStackOp)>,
-}
-
-impl PrettifiedCode {
     pub fn scope_push<S: fmt::Display>(&mut self, scope: Scope, text: S) -> usize {
         let n0 = self.text.len();
         self.ops.push((n0, ScopeStackOp::Push(scope)));
@@ -139,35 +59,19 @@ impl PrettifiedCode {
         write!(self.text, "{}", text).unwrap();
     }
 
-    pub fn space(&mut self) -> usize {
+    pub fn space(&mut self) {
         self.text.push(' ');
-        1
     }
 
-    pub fn newline(&mut self, ctxt: &FormatContext) {
-        if !ctxt.is_inline {
-            self.text.push('\n');
-        }
+    pub fn newline_needed(&mut self) {
+        self.newline_needed = true;
     }
 
     pub fn toplevel_separator(&mut self) {
         self.text.push_str("\n\n");
     }
 
-    pub fn new_placeholder<S: ToString>(text: S) -> Self {
-        let text = text.to_string();
-
-        // TEMP!
-        let n = text.len();
-        let tmp = Scope::new("keyword.control.c").unwrap();
-
-        PrettifiedCode {
-            text,
-            ops: vec![(0, ScopeStackOp::Push(tmp)), (n, ScopeStackOp::Pop(1))],
-        }
-    }
-
-    pub fn emit(&self, theme: &Theme, inline: bool) {
+    pub fn emit(self, theme: &Theme, inline: bool) {
         let highlighter = Highlighter::new(theme);
         let initial_stack = ScopeStack::from_str(INITIAL_SCOPES).unwrap();
         let mut hs = HighlightState::new(&highlighter, initial_stack);
@@ -226,6 +130,71 @@ impl PrettifiedCode {
         print!("\\end{{{}}}{}", env, terminator);
     }
 }
+
+/// Measure how wide a comment will be if we typeset it inline, including a
+/// leading `// `.
+pub fn comment_measure_inline<'a>(comment: &Vec<TypesetComment<'a>>) -> usize {
+    let mut n = 3; // `// `
+
+    n += comment.len() - 1; // spaces between items
+
+    for piece in &comment[..] {
+        match piece {
+            TypesetComment::Tex(s) => {
+                // This isn't quite right since we shuld be measuring the width
+                // of the comment as rendered, and TeX control sequences won't map
+                // directly to that. But it's the best we can do.
+                n += s.len();
+            }
+
+            TypesetComment::Pascal(toks) => {
+                n += toks.len() - 1;
+
+                for tok in &toks[..] {
+                    n += tok.to_string().len();
+                }
+            }
+        }
+    }
+
+    n
+}
+
+pub fn comment_render_inline<'a>(comment: &Vec<TypesetComment<'a>>, dest: &mut Prettifier) {
+    dest.noscope_push("//");
+
+    for piece in &comment[..] {
+        dest.noscope_push(' ');
+
+        match piece {
+            TypesetComment::Tex(s) => {
+                // TODO TeX escaping???
+                dest.noscope_push(s)
+            }
+
+            TypesetComment::Pascal(toks) => {
+                let mut first = true;
+
+                for tok in &toks[..] {
+                    if first {
+                        first = false;
+                    } else {
+                        dest.noscope_push(' ');
+                    }
+
+                    dest.noscope_push(tok);
+                }
+            }
+        }
+    }
+
+    dest.newline_needed();
+}
+
+#[derive(Debug, Default)]
+pub struct PrettifiedCode {}
+
+impl PrettifiedCode {}
 
 struct ColorHexConvert(Color);
 
