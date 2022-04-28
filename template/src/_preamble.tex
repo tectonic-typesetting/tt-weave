@@ -49,16 +49,22 @@ Cttweave-nonfirst}
 \let\WebMinorModule=\WebMajorModule
 
 \newenvironment{WebPrettifiedDisplay}{%
+  \par % If in hmode, get into vmode
   \ifmmode\else\ttfamily\fi
-  \special{tdux:mfs pre}\special{tdux:mfs code}%
+  \special{tdux:mfs pre^^J%
+NAT^^J%
+NAS}\special{tdux:mfs code}%
 }{
+  \par % Get back into vmode if we were in hmode (and so emit any </p>s)
   \special{tdux:me code}\special{tdux:me pre}%
   \ifmmode\else\rmfamily\fi
 }
 
 \newenvironment{WebPrettifiedInline}{%
   \ifmmode\else\ttfamily\fi
-  \special{tdux:mfs code}%
+  \special{tdux:mfs code^^J%
+NAT^^J%
+NAS}%
 }{
   \special{tdux:me code}%
   \ifmmode\else\rmfamily\fi
