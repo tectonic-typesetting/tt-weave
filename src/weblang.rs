@@ -149,29 +149,29 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         standalone::parse_standalone,
     ))(input);
 
-    //match &result {
-    //    Ok((input, v)) => {
-    //        eprintln!("TL OK: {:?}", v);
-    //        let n = usize::min(input.input_len(), 8);
-    //        for tok in &input.0[..n] {
-    //            eprintln!("- {:?}", tok);
-    //        }
-    //    }
-    //
-    //    Err(nom::Err::Error((input, kind))) => {
-    //        if kind != &WebErrorKind::Eof {
-    //            eprintln!("TL error {:?}", kind);
-    //            let n = usize::min(input.input_len(), 20);
-    //            for tok in &input.0[..n] {
-    //                eprintln!("- {:?}", tok);
-    //            }
-    //        }
-    //    }
-    //
-    //    _ => {
-    //        eprintln!("TL other failure???");
-    //    }
-    //}
+    match &result {
+        Ok((input, v)) => {
+            eprintln!("TL OK: {:?}", v);
+            let n = usize::min(input.input_len(), 8);
+            for tok in &input.0[..n] {
+                eprintln!("- {:?}", tok);
+            }
+        }
+
+        Err(nom::Err::Error((input, kind))) => {
+            if kind != &WebErrorKind::Eof {
+                eprintln!("TL error {:?}", kind);
+                let n = usize::min(input.input_len(), 20);
+                for tok in &input.0[..n] {
+                    eprintln!("- {:?}", tok);
+                }
+            }
+        }
+
+        _ => {
+            eprintln!("TL other failure???");
+        }
+    }
 
     result
 }
@@ -268,6 +268,7 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::LabelDeclaration(ld) => ld.prettify(dest),
             WebToplevel::ProgramDefinition(pd) => pd.prettify(dest),
             WebToplevel::ModulifiedDeclaration(md) => md.prettify(dest),
+            WebToplevel::FunctionDefinition(fd) => fd.prettify(dest),
 
             _ => {
                 eprintln!("P: {:?}", self);

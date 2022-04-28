@@ -10,6 +10,8 @@ use nom::{
     sequence::tuple,
 };
 
+use crate::prettify::{self, Prettifier};
+
 use super::{
     base::*,
     statement::{parse_statement_base, WebStatement},
@@ -189,4 +191,89 @@ pub fn parse_function_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, W
     map(parse_function_definition_base, |d| {
         WebToplevel::FunctionDefinition(d)
     })(input)
+}
+
+// Prettifying
+
+impl<'a> WebFunctionDefinition<'a> {
+    pub fn prettify(&self, dest: &mut Prettifier) {
+        let wname = self.name.value.as_ref().len();
+        let wargs: usize =
+            self.args.iter().map(|a| a.measure_inline()).sum::<usize>() + 2 * (self.args.len() - 1);
+        let wret = self
+            .return_type
+            .as_ref()
+            .map(|r| r.measure_inline() + 2) // type + ": "
+            .unwrap_or(0);
+
+        if dest.fits(wname + wargs + wret + 13) {
+            // "function () {"
+            dest.noscope_push("function ");
+            dest.noscope_push(self.name.value.as_ref());
+            dest.noscope_push('(');
+
+            let mut first = true;
+
+            for arg in &self.args {
+                if first {
+                    first = false;
+                } else {
+                    dest.noscope_push(", ");
+                }
+
+                arg.render_inline(dest);
+            }
+
+            dest.noscope_push(')');
+
+            if let Some(r) = self.return_type.as_ref() {
+                dest.noscope_push(": ");
+                r.render_inline(dest);
+            }
+
+            dest.noscope_push(" {");
+        }
+
+        dest.newline_needed();
+    }
+}
+
+impl<'a> WebVariables<'a> {
+    pub fn measure_inline(&self) -> usize {
+        let mut w = 0;
+
+        if self.is_var {
+            w += 4;
+        }
+
+        for n in &self.names {
+            w += n.value.as_ref().len();
+        }
+
+        w += 2 * (self.names.len() - 1); // ", " between names
+        w += 2; // ": "
+        w += self.ty.measure_inline();
+        w
+    }
+
+    pub fn render_inline(&self, dest: &mut Prettifier) {
+        if self.is_var {
+            dest.noscope_push("var ");
+        }
+
+        let mut first = true;
+
+        for n in &self.names {
+            if first {
+                first = false;
+            } else {
+                dest.noscope_push(", ");
+            }
+
+            dest.noscope_push(n.value.as_ref());
+        }
+
+        dest.noscope_push(": ");
+        self.ty.render_inline(dest);
+    }
 }

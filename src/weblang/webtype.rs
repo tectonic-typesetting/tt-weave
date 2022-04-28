@@ -9,6 +9,8 @@ use nom::{
     sequence::tuple,
 };
 
+use crate::prettify::Prettifier;
+
 use super::base::*;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -181,4 +183,115 @@ fn parse_record_field<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebRecordFie
             comment: t.4,
         },
     )(input)
+}
+
+// Prettifying
+
+impl<'a> WebType<'a> {
+    pub fn measure_inline(&self) -> usize {
+        match self {
+            WebType::Integer => 7,
+            WebType::Real => 4,
+            WebType::Boolean => 7,
+            WebType::Range(blo, bhi) => blo.measure_inline() + bhi.measure_inline() + 4,
+            WebType::PackedFileOf(t) => 15 + t.value.as_ref().len(),
+            WebType::Array(arr) => arr.measure_inline(),
+            WebType::Record(_rec) => 9999, // never inline
+            WebType::UserDefined(s) => s.value.as_ref().len(),
+        }
+    }
+
+    pub fn render_inline(&self, dest: &mut Prettifier) {
+        match self {
+            WebType::Integer => dest.noscope_push("integer"),
+            WebType::Real => dest.noscope_push("real"),
+            WebType::Boolean => dest.noscope_push("boolean"),
+
+            WebType::Range(blo, bhi) => {
+                blo.render_inline(dest);
+                dest.noscope_push(" .. ");
+                bhi.render_inline(dest);
+            }
+
+            WebType::PackedFileOf(t) => {
+                dest.noscope_push("packed file of ");
+                dest.noscope_push(t.value.as_ref());
+            }
+
+            WebType::Array(arr) => arr.render_inline(dest),
+            WebType::Record(_rec) => dest.noscope_push("XXXrecordXXX"),
+            WebType::UserDefined(s) => dest.noscope_push(s.value.as_ref()),
+        }
+    }
+}
+
+impl<'a> RangeBound<'a> {
+    pub fn measure_inline(&self) -> usize {
+        match self {
+            RangeBound::Literal(t) => t.measure_inline(),
+            RangeBound::Symbolic1(s) => s.value.as_ref().len(),
+            RangeBound::Symbolic2(s1, op, s2) => {
+                s1.value.as_ref().len() + op.measure_inline() + s2.measure_inline() + 4
+            }
+        }
+    }
+
+    pub fn render_inline(&self, dest: &mut Prettifier) {
+        match self {
+            RangeBound::Literal(t) => t.render_inline(dest),
+            RangeBound::Symbolic1(s) => dest.noscope_push(s.value.as_ref()),
+            RangeBound::Symbolic2(s1, op, s2) => {
+                dest.noscope_push('(');
+                dest.noscope_push(s1.value.as_ref());
+                dest.space();
+                op.render_inline(dest);
+                dest.space();
+                s2.render_inline(dest);
+                dest.noscope_push(')');
+            }
+        }
+    }
+}
+
+impl<'a> WebArrayType<'a> {
+    pub fn measure_inline(&self) -> usize {
+        let mut w = 0;
+
+        if self.is_packed {
+            w += 7;
+        }
+
+        w += 7; // "array ["
+
+        for t in &self.axes {
+            w += t.measure_inline();
+        }
+
+        w += 2 * (self.axes.len() - 1); // ", " between axes
+        w += 5; // "] of "
+        w += self.element.measure_inline();
+        w
+    }
+
+    pub fn render_inline(&self, dest: &mut Prettifier) {
+        if self.is_packed {
+            dest.noscope_push("packed ");
+        }
+
+        dest.noscope_push("array [");
+        let mut first = true;
+
+        for t in &self.axes {
+            if first {
+                first = false;
+            } else {
+                dest.noscope_push(", ");
+            }
+
+            t.render_inline(dest);
+        }
+
+        dest.noscope_push("] of ");
+        self.element.render_inline(dest);
+    }
 }
