@@ -53,9 +53,23 @@ impl Prettifier {
     }
 
     pub fn dedent_block(&mut self) {
-        if self.indent > 0 {
+        if self.indent > 3 {
             self.indent -= 4;
             self.remaining_width += 4;
+        }
+    }
+
+    pub fn indent_small(&mut self) {
+        if self.remaining_width > 2 {
+            self.indent += 2;
+            self.remaining_width -= 2;
+        }
+    }
+
+    pub fn dedent_small(&mut self) {
+        if self.indent > 1 {
+            self.indent -= 2;
+            self.remaining_width += 2;
         }
     }
 
@@ -237,11 +251,14 @@ pub fn comment_render_inline<'a>(comment: &Vec<TypesetComment<'a>>, dest: &mut P
     dest.newline_needed();
 }
 
+pub fn module_reference_measure_inline<'a>(mr: &StringSpan<'a>) -> usize {
+    mr.value.as_ref().len() + 4
+}
+
 pub fn module_reference_render<'a>(mr: &StringSpan<'a>, dest: &mut Prettifier) {
     dest.noscope_push("< ");
     dest.noscope_push(mr.value.as_ref());
     dest.noscope_push(" >");
-    dest.newline_needed();
 }
 
 #[derive(Debug, Default)]

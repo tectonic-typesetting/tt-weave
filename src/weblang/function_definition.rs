@@ -197,6 +197,15 @@ pub fn parse_function_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, W
 
 impl<'a> WebFunctionDefinition<'a> {
     pub fn prettify(&self, dest: &mut Prettifier) {
+        // Opening comment
+
+        if let Some(c) = self.opening_comment.as_ref() {
+            prettify::comment_render_inline(c, dest);
+            dest.newline_needed();
+        }
+
+        // Prototype: name, args, retval
+
         let wname = self.name.value.as_ref().len();
         let wargs: usize =
             self.args.iter().map(|a| a.measure_inline()).sum::<usize>() + 2 * (self.args.len() - 1);
@@ -207,7 +216,7 @@ impl<'a> WebFunctionDefinition<'a> {
             .unwrap_or(0);
 
         if dest.fits(wname + wargs + wret + 13) {
-            // "function () {"
+            // Single-line prototype: "function () {"
             dest.noscope_push("function ");
             dest.noscope_push(self.name.value.as_ref());
             dest.noscope_push('(');
@@ -223,17 +232,141 @@ impl<'a> WebFunctionDefinition<'a> {
 
                 arg.render_inline(dest);
             }
+        } else {
+            // Multi-line function prototype
+            dest.noscope_push("function ");
+            dest.noscope_push(self.name.value.as_ref());
+            dest.noscope_push('(');
+            dest.indent_small();
+            dest.newline_needed();
 
-            dest.noscope_push(')');
-
-            if let Some(r) = self.return_type.as_ref() {
-                dest.noscope_push(": ");
-                r.render_inline(dest);
+            for arg in &self.args {
+                arg.render_inline(dest);
+                dest.noscope_push(',');
+                dest.newline_needed();
             }
 
-            dest.noscope_push(" {");
+            dest.dedent_small();
         }
 
+        dest.noscope_push(')');
+
+        if let Some(r) = self.return_type.as_ref() {
+            dest.noscope_push(": ");
+            r.render_inline(dest);
+        }
+
+        dest.noscope_push(" {");
+        dest.newline_needed();
+        dest.indent_block();
+
+        // Labels
+
+        if !self.labels.is_empty() {
+            let mut wl: usize = self.labels.iter().map(|s| s.value.as_ref().len()).sum();
+            wl += 2 * (self.labels.len() - 1);
+
+            if dest.fits(wl + 7) {
+                // "label ;"
+                dest.noscope_push("label ");
+
+                let mut first = true;
+
+                for l in &self.labels {
+                    if first {
+                        first = false;
+                    } else {
+                        dest.noscope_push(", ");
+                    }
+
+                    dest.noscope_push(l.value.as_ref());
+                }
+            } else {
+                // Multi-line label declarations
+                dest.noscope_push("label");
+                dest.indent_small();
+                dest.newline_needed();
+
+                let mut first = true;
+
+                for l in &self.labels {
+                    if first {
+                        first = false;
+                    } else {
+                        dest.noscope_push(",");
+                        dest.newline_indent();
+                    }
+
+                    dest.noscope_push(l.value.as_ref());
+                }
+
+                dest.dedent_small();
+            }
+
+            dest.noscope_push(";");
+            dest.newline_needed();
+        }
+
+        // Vars
+
+        if !self.vars.is_empty() {
+            let mut wv: usize = self.vars.iter().map(|s| s.measure_inline()).sum();
+            wv += 2 * (self.vars.len() - 1);
+
+            if dest.fits(wv + 5) {
+                // "var ;"
+                dest.noscope_push("var ");
+
+                let mut first = true;
+
+                for v in &self.vars {
+                    if first {
+                        first = false;
+                    } else {
+                        dest.noscope_push(", ");
+                    }
+
+                    v.render_inline(dest);
+                }
+
+                dest.noscope_push(";");
+            } else {
+                // Multi-line var declarations
+                dest.noscope_push("var");
+                dest.indent_small();
+                dest.newline_needed();
+
+                let n_last = self.vars.len() - 1;
+
+                for (i, v) in self.vars.iter().enumerate() {
+                    let term = if i == n_last { ';' } else { ',' };
+
+                    v.prettify(dest, term);
+                    dest.newline_needed();
+                }
+
+                dest.dedent_small();
+            }
+
+            dest.newline_needed();
+        }
+
+        // Statements
+
+        if !self.labels.is_empty() || !self.vars.is_empty() {
+            dest.newline_indent();
+            dest.newline_needed();
+        }
+
+        for s in &self.stmts {
+            s.render_flex(dest);
+        }
+
+        // Done
+
+        dest.newline_needed();
+        dest.dedent_block();
+        dest.noscope_push("}");
         dest.newline_needed();
     }
 }
@@ -275,5 +408,60 @@ impl<'a> WebVariables<'a> {
 
         dest.noscope_push(": ");
         self.ty.render_inline(dest);
+    }
+}
+
+impl<'a> WebVarBlockItem<'a> {
+    pub fn measure_inline(&self) -> usize {
+        match self {
+            WebVarBlockItem::ModuleReference(mr) => prettify::module_reference_measure_inline(mr),
+            WebVarBlockItem::InPlace(ip) => ip.measure_inline(),
+            WebVarBlockItem::IfdefInPlace(..) => 9999, // never inline
+        }
+    }
+
+    pub fn render_inline(&self, dest: &mut Prettifier) {
+        match self {
+            WebVarBlockItem::ModuleReference(mr) => prettify::module_reference_render(mr, dest),
+            WebVarBlockItem::InPlace(ip) => ip.render_inline(dest),
+            WebVarBlockItem::IfdefInPlace(..) => dest.noscope_push("XXXifdefvbiinline"),
+        }
+    }
+
+    pub fn prettify(&self, dest: &mut Prettifier, term: char) {
+        match self {
+            WebVarBlockItem::ModuleReference(mr) => {
+                prettify::module_reference_render(mr, dest);
+                dest.noscope_push(term);
+            }
+
+            WebVarBlockItem::InPlace(ip) => ip.prettify(dest, term),
+            WebVarBlockItem::IfdefInPlace(..) => dest.noscope_push("XXXifdefvbiREAL"),
+        }
+    }
+}
+
+impl<'a> WebInPlaceVariables<'a> {
+    pub fn measure_inline(&self) -> usize {
+        if self.comment.is_some() {
+            9999 // never inline
+        } else {
+            self.vars.measure_inline()
+        }
+    }
+
+    pub fn render_inline(&self, dest: &mut Prettifier) {
+        // By definition, no comment
+        self.vars.render_inline(dest);
+    }
+
+    pub fn prettify(&self, dest: &mut Prettifier, term: char) {
+        self.vars.render_inline(dest);
+        dest.noscope_push(term);
+
+        if let Some(c) = self.comment.as_ref() {
+            dest.space();
+            prettify::comment_render_inline(c, dest);
+        }
     }
 }
