@@ -638,10 +638,7 @@ impl<'a> WebStatement<'a> {
             }
 
             WebStatement::ModuleReference(name) => {
-                dest.noscope_push("< ");
-                dest.noscope_push(name.value.as_ref());
-                dest.noscope_push(" >");
-                dest.newline_needed();
+                prettify::module_reference_render(name, dest);
             }
 
             _ => {
