@@ -2,6 +2,8 @@
 
 use nom::sequence::tuple;
 
+use crate::prettify::{self, Prettifier};
+
 use super::{base::*, WebToplevel};
 
 /// A group of declarations done by referencing a module.
@@ -45,4 +47,15 @@ pub fn parse_modulified_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a
             module: items.1,
         }),
     ))
+}
+
+impl<'a> WebModulifiedDeclaration<'a> {
+    pub fn prettify(&self, dest: &mut Prettifier) {
+        dest.noscope_push(self.kind);
+        dest.indent_block();
+        dest.newline_indent();
+        prettify::module_reference_render(&self.module, dest);
+        dest.dedent_block();
+        dest.newline_needed();
+    }
 }

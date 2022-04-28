@@ -10,7 +10,7 @@ use syntect::{
     parsing::{Scope, ScopeStack, ScopeStackOp},
 };
 
-use crate::weblang::TypesetComment;
+use crate::weblang::{base::StringSpan, TypesetComment};
 
 const INITIAL_SCOPES: &str = "source.c";
 
@@ -234,6 +234,13 @@ pub fn comment_render_inline<'a>(comment: &Vec<TypesetComment<'a>>, dest: &mut P
         }
     }
 
+    dest.newline_needed();
+}
+
+pub fn module_reference_render<'a>(mr: &StringSpan<'a>, dest: &mut Prettifier) {
+    dest.noscope_push("< ");
+    dest.noscope_push(mr.value.as_ref());
+    dest.noscope_push(" >");
     dest.newline_needed();
 }
 

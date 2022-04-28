@@ -5,7 +5,7 @@
 
 use nom::{branch::alt, bytes::complete::take_while, multi::many1, Finish, InputLength};
 
-mod base;
+pub mod base;
 mod const_declaration;
 mod define;
 mod expr;
@@ -266,6 +266,8 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::Standalone(s) => s.render_horz(dest),
             WebToplevel::Define(d) => d.prettify(dest),
             WebToplevel::LabelDeclaration(ld) => ld.prettify(dest),
+            WebToplevel::ProgramDefinition(pd) => pd.prettify(dest),
+            WebToplevel::ModulifiedDeclaration(md) => md.prettify(dest),
 
             _ => {
                 eprintln!("P: {:?}", self);

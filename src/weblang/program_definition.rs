@@ -10,6 +10,8 @@
 
 use nom::{multi::separated_list0, sequence::tuple};
 
+use crate::prettify::Prettifier;
+
 use super::{base::*, WebToplevel};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -35,4 +37,30 @@ pub fn parse_program_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, We
             args: items.3,
         }),
     ))
+}
+
+impl<'a> WebProgramDefinition<'a> {
+    pub fn prettify(&self, dest: &mut Prettifier) {
+        dest.noscope_push("program ");
+        dest.noscope_push(self.name.value.as_ref());
+        dest.noscope_push('(');
+
+        let mut first = true;
+
+        for arg in &self.args {
+            if first {
+                first = false;
+            } else {
+                dest.noscope_push(", ");
+            }
+
+            dest.noscope_push(arg.value.as_ref());
+        }
+
+        dest.noscope_push("):");
+
+        // special! Imbalanced indent!
+        dest.indent_block();
+        dest.newline_needed();
+    }
 }
