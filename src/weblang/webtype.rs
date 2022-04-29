@@ -228,18 +228,15 @@ impl<'a> RenderInline for WebType<'a> {
 impl<'a> WebType<'a> {
     pub fn render_flex(&self, dest: &mut Prettifier) {
         match self {
-            WebType::Integer | WebType::Real | WebType::Boolean | WebType::UserDefined(_) => {
-                self.render_inline(dest)
-            }
+            WebType::Integer
+            | WebType::Real
+            | WebType::Boolean
+            | WebType::UserDefined(_)
+            | WebType::PackedFileOf(_)
+            | WebType::Range(..) => self.render_inline(dest),
 
-            // TODO:
-            WebType::Range(blo, bhi) => self.render_inline(dest),
-
-            WebType::PackedFileOf(t) => self.render_inline(dest),
-
-            WebType::Array(arr) => self.render_inline(dest),
-
-            WebType::Record(_rec) => self.render_inline(dest),
+            WebType::Array(arr) => arr.render_flex(dest),
+            WebType::Record(rec) => rec.render_flex(dest),
         }
     }
 }
@@ -296,5 +293,107 @@ impl<'a> RenderInline for WebArrayType<'a> {
         prettify::render_inline_seq(&self.axes, ", ", dest);
         dest.noscope_push("] of ");
         self.element.render_inline(dest);
+    }
+}
+
+impl<'a> WebArrayType<'a> {
+    pub fn render_flex(&self, dest: &mut Prettifier) {
+        let wx = prettify::measure_inline_seq(&self.axes, 2);
+        let we = self.element.measure_inline();
+
+        if self.is_packed {
+            dest.noscope_push("packed ");
+        }
+
+        dest.noscope_push("array [");
+
+        if dest.fits(wx + we + 5) {
+            prettify::render_inline_seq(&self.axes, ", ", dest);
+            dest.noscope_push("] of ");
+            self.element.render_inline(dest);
+        } else if dest.fits(wx + 4) {
+            prettify::render_inline_seq(&self.axes, ", ", dest);
+            dest.noscope_push("] of");
+            dest.indent_small();
+            dest.newline_needed();
+            self.element.render_flex(dest);
+            dest.dedent_small();
+        } else {
+            dest.indent_small();
+
+            for ax in &self.axes {
+                dest.newline_indent();
+                ax.render_flex(dest);
+                dest.noscope_push(',');
+            }
+
+            dest.dedent_small();
+            dest.newline_indent();
+            dest.noscope_push("] of");
+            dest.noscope_push(' ');
+
+            if dest.fits(we) {
+                self.element.render_inline(dest);
+            } else {
+                self.element.render_flex(dest);
+            }
+        }
+    }
+}
+
+impl<'a> WebRecordType<'a> {
+    pub fn render_flex(&self, dest: &mut Prettifier) {
+        if self.is_packed {
+            dest.noscope_push("packed ");
+        }
+
+        dest.noscope_push("record {");
+        dest.indent_block();
+
+        for f in &self.fields {
+            dest.newline_needed();
+
+            let wc = f
+                .comment
+                .as_ref()
+                .map(|c| c.measure_inline() + 1)
+                .unwrap_or(0);
+
+            if dest.fits(f.name.len() + f.ty.measure_inline() + wc + 3) {
+                dest.noscope_push(&f.name);
+                dest.noscope_push(": ");
+                f.ty.render_inline(dest);
+                dest.noscope_push(',');
+
+                if let Some(c) = f.comment.as_ref() {
+                    dest.space();
+                    c.render_inline(dest);
+                }
+            } else if dest.fits(f.name.len() + f.ty.measure_inline() + 3) {
+                if let Some(c) = f.comment.as_ref() {
+                    c.render_inline(dest);
+                    dest.newline_needed();
+                }
+
+                dest.noscope_push(&f.name);
+                dest.noscope_push(": ");
+                f.ty.render_inline(dest);
+                dest.noscope_push(',');
+            } else {
+                if let Some(c) = f.comment.as_ref() {
+                    c.render_inline(dest);
+                    dest.newline_needed();
+                }
+
+                dest.noscope_push(&f.name);
+                dest.noscope_push(": ");
+                f.ty.render_flex(dest);
+                dest.noscope_push(',');
+            }
+        }
+
+        dest.dedent_block();
+        dest.newline_indent();
+        dest.noscope_push('}');
     }
 }
