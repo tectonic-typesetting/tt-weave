@@ -112,6 +112,9 @@ pub struct WebBlock<'a> {
     /// The token that opens the block.
     opener: PascalToken<'a>,
 
+    /// Optional comment before
+    pre_comment: Option<WebComment<'a>>,
+
     /// Inner statements.
     stmts: Vec<Box<WebStatement<'a>>>,
 
@@ -125,6 +128,7 @@ pub struct WebBlock<'a> {
 fn parse_block<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     let (input, items) = tuple((
         block_opener,
+        opt(comment),
         many0(map(parse_statement_base, |s| Box::new(s))),
         block_closer,
         opt(pascal_token(PascalToken::Semicolon)),
@@ -133,14 +137,16 @@ fn parse_block<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     ))(input)?;
 
     let opener = items.0;
-    let stmts = items.1;
-    let closer = items.2;
-    let post_comment = items.5;
+    let pre_comment = items.1;
+    let stmts = items.2;
+    let closer = items.3;
+    let post_comment = items.6;
 
     Ok((
         input,
         WebStatement::Block(WebBlock {
             opener,
+            pre_comment,
             stmts,
             closer,
             post_comment,
@@ -292,6 +298,9 @@ pub struct WebWhile<'a> {
     /// The loop test expression
     test: Box<WebExpr<'a>>,
 
+    /// Optional comment after the test
+    test_comment: Option<WebComment<'a>>,
+
     /// The `do` statement, which may be a block.
     do_: Box<WebStatement<'a>>,
 }
@@ -301,13 +310,22 @@ fn parse_while<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
         reserved_word(PascalReservedWord::While),
         parse_expr,
         reserved_word(PascalReservedWord::Do),
+        opt(comment),
         parse_statement_base,
     ))(input)?;
 
     let test = Box::new(items.1);
-    let do_ = Box::new(items.3);
+    let test_comment = items.3;
+    let do_ = Box::new(items.4);
 
-    Ok((input, WebStatement::While(WebWhile { test, do_ })))
+    Ok((
+        input,
+        WebStatement::While(WebWhile {
+            test,
+            test_comment,
+            do_,
+        }),
+    ))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

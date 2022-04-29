@@ -3,7 +3,9 @@
 //! This is *mostly* Pascal, but with a few additions. We implement parsing with
 //! `nom` where the underlying datatype is a sequence of tokens.
 
-use nom::{branch::alt, bytes::complete::take_while, multi::many1, Finish, InputLength};
+use nom::{
+    branch::alt, bytes::complete::take_while, combinator::opt, multi::many1, Finish, InputLength,
+};
 
 pub mod base;
 mod comment;
@@ -83,11 +85,19 @@ pub enum WebToplevel<'a> {
     /// `$int .. $int`, needed for WEAVE:144
     SpecialIntRange(PascalToken<'a>, PascalToken<'a>),
 
-    /// `$begin_like $function $end_like`, neede for WEAVE:260
+    /// `$begin_like $function $end_like`, needed for WEAVE:260
     SpecialIfdefFunction(
         PascalToken<'a>,
         function_definition::WebFunctionDefinition<'a>,
         PascalToken<'a>,
+    ),
+
+    /// `$begin_like $var_declaration $end_like`, needed for WEAVE:244
+    SpecialIfdefVarDeclaration(
+        PascalToken<'a>,
+        var_declaration::WebVarDeclaration<'a>,
+        PascalToken<'a>,
+        Option<WebComment<'a>>,
     ),
 }
 
@@ -142,6 +152,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         var_declaration::parse_var_declaration,
         type_declaration::parse_type_declaration,
         tl_specials::parse_special_ifdef_function,
+        tl_specials::parse_special_ifdef_var_decl,
         tl_specials::parse_special_paren_two_ident,
         tl_specials::parse_special_empty_brackets,
         tl_specials::parse_special_relational_ident,
@@ -150,29 +161,29 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         standalone::parse_standalone,
     ))(input);
 
-    match &result {
-        Ok((input, v)) => {
-            eprintln!("TL OK: {:?}", v);
-            let n = usize::min(input.input_len(), 8);
-            for tok in &input.0[..n] {
-                eprintln!("- {:?}", tok);
-            }
-        }
-
-        Err(nom::Err::Error((input, kind))) => {
-            if kind != &WebErrorKind::Eof {
-                eprintln!("TL error {:?}", kind);
-                let n = usize::min(input.input_len(), 20);
-                for tok in &input.0[..n] {
-                    eprintln!("- {:?}", tok);
-                }
-            }
-        }
-
-        _ => {
-            eprintln!("TL other failure???");
-        }
-    }
+    //match &result {
+    //    Ok((input, v)) => {
+    //        eprintln!("TL OK: {:?}", v);
+    //        let n = usize::min(input.input_len(), 8);
+    //        for tok in &input.0[..n] {
+    //            eprintln!("- {:?}", tok);
+    //        }
+    //    }
+    //
+    //    Err(nom::Err::Error((input, kind))) => {
+    //        if kind != &WebErrorKind::Eof {
+    //            eprintln!("TL error {:?}", kind);
+    //            let n = usize::min(input.input_len(), 20);
+    //            for tok in &input.0[..n] {
+    //                eprintln!("- {:?}", tok);
+    //            }
+    //        }
+    //    }
+    //
+    //    _ => {
+    //        eprintln!("TL other failure???");
+    //    }
+    //}
 
     result
 }
@@ -258,13 +269,27 @@ mod tl_specials {
             |t| WebToplevel::SpecialIfdefFunction(t.0, t.1, t.2),
         )(input)
     }
+
+    pub fn parse_special_ifdef_var_decl<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                formatted_identifier_like(PascalReservedWord::Begin),
+                var_declaration::parse_var_declaration_base,
+                formatted_identifier_like(PascalReservedWord::End),
+                opt(comment),
+            )),
+            |t| WebToplevel::SpecialIfdefVarDeclaration(t.0, t.1, t.2, t.3),
+        )(input)
+    }
 }
 
 impl<'a> WebToplevel<'a> {
     pub fn prettify(&self, dest: &mut Prettifier) {
         match self {
             WebToplevel::Statement(stmt, comment) => tl_prettify::statement(stmt, comment, dest),
-            WebToplevel::Standalone(s) => s.render_horz(dest),
+            WebToplevel::Standalone(s) => s.render_inline(dest),
             WebToplevel::Define(d) => d.prettify(dest),
             WebToplevel::Format(f) => f.prettify(dest),
             WebToplevel::LabelDeclaration(ld) => ld.prettify(dest),

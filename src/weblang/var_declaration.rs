@@ -27,7 +27,9 @@ pub struct WebVarDeclaration<'a> {
     comment: Option<WebComment<'a>>,
 }
 
-pub fn parse_var_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+pub fn parse_var_declaration_base<'a>(
+    input: ParseInput<'a>,
+) -> ParseResult<'a, WebVarDeclaration<'a>> {
     map(
         tuple((
             separated_list0(pascal_token(PascalToken::Comma), identifier),
@@ -36,12 +38,16 @@ pub fn parse_var_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebTo
             pascal_token(PascalToken::Semicolon),
             opt(comment),
         )),
-        |tup| {
-            WebToplevel::VarDeclaration(WebVarDeclaration {
-                names: tup.0,
-                ty: tup.2,
-                comment: tup.4,
-            })
+        |tup| WebVarDeclaration {
+            names: tup.0,
+            ty: tup.2,
+            comment: tup.4,
         },
     )(input)
+}
+
+pub fn parse_var_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+    map(parse_var_declaration_base, |vd| {
+        WebToplevel::VarDeclaration(vd)
+    })(input)
 }
