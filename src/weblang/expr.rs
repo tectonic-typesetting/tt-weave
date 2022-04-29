@@ -2,7 +2,7 @@
 
 use nom::{branch::alt, combinator::map, multi::separated_list0, sequence::tuple};
 
-use crate::prettify::{Prettifier, RenderInline};
+use crate::prettify::{self, Prettifier, RenderInline};
 
 use super::base::*;
 
@@ -421,10 +421,23 @@ impl<'a> RenderInline for WebExpr<'a> {
                 bin.lhs.measure_inline() + bin.rhs.measure_inline() + bin.op.measure_inline() + 2
             }
 
-            _ => {
-                eprintln!("EMI: {:?}", self);
-                999
+            WebExpr::PrefixUnary(pu) => pu.op.measure_inline() + pu.inner.measure_inline(),
+
+            WebExpr::PostfixUnary(pu) => pu.op.measure_inline() + pu.inner.measure_inline(),
+
+            WebExpr::Call(call) => {
+                call.target.measure_inline() + prettify::measure_inline_seq(&call.args, 2) + 2
             }
+
+            WebExpr::Index(idx) => {
+                idx.target.measure_inline() + prettify::measure_inline_seq(&idx.args, 2) + 2
+            }
+
+            WebExpr::Field(f) => f.item.measure_inline() + 1 + f.field.len(),
+
+            WebExpr::Format(f) => f.inner.measure_inline() + 1 + f.width.measure_inline(),
+
+            WebExpr::Paren(p) => p.measure_inline() + 2,
         }
     }
 
@@ -440,7 +453,47 @@ impl<'a> RenderInline for WebExpr<'a> {
                 bin.rhs.render_inline(dest);
             }
 
-            _ => {}
+            WebExpr::PrefixUnary(pu) => {
+                pu.op.render_inline(dest);
+                pu.inner.render_inline(dest);
+            }
+
+            WebExpr::PostfixUnary(pu) => {
+                pu.inner.render_inline(dest);
+                pu.op.render_inline(dest);
+            }
+
+            WebExpr::Call(call) => {
+                call.target.render_inline(dest);
+                dest.noscope_push('(');
+                prettify::render_inline_seq(&call.args, ", ", dest);
+                dest.noscope_push(')');
+            }
+
+            WebExpr::Index(idx) => {
+                idx.target.render_inline(dest);
+                dest.noscope_push('[');
+                prettify::render_inline_seq(&idx.args, ", ", dest);
+                dest.noscope_push(']');
+            }
+
+            WebExpr::Field(f) => {
+                f.item.render_inline(dest);
+                dest.noscope_push('.');
+                dest.noscope_push(f.field.value.as_ref());
+            }
+
+            WebExpr::Format(f) => {
+                f.inner.render_inline(dest);
+                dest.noscope_push(':');
+                f.width.render_inline(dest);
+            }
+
+            WebExpr::Paren(p) => {
+                dest.noscope_push('(');
+                p.render_inline(dest);
+                dest.noscope_push(')');
+            }
         }
     }
 }
@@ -480,6 +533,26 @@ impl<'a> WebExpr<'a> {
             }
 
             _ => {}
+        }
+    }
+}
+
+impl<'a> RenderInline for WebIndexTerm<'a> {
+    fn measure_inline(&self) -> usize {
+        match self {
+            WebIndexTerm::Expr(e) => e.measure_inline(),
+            WebIndexTerm::Range(lo, hi) => lo.measure_inline() + 4 + hi.measure_inline(),
+        }
+    }
+
+    fn render_inline(&self, dest: &mut Prettifier) {
+        match self {
+            WebIndexTerm::Expr(e) => e.render_inline(dest),
+            WebIndexTerm::Range(lo, hi) => {
+                lo.render_inline(dest);
+                dest.noscope_push(" .. ");
+                hi.render_inline(dest);
+            }
         }
     }
 }

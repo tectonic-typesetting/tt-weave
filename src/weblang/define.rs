@@ -263,21 +263,21 @@ impl<'a> WebDefine<'a> {
             .map(|c| 1 + c.measure_inline())
             .unwrap_or(0);
 
-        if dest.fits(10 + lhs_width + rhs_width + c_width) {
+        if dest.fits(11 + lhs_width + rhs_width + c_width) {
             dest.noscope_push("@define ");
 
             for t in &self.lhs {
                 dest.noscope_push(t);
             }
 
-            dest.noscope_push(" = ");
+            dest.noscope_push(" => ");
             self.rhs.render_inline(dest);
 
             if let Some(c) = self.comment.as_ref() {
                 dest.space();
                 c.render_inline(dest);
             }
-        } else if dest.fits(10 + lhs_width + rhs_width) {
+        } else if dest.fits(11 + lhs_width + rhs_width) {
             // We can't get here without the comment being Some, but ...
             if let Some(c) = self.comment.as_ref() {
                 c.render_inline(dest);
@@ -290,7 +290,7 @@ impl<'a> WebDefine<'a> {
                 dest.noscope_push(t);
             }
 
-            dest.noscope_push(" = ");
+            dest.noscope_push(" => ");
             self.rhs.render_inline(dest);
         } else {
             if let Some(c) = self.comment.as_ref() {
@@ -304,7 +304,7 @@ impl<'a> WebDefine<'a> {
                 dest.noscope_push(t);
             }
 
-            dest.noscope_push(" =");
+            dest.noscope_push(" =>");
             dest.indent_block();
             dest.newline_indent();
             render_rhs_flex(&self.rhs, dest);
