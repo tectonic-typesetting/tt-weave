@@ -21,7 +21,7 @@ lazy_static! {
 #[derive(Clone, Debug)]
 pub struct Prettifier {
     indent: usize,
-    remaining_width: usize,
+    pub remaining_width: usize,
     is_inline: bool,
     newline_needed: bool,
     text: String,

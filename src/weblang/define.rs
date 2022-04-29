@@ -64,8 +64,18 @@ pub fn parse_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a
     }
 
     let lhs = items.1 .0.iter().map(|t| t.clone().into_pascal()).collect();
-    let rhs = items.3 .0;
-    let comment = items.3 .1;
+    let mut rhs = items.3 .0;
+    let mut comment = items.3 .1;
+
+    // Tidying up for a common case:
+
+    if let WebDefineRhs::Statements(ref mut stmts) = &mut rhs {
+        if stmts.len() == 1 && comment.is_none() {
+            if let statement::WebStatement::Expr(_, ref mut sc) = &mut stmts[0] {
+                comment = sc.take();
+            }
+        }
+    }
 
     Ok((input, WebToplevel::Define(WebDefine { lhs, rhs, comment })))
 }
@@ -267,6 +277,21 @@ impl<'a> WebDefine<'a> {
                 dest.space();
                 prettify::comment_render_inline(c, dest);
             }
+        } else if dest.fits(10 + lhs_width + rhs_width) {
+            // We can't get here without the comment being Some, but ...
+            if let Some(c) = self.comment.as_ref() {
+                prettify::comment_render_inline(c, dest);
+                dest.newline_indent();
+            }
+
+            dest.noscope_push("@define ");
+
+            for t in &self.lhs {
+                dest.noscope_push(t);
+            }
+
+            dest.noscope_push(" = ");
+            render_rhs_inline(&self.rhs, dest);
         } else {
             if let Some(c) = self.comment.as_ref() {
                 prettify::comment_render_inline(c, dest);
@@ -293,10 +318,10 @@ fn measure_rhs_inline<'a>(rhs: &WebDefineRhs<'a>) -> usize {
     match rhs {
         WebDefineRhs::ReservedWord(s) => s.value.to_string().len(),
 
-        WebDefineRhs::IfdefLike(_) => 2,
-        WebDefineRhs::LoopDefinition(_) => 0,
-        WebDefineRhs::EmptyDefinition => 4,
-        WebDefineRhs::OthercasesDefinition(_) => 1,
+        WebDefineRhs::IfdefLike(_) => 13,
+        WebDefineRhs::LoopDefinition(t) => t.len() + 8, // "while  {"
+        WebDefineRhs::EmptyDefinition => 12,
+        WebDefineRhs::OthercasesDefinition(t) => t.len() + 1,
 
         WebDefineRhs::Statements(stmts) => {
             if stmts.len() > 1 {
@@ -316,40 +341,60 @@ fn measure_rhs_inline<'a>(rhs: &WebDefineRhs<'a>) -> usize {
 
 fn render_rhs_inline<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
     match rhs {
-        WebDefineRhs::ReservedWord(s) => {}
-        WebDefineRhs::IfdefLike(is_opener) => {
-            dest.noscope_push(if *is_opener { "/*" } else { "*/" })
+        WebDefineRhs::ReservedWord(s) => dest.noscope_push(s),
+
+        WebDefineRhs::IfdefLike(is_opener) => dest.noscope_push(if *is_opener {
+            "begin_ignore!"
+        } else {
+            "end_ignore!"
+        }),
+
+        WebDefineRhs::LoopDefinition(t) => {
+            dest.noscope_push("while ");
+            dest.noscope_push(t.value.as_ref());
+            dest.noscope_push(" {");
         }
-        WebDefineRhs::LoopDefinition(_) => {}
-        WebDefineRhs::EmptyDefinition => {}
-        WebDefineRhs::OthercasesDefinition(_) => {}
+
+        WebDefineRhs::EmptyDefinition => dest.noscope_push("/*nothing*/"),
+
+        WebDefineRhs::OthercasesDefinition(t) => {
+            dest.noscope_push(t);
+            dest.noscope_push(":");
+        }
 
         WebDefineRhs::Statements(stmts) => {
             // This should only be called if we consist of a single statement
             for s in stmts {
                 s.render_horz(dest);
-                dest.newline_needed();
             }
         }
 
         WebDefineRhs::CommaExprs(_) => {}
-        WebDefineRhs::StatementsThenEnd(_stmts) => {}
-        WebDefineRhs::BeginThenStatements(_stmts) => {}
-        WebDefineRhs::SynthesizedIdentifier(_pieces) => {}
+
+        // Should not be rendered inline:
+        WebDefineRhs::StatementsThenEnd(_stmts) => dest.noscope_push("XXXstmts-end"),
+        WebDefineRhs::BeginThenStatements(_stmts) => dest.noscope_push("XXXbegin-stmts"),
+
+        WebDefineRhs::SynthesizedIdentifier(pieces) => {
+            dest.noscope_push("synthesized_ident!(");
+            for p in pieces {
+                dest.noscope_push(p);
+            }
+            dest.noscope_push(")")
+        }
     }
 }
 
 fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
     match rhs {
-        WebDefineRhs::ReservedWord(s) => {}
-
-        WebDefineRhs::IfdefLike(is_opener) => {
-            dest.noscope_push(if *is_opener { "/*" } else { "*/" })
+        WebDefineRhs::ReservedWord(_)
+        | WebDefineRhs::IfdefLike(_)
+        | WebDefineRhs::LoopDefinition(_)
+        | WebDefineRhs::EmptyDefinition
+        | WebDefineRhs::OthercasesDefinition(_)
+        | WebDefineRhs::SynthesizedIdentifier(_) => {
+            render_rhs_inline(rhs, dest);
         }
-
-        WebDefineRhs::LoopDefinition(_) => {}
-        WebDefineRhs::EmptyDefinition => {}
-        WebDefineRhs::OthercasesDefinition(_) => {}
 
         WebDefineRhs::Statements(stmts) => {
             for s in stmts {
@@ -361,6 +406,5 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
         WebDefineRhs::CommaExprs(_) => {}
         WebDefineRhs::StatementsThenEnd(_stmts) => {}
         WebDefineRhs::BeginThenStatements(_stmts) => {}
-        WebDefineRhs::SynthesizedIdentifier(_pieces) => {}
     }
 }

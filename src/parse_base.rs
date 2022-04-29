@@ -5,7 +5,7 @@ use nom::{
     Err, IResult,
 };
 use nom_locate::LocatedSpan;
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt};
 
 pub type Span<'a> = LocatedSpan<&'a str>;
 pub type ParseError<'a> = (Span<'a>, ErrorKind);
@@ -23,4 +23,16 @@ pub struct SpanValue<'a, T> {
     pub value: T,
 }
 
+impl<'a, T: fmt::Display> fmt::Display for SpanValue<'a, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.value.fmt(f)
+    }
+}
+
 pub type StringSpan<'a> = SpanValue<'a, Cow<'a, str>>;
+
+impl<'a> StringSpan<'a> {
+    pub fn len(&self) -> usize {
+        self.value.as_ref().len()
+    }
+}

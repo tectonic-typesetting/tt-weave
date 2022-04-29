@@ -720,8 +720,6 @@ impl<'a> WebStatement<'a> {
                 eprintln!("SRH: {:?}", self);
             }
         }
-
-        dest.newline_needed();
     }
 
     pub fn render_flex(&self, dest: &mut Prettifier) {
