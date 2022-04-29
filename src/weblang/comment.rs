@@ -1,16 +1,14 @@
 //! Comments
 
-use crate::prettify::Prettifier;
+use crate::prettify::{Prettifier, RenderInline};
 
 use super::base::*;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebComment<'a>(pub Vec<TypesetComment<'a>>);
 
-impl<'a> WebComment<'a> {
-    /// Measure how wide a comment will be if we typeset it inline, including a
-    /// leading `// `.
-    pub fn measure_inline(&self) -> usize {
+impl<'a> RenderInline for WebComment<'a> {
+    fn measure_inline(&self) -> usize {
         let mut n = 3; // `// `
 
         n += self.0.len() - 1; // spaces between items
@@ -37,7 +35,7 @@ impl<'a> WebComment<'a> {
         n
     }
 
-    pub fn render_inline(&self, dest: &mut Prettifier) {
+    fn render_inline(&self, dest: &mut Prettifier) {
         dest.noscope_push("//");
 
         for piece in &self.0[..] {
@@ -74,7 +72,5 @@ impl<'a> WebComment<'a> {
                 }
             }
         }
-
-        dest.newline_needed();
     }
 }

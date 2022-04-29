@@ -7,7 +7,7 @@ use nom::{
     combinator::{map, opt},
 };
 
-use crate::prettify::{self, Prettifier};
+use crate::prettify::{Prettifier, RenderInline};
 
 use super::{base::*, WebToplevel};
 

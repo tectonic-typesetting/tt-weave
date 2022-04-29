@@ -10,7 +10,7 @@ use nom::{
     sequence::tuple,
 };
 
-use crate::prettify::{self, Prettifier};
+use crate::prettify::{self, Prettifier, RenderInline};
 
 use super::{
     base::*,
@@ -371,8 +371,8 @@ impl<'a> WebFunctionDefinition<'a> {
     }
 }
 
-impl<'a> WebVariables<'a> {
-    pub fn measure_inline(&self) -> usize {
+impl<'a> RenderInline for WebVariables<'a> {
+    fn measure_inline(&self) -> usize {
         let mut w = 0;
 
         if self.is_var {
@@ -389,7 +389,7 @@ impl<'a> WebVariables<'a> {
         w
     }
 
-    pub fn render_inline(&self, dest: &mut Prettifier) {
+    fn render_inline(&self, dest: &mut Prettifier) {
         if self.is_var {
             dest.noscope_push("var ");
         }
@@ -411,8 +411,8 @@ impl<'a> WebVariables<'a> {
     }
 }
 
-impl<'a> WebVarBlockItem<'a> {
-    pub fn measure_inline(&self) -> usize {
+impl<'a> RenderInline for WebVarBlockItem<'a> {
+    fn measure_inline(&self) -> usize {
         match self {
             WebVarBlockItem::ModuleReference(mr) => prettify::module_reference_measure_inline(mr),
             WebVarBlockItem::InPlace(ip) => ip.measure_inline(),
@@ -420,14 +420,16 @@ impl<'a> WebVarBlockItem<'a> {
         }
     }
 
-    pub fn render_inline(&self, dest: &mut Prettifier) {
+    fn render_inline(&self, dest: &mut Prettifier) {
         match self {
             WebVarBlockItem::ModuleReference(mr) => prettify::module_reference_render(mr, dest),
             WebVarBlockItem::InPlace(ip) => ip.render_inline(dest),
             WebVarBlockItem::IfdefInPlace(..) => dest.noscope_push("XXXifdefvbiinline"),
         }
     }
+}
 
+impl<'a> WebVarBlockItem<'a> {
     pub fn prettify(&self, dest: &mut Prettifier, term: char) {
         match self {
             WebVarBlockItem::ModuleReference(mr) => {
@@ -441,20 +443,22 @@ impl<'a> WebVarBlockItem<'a> {
     }
 }
 
-impl<'a> WebInPlaceVariables<'a> {
-    pub fn measure_inline(&self) -> usize {
+impl<'a> RenderInline for WebInPlaceVariables<'a> {
+    fn measure_inline(&self) -> usize {
         if self.comment.is_some() {
-            9999 // never inline
+            crate::prettify::NOT_INLINE
         } else {
             self.vars.measure_inline()
         }
     }
 
-    pub fn render_inline(&self, dest: &mut Prettifier) {
+    fn render_inline(&self, dest: &mut Prettifier) {
         // By definition, no comment
         self.vars.render_inline(dest);
     }
+}
 
+impl<'a> WebInPlaceVariables<'a> {
     pub fn prettify(&self, dest: &mut Prettifier, term: char) {
         self.vars.render_inline(dest);
         dest.noscope_push(term);

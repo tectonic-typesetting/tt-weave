@@ -191,10 +191,19 @@ pub fn module_reference_render<'a>(mr: &StringSpan<'a>, dest: &mut Prettifier) {
     dest.noscope_push(" >");
 }
 
-#[derive(Debug, Default)]
-pub struct PrettifiedCode {}
+/// A trait for measuring how wide some WEB language items that can be rendered
+/// in a fully "inline" format.
+pub trait RenderInline {
+    /// Get how many characters wide the item would be if render all on one
+    /// line. Return `NOT_INLINE` if the item should not be rendered in an
+    /// inline mode.
+    fn measure_inline(&self) -> usize;
 
-impl PrettifiedCode {}
+    /// Render the item in its inline format.
+    fn render_inline(&self, dest: &mut Prettifier);
+}
+
+pub const NOT_INLINE: usize = 9999;
 
 struct ColorHexConvert(Color);
 

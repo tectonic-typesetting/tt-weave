@@ -2,7 +2,7 @@
 
 use nom::{branch::alt, combinator::map, multi::separated_list0, sequence::tuple};
 
-use crate::prettify::Prettifier;
+use crate::prettify::{Prettifier, RenderInline};
 
 use super::base::*;
 
@@ -412,8 +412,8 @@ fn field_tail<'a>(s: ParseInput<'a>) -> ParseResult<'a, LeftRecursiveTail<'a>> {
 
 // Prettification
 
-impl<'a> WebExpr<'a> {
-    pub fn measure_inline(&self) -> usize {
+impl<'a> RenderInline for WebExpr<'a> {
+    fn measure_inline(&self) -> usize {
         match self {
             WebExpr::Token(tok) => tok.measure_inline(),
 
@@ -428,7 +428,7 @@ impl<'a> WebExpr<'a> {
         }
     }
 
-    pub fn render_inline(&self, dest: &mut Prettifier) {
+    fn render_inline(&self, dest: &mut Prettifier) {
         match self {
             WebExpr::Token(tok) => tok.render_inline(dest),
 
@@ -443,7 +443,9 @@ impl<'a> WebExpr<'a> {
             _ => {}
         }
     }
+}
 
+impl<'a> WebExpr<'a> {
     pub fn render_flex(&self, dest: &mut Prettifier) {
         match self {
             WebExpr::Token(tok) => tok.render_inline(dest),

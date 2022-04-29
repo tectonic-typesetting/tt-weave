@@ -12,7 +12,7 @@ use nom::{
     InputLength,
 };
 
-use crate::prettify::{self, Prettifier};
+use crate::prettify::{Prettifier, RenderInline};
 
 use super::{
     base::*,

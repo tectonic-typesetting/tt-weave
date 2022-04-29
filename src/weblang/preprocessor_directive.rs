@@ -5,7 +5,7 @@
 
 use nom::{combinator::opt, multi::many0, sequence::tuple};
 
-use crate::prettify::{self, Prettifier};
+use crate::prettify::{Prettifier, RenderInline};
 
 use super::base::*;
 

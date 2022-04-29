@@ -7,7 +7,7 @@
 use nom::{branch::alt, combinator::opt, sequence::tuple};
 use std::borrow::Cow;
 
-use crate::prettify::{self, Prettifier};
+use crate::prettify::{Prettifier, RenderInline};
 
 use super::{base::*, WebToplevel};
 

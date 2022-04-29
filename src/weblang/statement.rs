@@ -8,7 +8,7 @@ use nom::{
 };
 use std::borrow::Cow;
 
-use crate::prettify::{self, Prettifier};
+use crate::prettify::{self, Prettifier, RenderInline};
 
 use super::{
     base::*,

@@ -4,7 +4,7 @@
 
 use nom::{combinator::opt, sequence::tuple};
 
-use crate::prettify::{self, Prettifier};
+use crate::prettify::{Prettifier, RenderInline};
 
 use super::{base::*, WebToplevel};
 

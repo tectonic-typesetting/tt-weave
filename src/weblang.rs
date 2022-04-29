@@ -22,7 +22,7 @@ mod type_declaration;
 mod var_declaration;
 mod webtype;
 
-use crate::prettify::{self, Prettifier};
+use crate::prettify::{Prettifier, RenderInline};
 
 use self::{base::*, statement::WebStatement};
 

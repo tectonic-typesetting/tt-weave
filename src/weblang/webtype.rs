@@ -9,7 +9,7 @@ use nom::{
     sequence::tuple,
 };
 
-use crate::prettify::Prettifier;
+use crate::prettify::{Prettifier, RenderInline};
 
 use super::base::*;
 
@@ -187,8 +187,8 @@ fn parse_record_field<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebRecordFie
 
 // Prettifying
 
-impl<'a> WebType<'a> {
-    pub fn measure_inline(&self) -> usize {
+impl<'a> RenderInline for WebType<'a> {
+    fn measure_inline(&self) -> usize {
         match self {
             WebType::Integer => 7,
             WebType::Real => 4,
@@ -201,7 +201,7 @@ impl<'a> WebType<'a> {
         }
     }
 
-    pub fn render_inline(&self, dest: &mut Prettifier) {
+    fn render_inline(&self, dest: &mut Prettifier) {
         match self {
             WebType::Integer => dest.noscope_push("integer"),
             WebType::Real => dest.noscope_push("real"),
@@ -225,8 +225,8 @@ impl<'a> WebType<'a> {
     }
 }
 
-impl<'a> RangeBound<'a> {
-    pub fn measure_inline(&self) -> usize {
+impl<'a> RenderInline for RangeBound<'a> {
+    fn measure_inline(&self) -> usize {
         match self {
             RangeBound::Literal(t) => t.measure_inline(),
             RangeBound::Symbolic1(s) => s.value.as_ref().len(),
@@ -236,7 +236,7 @@ impl<'a> RangeBound<'a> {
         }
     }
 
-    pub fn render_inline(&self, dest: &mut Prettifier) {
+    fn render_inline(&self, dest: &mut Prettifier) {
         match self {
             RangeBound::Literal(t) => t.render_inline(dest),
             RangeBound::Symbolic1(s) => dest.noscope_push(s.value.as_ref()),
@@ -253,8 +253,8 @@ impl<'a> RangeBound<'a> {
     }
 }
 
-impl<'a> WebArrayType<'a> {
-    pub fn measure_inline(&self) -> usize {
+impl<'a> RenderInline for WebArrayType<'a> {
+    fn measure_inline(&self) -> usize {
         let mut w = 0;
 
         if self.is_packed {
@@ -273,7 +273,7 @@ impl<'a> WebArrayType<'a> {
         w
     }
 
-    pub fn render_inline(&self, dest: &mut Prettifier) {
+    fn render_inline(&self, dest: &mut Prettifier) {
         if self.is_packed {
             dest.noscope_push("packed ");
         }

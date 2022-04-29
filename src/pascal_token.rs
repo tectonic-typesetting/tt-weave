@@ -17,7 +17,7 @@ use crate::{
     control::ControlKind,
     index::IndexEntryKind,
     parse_base::{new_parse_error, ParseError, ParseResult, Span, SpanValue, StringSpan},
-    prettify::Prettifier,
+    prettify::{Prettifier, RenderInline},
     reserved::PascalReservedWord,
     token::{expect_token, next_token, take_until_terminator, Token},
 };
@@ -520,8 +520,8 @@ pub fn match_pascal_token<'a>(
 
 // Prettification
 
-impl<'a> PascalToken<'a> {
-    pub fn measure_inline(&self) -> usize {
+impl<'a> RenderInline for PascalToken<'a> {
+    fn measure_inline(&self) -> usize {
         match self {
             PascalToken::TexString(_) => 0,
             PascalToken::ReservedWord(sv) => sv.value.to_string().len(),
@@ -571,7 +571,7 @@ impl<'a> PascalToken<'a> {
         }
     }
 
-    pub fn render_inline(&self, dest: &mut Prettifier) {
+    fn render_inline(&self, dest: &mut Prettifier) {
         match self {
             PascalToken::TexString(ss) => {}
 
