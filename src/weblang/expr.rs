@@ -480,7 +480,7 @@ impl<'a> RenderInline for WebExpr<'a> {
             WebExpr::Field(f) => {
                 f.item.render_inline(dest);
                 dest.noscope_push('.');
-                dest.noscope_push(f.field.value.as_ref());
+                dest.noscope_push(&f.field);
             }
 
             WebExpr::Format(f) => {

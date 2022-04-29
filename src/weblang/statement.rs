@@ -724,6 +724,61 @@ impl<'a> RenderInline for WebStatement<'a> {
 }
 
 impl<'a> WebStatement<'a> {
+    fn wants_semicolon(&self) -> bool {
+        match self {
+            WebStatement::Block(_)
+            | WebStatement::ModuleReference(_)
+            | WebStatement::Label(_)
+            | WebStatement::If(_)
+            | WebStatement::Case(_)
+            | WebStatement::SpecialFreeCase(_)
+            | WebStatement::While(_)
+            | WebStatement::For(_)
+            | WebStatement::Repeat(_)
+            | WebStatement::Loop(_) => false,
+
+            WebStatement::PreprocessorDirective(_)
+            | WebStatement::Expr(..)
+            | WebStatement::Assignment(_)
+            | WebStatement::Goto(_) => true,
+        }
+    }
+
+    fn maybe_semicolon(&self, dest: &mut Prettifier) {
+        if self.wants_semicolon() {
+            dest.noscope_push(';')
+        }
+    }
+
+    /// Render the statement given the knowledge that it is already wrapped in a
+    /// block structure. All statements are rendered normally except for Blocks
+    /// that don't have an unusual guard.
+    fn render_in_block(&self, dest: &mut Prettifier) {
+        if let WebStatement::Block(block) = self {
+            if block.opener.is_reserved_word(PascalReservedWord::Begin) {
+                if let Some(c) = block.pre_comment.as_ref() {
+                    c.render_inline(dest);
+                    dest.newline_needed();
+                }
+
+                for s in &block.stmts {
+                    s.render_flex(dest);
+                    s.maybe_semicolon(dest);
+                    dest.newline_needed();
+                }
+
+                if let Some(c) = block.post_comment.as_ref() {
+                    c.render_inline(dest);
+                    dest.newline_needed();
+                }
+
+                return;
+            }
+        }
+
+        self.render_flex(dest);
+    }
+
     pub fn render_flex(&self, dest: &mut Prettifier) {
         match self {
             WebStatement::Expr(expr, comment) => {
@@ -756,8 +811,14 @@ impl<'a> WebStatement<'a> {
                 dest.indent_block();
                 dest.newline_indent();
 
+                if let Some(c) = block.pre_comment.as_ref() {
+                    c.render_inline(dest);
+                    dest.newline_needed();
+                }
+
                 for s in &block.stmts {
                     s.render_flex(dest);
+                    s.maybe_semicolon(dest);
                     dest.newline_needed();
                 }
 
@@ -781,9 +842,62 @@ impl<'a> WebStatement<'a> {
                 a.rhs.render_flex(dest);
             }
 
-            _ => {
-                eprintln!("SRH: {:?}", self);
+            WebStatement::Goto(g) => {
+                if let Some(c) = g.comment.as_ref() {
+                    c.render_inline(dest);
+                    dest.newline_needed();
+                }
+
+                dest.noscope_push("goto ");
+                dest.noscope_push(&g.label);
             }
+
+            WebStatement::Label(l) => {
+                let dented = dest.dedent_small();
+                dest.newline_needed();
+                dest.noscope_push(&l);
+                dest.noscope_push(':');
+
+                if dented {
+                    dest.indent_small();
+                }
+
+                dest.newline_needed();
+            }
+
+            WebStatement::If(i) => {
+                if let Some(c) = i.test_comment.as_ref() {
+                    c.render_inline(dest);
+                    dest.newline_needed();
+                }
+
+                dest.noscope_push("if (");
+                i.test.render_flex(dest);
+                dest.noscope_push(") {");
+                dest.indent_block();
+                dest.newline_needed();
+                i.then.render_in_block(dest);
+                dest.dedent_block();
+                dest.newline_needed();
+                dest.noscope_push("}");
+
+                if let Some(e) = &i.else_ {
+                    dest.noscope_push("else {");
+                    dest.indent_block();
+                    dest.newline_needed();
+                    e.render_in_block(dest);
+                    dest.dedent_block();
+                    dest.newline_needed();
+                    dest.noscope_push("}");
+                }
+            }
+
+            WebStatement::While(w) => {}
+            WebStatement::For(f) => {}
+            WebStatement::Repeat(r) => {}
+            WebStatement::Loop(l) => {}
+            WebStatement::Case(c) => {}
+            WebStatement::SpecialFreeCase(sfc) => {}
         }
     }
 }

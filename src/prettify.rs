@@ -56,27 +56,39 @@ impl Prettifier {
         width <= eff_width
     }
 
-    pub fn indent_block(&mut self) {
+    pub fn indent_block(&mut self) -> bool {
         if self.full_width - self.indent > 4 {
             self.indent += 4;
+            true
+        } else {
+            false
         }
     }
 
-    pub fn dedent_block(&mut self) {
+    pub fn dedent_block(&mut self) -> bool {
         if self.indent > 3 {
             self.indent -= 4;
+            true
+        } else {
+            false
         }
     }
 
-    pub fn indent_small(&mut self) {
+    pub fn indent_small(&mut self) -> bool {
         if self.full_width - self.indent > 2 {
             self.indent += 2;
+            true
+        } else {
+            false
         }
     }
 
-    pub fn dedent_small(&mut self) {
+    pub fn dedent_small(&mut self) -> bool {
         if self.indent > 1 {
             self.indent -= 2;
+            true
+        } else {
+            false
         }
     }
 
