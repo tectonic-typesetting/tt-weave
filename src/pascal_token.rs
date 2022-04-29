@@ -525,8 +525,8 @@ impl<'a> RenderInline for PascalToken<'a> {
         match self {
             PascalToken::TexString(_) => 0,
             PascalToken::ReservedWord(sv) => sv.value.to_string().len(),
-            PascalToken::Identifier(ss) => ss.value.len(),
-            PascalToken::FormattedIdentifier(ss, _) => ss.value.len(),
+            PascalToken::Identifier(ss) => ss.len(),
+            PascalToken::FormattedIdentifier(ss, _) => ss.len(),
 
             PascalToken::OpenDelimiter(dk) => match dk {
                 DelimiterKind::MetaComment => 2,
@@ -564,8 +564,27 @@ impl<'a> RenderInline for PascalToken<'a> {
             PascalToken::StringPoolChecksum => "stringpoolchecksum!()".len(),
             PascalToken::DefinitionFlag => 0,
             PascalToken::CancelDefinitionFlag => 0,
-            PascalToken::IntLiteral(kind, n) => 1,     // TODO
-            PascalToken::StringLiteral(kind, ss) => 1, // TODO
+
+            PascalToken::IntLiteral(kind, n) => {
+                if kind == &IntLiteralKind::Decimal {
+                    n.to_string().len()
+                } else {
+                    format!("0x{:x}", n).len()
+                }
+            }
+
+            PascalToken::StringLiteral(kind, ss) => match kind {
+                StringLiteralKind::SingleQuote => format!("{:?}", ss.value).len(),
+
+                StringLiteralKind::DoubleQuote => {
+                    if ss.len() == 1 {
+                        format!("ord!({:?})", ss.value).len()
+                    } else {
+                        format!("strpool!({:?})", ss.value).len()
+                    }
+                }
+            },
+
             PascalToken::IndexEntry(..) => 0,
             PascalToken::VerbatimPascal(ss) => ss.value.len(),
         }
@@ -573,7 +592,7 @@ impl<'a> RenderInline for PascalToken<'a> {
 
     fn render_inline(&self, dest: &mut Prettifier) {
         match self {
-            PascalToken::TexString(ss) => {}
+            PascalToken::TexString(_) => {}
 
             PascalToken::ReservedWord(sv) => {
                 dest.noscope_push(sv.value);
@@ -711,7 +730,11 @@ impl<'a> RenderInline for PascalToken<'a> {
                 }
 
                 StringLiteralKind::DoubleQuote => {
-                    dest.noscope_push(format!("strpool!({:?})", ss.value));
+                    if ss.len() == 1 {
+                        dest.noscope_push(format!("ord!({:?})", ss.value));
+                    } else {
+                        dest.noscope_push(format!("strpool!({:?})", ss.value));
+                    }
                 }
             },
 
