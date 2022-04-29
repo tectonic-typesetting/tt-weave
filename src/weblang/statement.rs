@@ -734,12 +734,12 @@ impl<'a> WebStatement<'a> {
             | WebStatement::SpecialFreeCase(_)
             | WebStatement::While(_)
             | WebStatement::For(_)
-            | WebStatement::Repeat(_)
             | WebStatement::Loop(_) => false,
 
             WebStatement::PreprocessorDirective(_)
             | WebStatement::Expr(..)
             | WebStatement::Assignment(_)
+            | WebStatement::Repeat(_)
             | WebStatement::Goto(_) => true,
         }
     }
@@ -882,7 +882,7 @@ impl<'a> WebStatement<'a> {
                 dest.noscope_push("}");
 
                 if let Some(e) = &i.else_ {
-                    dest.noscope_push("else {");
+                    dest.noscope_push(" else {");
                     dest.indent_block();
                     dest.newline_needed();
                     e.render_in_block(dest);
@@ -892,10 +892,73 @@ impl<'a> WebStatement<'a> {
                 }
             }
 
-            WebStatement::While(w) => {}
-            WebStatement::For(f) => {}
-            WebStatement::Repeat(r) => {}
-            WebStatement::Loop(l) => {}
+            WebStatement::While(w) => {
+                if let Some(c) = w.test_comment.as_ref() {
+                    c.render_inline(dest);
+                    dest.newline_needed();
+                }
+
+                dest.noscope_push("while (");
+                w.test.render_flex(dest);
+                dest.noscope_push(") {");
+                dest.indent_block();
+                dest.newline_needed();
+                w.do_.render_in_block(dest);
+                dest.dedent_block();
+                dest.newline_needed();
+                dest.noscope_push("}");
+            }
+
+            WebStatement::For(f) => {
+                dest.noscope_push("for (");
+                dest.noscope_push(&f.var);
+                dest.noscope_push(" in ");
+                f.start.render_flex(dest);
+
+                if f.is_down {
+                    dest.noscope_push(" downto ");
+                } else {
+                    dest.noscope_push(" to ");
+                }
+
+                f.end.render_flex(dest);
+                dest.noscope_push(") {");
+                dest.indent_block();
+                dest.newline_needed();
+                f.do_.render_in_block(dest);
+                dest.dedent_block();
+                dest.newline_needed();
+                dest.noscope_push("}");
+            }
+
+            WebStatement::Repeat(r) => {
+                dest.noscope_push("repeat {");
+                dest.indent_block();
+
+                for s in &r.stmts {
+                    dest.newline_needed();
+                    s.render_flex(dest);
+                    s.maybe_semicolon(dest);
+                }
+
+                dest.dedent_block();
+                dest.newline_needed();
+                dest.noscope_push("} until (");
+                r.test.render_flex(dest);
+                dest.noscope_push(')');
+            }
+
+            WebStatement::Loop(l) => {
+                dest.noscope_push(&l.keyword);
+                dest.noscope_push(" {");
+                dest.indent_block();
+                dest.newline_needed();
+                l.do_.render_in_block(dest);
+                dest.dedent_block();
+                dest.newline_needed();
+                dest.noscope_push("}");
+            }
+
             WebStatement::Case(c) => {}
             WebStatement::SpecialFreeCase(sfc) => {}
         }
