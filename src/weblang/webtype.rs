@@ -225,6 +225,25 @@ impl<'a> RenderInline for WebType<'a> {
     }
 }
 
+impl<'a> WebType<'a> {
+    pub fn render_flex(&self, dest: &mut Prettifier) {
+        match self {
+            WebType::Integer | WebType::Real | WebType::Boolean | WebType::UserDefined(_) => {
+                self.render_inline(dest)
+            }
+
+            // TODO:
+            WebType::Range(blo, bhi) => self.render_inline(dest),
+
+            WebType::PackedFileOf(t) => self.render_inline(dest),
+
+            WebType::Array(arr) => self.render_inline(dest),
+
+            WebType::Record(_rec) => self.render_inline(dest),
+        }
+    }
+}
+
 impl<'a> RenderInline for RangeBound<'a> {
     fn measure_inline(&self) -> usize {
         match self {

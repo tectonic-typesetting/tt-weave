@@ -297,8 +297,23 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::ModulifiedDeclaration(md) => md.prettify(dest),
             WebToplevel::FunctionDefinition(fd) => fd.prettify(dest),
 
-            _ => {
-                eprintln!("P: {:?}", self);
+            WebToplevel::ConstDeclaration(cd) => {}
+            WebToplevel::VarDeclaration(vd) => vd.prettify(dest),
+            WebToplevel::TypeDeclaration(td) => {}
+
+            WebToplevel::SpecialParenTwoIdent(id1, id2) => {
+                tl_prettify::special_paren_two_ident(id1, id2, dest)
+            }
+            WebToplevel::SpecialEmptyBrackets => tl_prettify::special_empty_brackets(dest),
+            WebToplevel::SpecialRelationalIdent(op, id) => {
+                tl_prettify::special_relational_ident(op, id, dest)
+            }
+            WebToplevel::SpecialIntRange(n1, n2) => tl_prettify::special_int_range(n1, n2, dest),
+            WebToplevel::SpecialIfdefFunction(beg, fd, end) => {
+                tl_prettify::special_ifdef_function(beg, fd, end, dest)
+            }
+            WebToplevel::SpecialIfdefVarDeclaration(beg, vd, end, comment) => {
+                tl_prettify::special_ifdef_var_declaration(beg, vd, end, comment, dest)
             }
         }
     }
@@ -340,5 +355,77 @@ mod tl_prettify {
         }
 
         dest.newline_needed();
+    }
+
+    pub fn special_paren_two_ident<'a>(
+        id1: &StringSpan<'a>,
+        id2: &StringSpan<'a>,
+        dest: &mut Prettifier,
+    ) {
+        dest.noscope_push('(');
+        dest.noscope_push(id1);
+        dest.noscope_push(id2);
+        dest.noscope_push(')');
+    }
+
+    pub fn special_empty_brackets<'a>(dest: &mut Prettifier) {
+        dest.noscope_push("[]");
+    }
+
+    pub fn special_relational_ident<'a>(
+        op: &PascalToken<'a>,
+        id: &StringSpan<'a>,
+        dest: &mut Prettifier,
+    ) {
+        op.render_inline(dest);
+        dest.noscope_push(id);
+    }
+
+    pub fn special_int_range<'a>(
+        n1: &PascalToken<'a>,
+        n2: &PascalToken<'a>,
+        dest: &mut Prettifier,
+    ) {
+        n1.render_inline(dest);
+        dest.noscope_push(" .. ");
+        n2.render_inline(dest);
+    }
+
+    pub fn special_ifdef_function<'a>(
+        beg: &PascalToken<'a>,
+        fd: &function_definition::WebFunctionDefinition<'a>,
+        _end: &PascalToken<'a>,
+        dest: &mut Prettifier,
+    ) {
+        beg.render_inline(dest);
+        dest.noscope_push("!{");
+        dest.indent_block();
+        dest.newline_indent();
+        fd.prettify(dest);
+        dest.dedent_block();
+        dest.newline_indent();
+        dest.noscope_push('}');
+    }
+
+    pub fn special_ifdef_var_declaration<'a>(
+        beg: &PascalToken<'a>,
+        vd: &var_declaration::WebVarDeclaration<'a>,
+        _end: &PascalToken<'a>,
+        comment: &Option<WebComment<'a>>,
+        dest: &mut Prettifier,
+    ) {
+        if let Some(c) = comment.as_ref() {
+            c.render_inline(dest);
+            dest.newline_needed();
+        }
+
+        beg.render_inline(dest);
+        dest.noscope_push("!{");
+        dest.indent_block();
+        dest.newline_indent();
+        vd.prettify(dest);
+        dest.dedent_block();
+        dest.newline_indent();
+        dest.noscope_push('}');
     }
 }

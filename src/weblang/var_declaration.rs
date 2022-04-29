@@ -9,6 +9,8 @@ use nom::{
     sequence::tuple,
 };
 
+use crate::prettify::{self, Prettifier, RenderInline};
+
 use super::{
     base::*,
     webtype::{parse_type, WebType},
@@ -50,4 +52,52 @@ pub fn parse_var_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebTo
     map(parse_var_declaration_base, |vd| {
         WebToplevel::VarDeclaration(vd)
     })(input)
+}
+
+// Prettifying
+
+impl<'a> WebVarDeclaration<'a> {
+    pub fn prettify(&self, dest: &mut Prettifier) {
+        if let Some(c) = self.comment.as_ref() {
+            c.render_inline(dest);
+            dest.newline_needed();
+        }
+
+        let mut wi = 0;
+
+        for n in &self.names {
+            wi += n.len() + 2; // either ", " or ": "
+        }
+
+        wi += self.ty.measure_inline();
+
+        if dest.fits(wi) {
+            let mut first = true;
+
+            for n in &self.names {
+                if first {
+                    first = false;
+                } else {
+                    dest.noscope_push(", ");
+                }
+
+                dest.noscope_push(n);
+            }
+        } else {
+            let i_last = self.names.len() - 1;
+
+            for (i, n) in self.names.iter().enumerate() {
+                dest.noscope_push(n);
+
+                if i != i_last {
+                    dest.noscope_push(',');
+                    dest.newline_needed();
+                }
+            }
+        }
+
+        dest.noscope_push(": ");
+        self.ty.render_flex(dest);
+        dest.noscope_push(';');
+    }
 }

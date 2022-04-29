@@ -744,7 +744,7 @@ impl<'a> WebStatement<'a> {
         }
     }
 
-    fn maybe_semicolon(&self, dest: &mut Prettifier) {
+    pub fn maybe_semicolon(&self, dest: &mut Prettifier) {
         if self.wants_semicolon() {
             dest.noscope_push(';')
         }
