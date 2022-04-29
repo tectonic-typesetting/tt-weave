@@ -5,6 +5,8 @@
 
 use nom::{combinator::opt, multi::many0, sequence::tuple};
 
+use crate::prettify::{self, Prettifier};
+
 use super::base::*;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -47,4 +49,22 @@ fn any_pascal_except_close_meta<'a>(input: ParseInput<'a>) -> ParseResult<'a, Pa
     }
 
     return new_parse_err(input, WebErrorKind::ExpectedPascalToken);
+}
+
+impl<'a> WebPreprocessorDirective<'a> {
+    pub fn prettify(&self, dest: &mut Prettifier) {
+        if let Some(c) = self.comment.as_ref() {
+            prettify::comment_render_inline(c, dest);
+            dest.newline_needed();
+        }
+
+        dest.noscope_push("pascal_preprocessor!(");
+
+        for t in &self.tokens {
+            t.render_inline(dest);
+        }
+
+        dest.noscope_push(");");
+        dest.newline_needed();
+    }
 }

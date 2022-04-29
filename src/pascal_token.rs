@@ -134,6 +134,19 @@ pub enum PascalToken<'a> {
     VerbatimPascal(StringSpan<'a>),
 }
 
+impl<'a> PascalToken<'a> {
+    pub fn is_reserved_word(&self, rw: PascalReservedWord) -> bool {
+        if let PascalToken::ReservedWord(SpanValue {
+            value: found_rw, ..
+        }) = self
+        {
+            *found_rw == rw
+        } else {
+            false
+        }
+    }
+}
+
 impl<'a> fmt::Display for PascalToken<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

@@ -617,7 +617,23 @@ impl<'a> WebStatement<'a> {
                         .unwrap_or(0)
             }
 
-            WebStatement::ModuleReference(name) => name.value.len() + 4,
+            WebStatement::ModuleReference(name) => prettify::module_reference_measure_inline(name),
+
+            WebStatement::Block(block) => {
+                // NOTE: hardcoding block indent size:
+                let ws = block
+                    .stmts
+                    .iter()
+                    .map(|s| s.measure_horz() + 4)
+                    .max()
+                    .unwrap_or(0);
+                let wc = block
+                    .post_comment
+                    .as_ref()
+                    .map(|c| prettify::comment_measure_inline(c))
+                    .unwrap_or(0);
+                usize::max(ws, wc)
+            }
 
             _ => {
                 eprintln!("SMH: {:?}", self);
@@ -631,6 +647,9 @@ impl<'a> WebStatement<'a> {
             WebStatement::Expr(expr, comment) => {
                 expr.render_inline(dest);
 
+                // todo: only if this expr statement isn't a TeX inline
+                //dest.noscope_push(";");
+
                 if let Some(c) = comment.as_ref() {
                     dest.space();
                     prettify::comment_render_inline(c, dest);
@@ -639,6 +658,38 @@ impl<'a> WebStatement<'a> {
 
             WebStatement::ModuleReference(name) => {
                 prettify::module_reference_render(name, dest);
+            }
+
+            WebStatement::PreprocessorDirective(pd) => {
+                pd.prettify(dest);
+            }
+
+            WebStatement::Block(block) => {
+                // NOTE: in many cases, some kind of outer construct (e.g. `if`
+                // statement) should special-case standard blocks and avoid this
+                // codepath.
+                if !block.opener.is_reserved_word(PascalReservedWord::Begin) {
+                    block.opener.render_inline(dest);
+                    dest.noscope_push("!");
+                }
+
+                dest.noscope_push("{");
+                dest.indent_block();
+                dest.newline_indent();
+
+                for s in &block.stmts {
+                    s.render_horz(dest);
+                    dest.newline_needed();
+                }
+
+                if let Some(c) = block.post_comment.as_ref() {
+                    prettify::comment_render_inline(c, dest);
+                    dest.newline_needed();
+                }
+
+                dest.dedent_block();
+                dest.noscope_push("}");
+                dest.newline_needed();
             }
 
             _ => {
