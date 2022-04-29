@@ -8,6 +8,8 @@ use nom::{
     sequence::tuple,
 };
 
+use crate::prettify::{Prettifier, RenderInline};
+
 use super::{
     base::*,
     webtype::{parse_type, WebType},
@@ -43,4 +45,21 @@ pub fn parse_type_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebT
             })
         },
     )(input)
+}
+
+// Prettifying
+
+impl<'a> WebTypeDeclaration<'a> {
+    pub fn prettify(&self, dest: &mut Prettifier) {
+        if let Some(c) = self.comment.as_ref() {
+            c.render_inline(dest);
+            dest.newline_needed();
+        }
+
+        dest.noscope_push("type ");
+        dest.noscope_push(&self.name);
+        dest.noscope_push(" = ");
+        self.ty.render_flex(dest);
+        dest.noscope_push(';');
+    }
 }

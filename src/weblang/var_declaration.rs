@@ -9,7 +9,7 @@ use nom::{
     sequence::tuple,
 };
 
-use crate::prettify::{self, Prettifier, RenderInline};
+use crate::prettify::{Prettifier, RenderInline};
 
 use super::{
     base::*,
@@ -63,13 +63,15 @@ impl<'a> WebVarDeclaration<'a> {
             dest.newline_needed();
         }
 
-        let mut wi = 0;
+        let mut wi = 4;
 
         for n in &self.names {
             wi += n.len() + 2; // either ", " or ": "
         }
 
         wi += self.ty.measure_inline();
+
+        dest.noscope_push("var ");
 
         if dest.fits(wi) {
             let mut first = true;
@@ -85,6 +87,7 @@ impl<'a> WebVarDeclaration<'a> {
             }
         } else {
             let i_last = self.names.len() - 1;
+            dest.indent_small();
 
             for (i, n) in self.names.iter().enumerate() {
                 dest.noscope_push(n);
@@ -94,6 +97,8 @@ impl<'a> WebVarDeclaration<'a> {
                     dest.newline_needed();
                 }
             }
+
+            dest.dedent_small();
         }
 
         dest.noscope_push(": ");

@@ -296,10 +296,9 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::ProgramDefinition(pd) => pd.prettify(dest),
             WebToplevel::ModulifiedDeclaration(md) => md.prettify(dest),
             WebToplevel::FunctionDefinition(fd) => fd.prettify(dest),
-
-            WebToplevel::ConstDeclaration(cd) => {}
+            WebToplevel::ConstDeclaration(cd) => cd.prettify(dest),
             WebToplevel::VarDeclaration(vd) => vd.prettify(dest),
-            WebToplevel::TypeDeclaration(td) => {}
+            WebToplevel::TypeDeclaration(td) => td.prettify(dest),
 
             WebToplevel::SpecialParenTwoIdent(id1, id2) => {
                 tl_prettify::special_paren_two_ident(id1, id2, dest)

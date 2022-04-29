@@ -8,6 +8,8 @@ use nom::{
     sequence::tuple,
 };
 
+use crate::prettify::{Prettifier, RenderInline};
+
 use super::{base::*, WebToplevel};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -39,4 +41,21 @@ pub fn parse_constant_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, 
             })
         },
     )(input)
+}
+
+// Prettifying
+
+impl<'a> WebConstantDeclaration<'a> {
+    pub fn prettify(&self, dest: &mut Prettifier) {
+        if let Some(c) = self.comment.as_ref() {
+            c.render_inline(dest);
+            dest.newline_needed();
+        }
+
+        dest.noscope_push("const ");
+        dest.noscope_push(&self.name);
+        dest.noscope_push(" = ");
+        self.value.render_inline(dest);
+        dest.noscope_push(';');
+    }
 }
