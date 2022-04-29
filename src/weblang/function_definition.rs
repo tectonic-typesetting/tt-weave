@@ -337,6 +337,7 @@ impl<'a> WebFunctionDefinition<'a> {
 
         for s in &self.stmts {
             s.render_flex(dest);
+            dest.newline_needed();
         }
 
         // Done

@@ -727,15 +727,12 @@ impl<'a> WebStatement<'a> {
     pub fn render_flex(&self, dest: &mut Prettifier) {
         match self {
             WebStatement::Expr(expr, comment) => {
-                expr.render_inline(dest);
-
-                // todo: only if this expr statement isn't a TeX inline
-                //dest.noscope_push(";");
-
                 if let Some(c) = comment.as_ref() {
-                    dest.space();
                     c.render_inline(dest);
+                    dest.newline_needed();
                 }
+
+                expr.render_flex(dest);
             }
 
             WebStatement::ModuleReference(name) => {
@@ -771,20 +768,17 @@ impl<'a> WebStatement<'a> {
 
                 dest.dedent_block();
                 dest.noscope_push("}");
-                dest.newline_needed();
             }
 
             WebStatement::Assignment(a) => {
-                a.lhs.render_inline(dest);
-                dest.noscope_push(" = ");
-                a.rhs.render_inline(dest);
-                dest.noscope_push(";");
-
                 if let Some(c) = a.comment.as_ref() {
-                    dest.space();
                     c.render_inline(dest);
                     dest.newline_needed();
                 }
+
+                a.lhs.render_flex(dest);
+                dest.noscope_push(" = ");
+                a.rhs.render_flex(dest);
             }
 
             _ => {

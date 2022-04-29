@@ -501,11 +501,30 @@ impl<'a> RenderInline for WebExpr<'a> {
 impl<'a> WebExpr<'a> {
     pub fn render_flex(&self, dest: &mut Prettifier) {
         match self {
-            WebExpr::Token(tok) => tok.render_inline(dest),
+            WebExpr::Token(tok) => {
+                let w = tok.measure_inline();
+
+                if dest.fits(w) {
+                    tok.render_inline(dest);
+                } else {
+                    dest.noscope_push('(');
+                    dest.indent_small();
+                    dest.newline_indent();
+                    tok.render_inline(dest);
+                    dest.dedent_small();
+                    dest.newline_indent();
+                    dest.noscope_push(')');
+                }
+            }
 
             WebExpr::PrefixUnary(pu) => {
                 pu.op.render_inline(dest);
                 pu.inner.render_flex(dest);
+            }
+
+            WebExpr::PostfixUnary(pu) => {
+                pu.inner.render_flex(dest);
+                pu.op.render_inline(dest);
             }
 
             WebExpr::Binary(be) => {
@@ -532,7 +551,102 @@ impl<'a> WebExpr<'a> {
                 }
             }
 
-            _ => {}
+            WebExpr::Call(call) => {
+                let wa = prettify::measure_inline_seq(&call.args, 2) + 2;
+
+                call.target.render_flex(dest);
+                dest.noscope_push('(');
+
+                if dest.fits(wa) {
+                    prettify::render_inline_seq(&call.args, ", ", dest);
+                } else {
+                    dest.indent_small();
+
+                    for arg in &call.args {
+                        dest.newline_indent();
+                        arg.render_flex(dest);
+                        dest.noscope_push(",");
+                    }
+
+                    dest.dedent_small();
+                    dest.newline_indent();
+                }
+
+                dest.noscope_push(')');
+            }
+
+            WebExpr::Index(idx) => {
+                let wa = prettify::measure_inline_seq(&idx.args, 2) + 2;
+
+                idx.target.render_flex(dest);
+                dest.noscope_push('[');
+
+                if dest.fits(wa) {
+                    prettify::render_inline_seq(&idx.args, ", ", dest);
+                } else {
+                    dest.indent_small();
+
+                    for arg in &idx.args {
+                        dest.newline_indent();
+                        arg.render_flex(dest);
+                        dest.noscope_push(",");
+                    }
+
+                    dest.dedent_small();
+                    dest.newline_indent();
+                }
+
+                dest.noscope_push(']');
+            }
+
+            WebExpr::Field(f) => {
+                let wf = f.field.len() + 1;
+
+                f.item.render_flex(dest);
+
+                if dest.fits(wf) {
+                    dest.noscope_push('.');
+                    dest.noscope_push(f.field.value.as_ref());
+                } else {
+                    dest.indent_small();
+                    dest.newline_indent();
+                    dest.noscope_push('.');
+                    dest.noscope_push(f.field.value.as_ref());
+                    dest.dedent_small();
+                }
+            }
+
+            WebExpr::Format(f) => {
+                let ww = f.width.measure_inline() + 1;
+
+                f.inner.render_flex(dest);
+
+                if dest.fits(ww) {
+                    dest.noscope_push(':');
+                    f.width.render_inline(dest);
+                } else {
+                    // This would look bad, but should also ~never come up
+                    dest.indent_small();
+                    dest.newline_indent();
+                    dest.noscope_push(':');
+                    f.width.render_inline(dest);
+                    dest.dedent_small();
+                }
+            }
+
+            WebExpr::Paren(p) => {
+                let w = p.measure_inline() + 2;
+
+                if dest.fits(w) {
+                    dest.noscope_push('(');
+                    p.render_inline(dest);
+                    dest.noscope_push(')');
+                } else {
+                    dest.noscope_push('(');
+                    p.render_flex(dest);
+                    dest.noscope_push(')');
+                }
+            }
         }
     }
 }
@@ -552,6 +666,19 @@ impl<'a> RenderInline for WebIndexTerm<'a> {
                 lo.render_inline(dest);
                 dest.noscope_push(" .. ");
                 hi.render_inline(dest);
+            }
+        }
+    }
+}
+
+impl<'a> WebIndexTerm<'a> {
+    pub fn render_flex(&self, dest: &mut Prettifier) {
+        match self {
+            WebIndexTerm::Expr(e) => e.render_flex(dest),
+            WebIndexTerm::Range(lo, hi) => {
+                lo.render_flex(dest);
+                dest.noscope_push(" .. ");
+                hi.render_flex(dest);
             }
         }
     }

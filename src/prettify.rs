@@ -19,8 +19,11 @@ lazy_static! {
     pub static ref KEYWORD_SCOPE: Scope = Scope::new("keyword.control.c").unwrap();
 }
 
+const WIDTH: usize = 60;
+
 #[derive(Clone, Debug)]
 pub struct Prettifier {
+    full_width: usize,
     indent: usize,
     remaining_width: usize,
     is_inline: bool,
@@ -32,8 +35,9 @@ pub struct Prettifier {
 impl Prettifier {
     pub fn new_inline(is_inline: bool) -> Self {
         Prettifier {
+            full_width: WIDTH,
             indent: 0,
-            remaining_width: 60,
+            remaining_width: WIDTH,
             is_inline,
             newline_needed: false,
             text: String::default(),
@@ -43,34 +47,36 @@ impl Prettifier {
 
     #[inline(always)]
     pub fn fits(&self, width: usize) -> bool {
-        width <= self.remaining_width
+        let eff_width = if self.newline_needed {
+            self.full_width - self.indent
+        } else {
+            self.remaining_width
+        };
+
+        width <= eff_width
     }
 
     pub fn indent_block(&mut self) {
-        if self.remaining_width > 4 {
+        if self.full_width - self.indent > 4 {
             self.indent += 4;
-            self.remaining_width -= 4;
         }
     }
 
     pub fn dedent_block(&mut self) {
         if self.indent > 3 {
             self.indent -= 4;
-            self.remaining_width += 4;
         }
     }
 
     pub fn indent_small(&mut self) {
-        if self.remaining_width > 2 {
+        if self.full_width - self.indent > 2 {
             self.indent += 2;
-            self.remaining_width -= 2;
         }
     }
 
     pub fn dedent_small(&mut self) {
         if self.indent > 1 {
             self.indent -= 2;
-            self.remaining_width += 2;
         }
     }
 
@@ -82,6 +88,7 @@ impl Prettifier {
         }
 
         self.newline_needed = false;
+        self.remaining_width = self.full_width - self.indent;
     }
 
     pub fn newline_needed(&mut self) {
@@ -103,17 +110,22 @@ impl Prettifier {
         write!(self.text, "{}", text).unwrap();
         let n1 = self.text.len();
         self.ops.push((n1, ScopeStackOp::Pop(1)));
+        self.remaining_width = self.remaining_width.saturating_sub(n1 - n0);
         n1 - n0
     }
 
     pub fn noscope_push<S: fmt::Display>(&mut self, text: S) {
         // TODO: never use this? Should always have some kine of scope?
         self.maybe_newline();
+        let n0 = self.text.len();
         write!(self.text, "{}", text).unwrap();
+        let n1 = self.text.len();
+        self.remaining_width = self.remaining_width.saturating_sub(n1 - n0);
     }
 
     pub fn space(&mut self) {
         self.text.push(' ');
+        self.remaining_width = self.remaining_width.saturating_sub(1);
     }
 
     pub fn toplevel_separator(&mut self) {
