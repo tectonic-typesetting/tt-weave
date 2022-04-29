@@ -329,7 +329,7 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
                     // If multi-line, never try to render as inline.
                     prettify::NOT_INLINE
                 } else {
-                    stmts[0].measure_horz()
+                    stmts[0].measure_inline()
                 }
             }
 
@@ -368,7 +368,7 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
             WebDefineRhs::Statements(stmts) => {
                 // This should only be called if we consist of a single statement
                 for s in stmts {
-                    s.render_horz(dest);
+                    s.render_inline(dest);
                 }
             }
 
@@ -422,7 +422,7 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
         }
 
         WebDefineRhs::StatementsThenEnd(stmts) => {
-            dest.noscope_push("/*... previous opener ...*/");
+            dest.noscope_push("/*... opened earlier ...*/");
             dest.indent_block();
 
             for s in stmts {

@@ -624,54 +624,107 @@ fn parse_special_free_case<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStat
 
 // Prettification
 
-impl<'a> WebStatement<'a> {
-    pub fn measure_horz(&self) -> usize {
+impl<'a> RenderInline for WebStatement<'a> {
+    fn measure_inline(&self) -> usize {
         match self {
+            WebStatement::Block(_)
+            | WebStatement::If(_)
+            | WebStatement::Case(_)
+            | WebStatement::SpecialFreeCase(_)
+            | WebStatement::While(_)
+            | WebStatement::For(_)
+            | WebStatement::Repeat(_)
+            | WebStatement::Loop(_)
+            | WebStatement::PreprocessorDirective(_) => prettify::NOT_INLINE,
+
             WebStatement::Expr(expr, comment) => {
                 expr.measure_inline()
                     + comment
                         .as_ref()
-                        .map(|c| 1 + c.measure_inline())
+                        .map(|c| c.measure_inline() + 1)
                         .unwrap_or(0)
             }
 
             WebStatement::ModuleReference(name) => prettify::module_reference_measure_inline(name),
 
-            WebStatement::Block(block) => {
-                // NOTE: hardcoding block indent size:
-                let ws = block
-                    .stmts
-                    .iter()
-                    .map(|s| s.measure_horz() + 4)
-                    .max()
-                    .unwrap_or(0);
-                let wc = block
-                    .post_comment
-                    .as_ref()
-                    .map(|c| c.measure_inline())
-                    .unwrap_or(0);
-                usize::max(ws, wc)
-            }
-
             WebStatement::Assignment(a) => {
-                let wl = a.lhs.measure_inline();
-                let wr = a.rhs.measure_inline();
-                let wc = a
-                    .comment
-                    .as_ref()
-                    .map(|c| 1 + c.measure_inline())
-                    .unwrap_or(0);
-                wl + wr + wc + 3 // " = "
+                a.lhs.measure_inline()
+                    + 3
+                    + a.rhs.measure_inline()
+                    + a.comment
+                        .as_ref()
+                        .map(|c| c.measure_inline() + 1)
+                        .unwrap_or(0)
             }
 
-            _ => {
-                eprintln!("SMH: {:?}", self);
-                1
+            WebStatement::Goto(g) => {
+                g.label.len() + 5 + // "goto "
+                     g.comment
+                        .as_ref()
+                        .map(|c| c.measure_inline() + 1)
+                        .unwrap_or(0)
             }
+
+            WebStatement::Label(l) => l.len() + 1,
         }
     }
 
-    pub fn render_horz(&self, dest: &mut Prettifier) {
+    fn render_inline(&self, dest: &mut Prettifier) {
+        match self {
+            WebStatement::Block(_)
+            | WebStatement::If(_)
+            | WebStatement::Case(_)
+            | WebStatement::SpecialFreeCase(_)
+            | WebStatement::While(_)
+            | WebStatement::For(_)
+            | WebStatement::Repeat(_)
+            | WebStatement::Loop(_)
+            | WebStatement::PreprocessorDirective(_) => dest.noscope_push("XXX-stmt-inline"),
+
+            WebStatement::Expr(expr, comment) => {
+                expr.render_inline(dest);
+
+                if let Some(c) = comment {
+                    dest.space();
+                    c.render_inline(dest);
+                }
+            }
+
+            WebStatement::ModuleReference(name) => {
+                prettify::module_reference_render(name, dest);
+            }
+
+            WebStatement::Assignment(a) => {
+                a.lhs.render_inline(dest);
+                dest.noscope_push(" = ");
+                a.rhs.render_inline(dest);
+
+                if let Some(c) = a.comment.as_ref() {
+                    dest.space();
+                    c.render_inline(dest);
+                }
+            }
+
+            WebStatement::Goto(g) => {
+                dest.noscope_push("goto ");
+                dest.noscope_push(&g.label);
+
+                if let Some(c) = g.comment.as_ref() {
+                    dest.space();
+                    c.render_inline(dest);
+                }
+            }
+
+            WebStatement::Label(l) => {
+                dest.noscope_push(l);
+                dest.noscope_push(':');
+            }
+        }
+    }
+}
+
+impl<'a> WebStatement<'a> {
+    pub fn render_flex(&self, dest: &mut Prettifier) {
         match self {
             WebStatement::Expr(expr, comment) => {
                 expr.render_inline(dest);
@@ -707,7 +760,7 @@ impl<'a> WebStatement<'a> {
                 dest.newline_indent();
 
                 for s in &block.stmts {
-                    s.render_horz(dest);
+                    s.render_flex(dest);
                     dest.newline_needed();
                 }
 
@@ -738,9 +791,5 @@ impl<'a> WebStatement<'a> {
                 eprintln!("SRH: {:?}", self);
             }
         }
-    }
-
-    pub fn render_flex(&self, dest: &mut Prettifier) {
-        self.render_horz(dest)
     }
 }

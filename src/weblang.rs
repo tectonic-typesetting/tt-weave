@@ -312,25 +312,31 @@ mod tl_prettify {
         comment: &Option<WebComment<'a>>,
         dest: &mut Prettifier,
     ) {
+        // Most statements won't be able to be rendered inline, but a few can.
         let clen = comment.as_ref().map(|c| c.measure_inline()).unwrap_or(0);
-        let slen = stmt.measure_horz();
+        let slen = stmt.measure_inline();
 
         if dest.fits(clen + slen + 1) {
-            stmt.render_horz(dest);
+            stmt.render_inline(dest);
 
-            if clen > 0 {
+            if let Some(c) = comment.as_ref() {
                 dest.space();
-                comment.as_ref().unwrap().render_inline(dest);
+                c.render_inline(dest);
             }
         } else if dest.fits(slen) {
-            if clen > 0 {
-                comment.as_ref().unwrap().render_inline(dest);
+            if let Some(c) = comment.as_ref() {
+                c.render_inline(dest);
                 dest.newline_needed();
             }
 
-            stmt.render_horz(dest);
+            stmt.render_inline(dest);
         } else {
-            eprintln!("TLS needs vert {:?}", stmt);
+            if let Some(c) = comment.as_ref() {
+                c.render_inline(dest);
+                dest.newline_needed();
+            }
+
+            stmt.render_flex(dest);
         }
 
         dest.newline_needed();
