@@ -166,7 +166,7 @@ impl Prettifier {
                     '#' => print!("\\#"),
                     '\\' => print!("{{\\textbackslash}}"),
                     '&' => print!("\\&"),
-                    '~' => print!("\\~"),
+                    '~' => print!("{{\\textasciitilde}}"),
                     ' ' => print!("\\ "),
                     '\n' => print!("\\WebNL\n"), // XXXXXXXXXXXXx
                     other => print!("{}", other),

@@ -7,6 +7,8 @@
 use nom::{branch::alt, combinator::opt, sequence::tuple};
 use std::borrow::Cow;
 
+use crate::prettify::{self, Prettifier};
+
 use super::{base::*, WebToplevel};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -83,4 +85,21 @@ fn true_identifier_workaround<'a>(
     }
 
     new_parse_err(input, WebErrorKind::Eof)
+}
+
+// Prettification
+
+impl<'a> WebFormat<'a> {
+    pub fn prettify(&self, dest: &mut Prettifier) {
+        dest.noscope_push("@format ");
+        dest.noscope_push(self.lhs.value.as_ref());
+        dest.noscope_push(" ~ ");
+        dest.noscope_push(self.rhs);
+        dest.noscope_push(";");
+
+        if let Some(c) = self.comment.as_ref() {
+            dest.space();
+            prettify::comment_render_inline(c, dest);
+        }
+    }
 }

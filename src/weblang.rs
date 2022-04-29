@@ -265,6 +265,7 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::Statement(stmt, comment) => tl_prettify::statement(stmt, comment, dest),
             WebToplevel::Standalone(s) => s.render_horz(dest),
             WebToplevel::Define(d) => d.prettify(dest),
+            WebToplevel::Format(f) => f.prettify(dest),
             WebToplevel::LabelDeclaration(ld) => ld.prettify(dest),
             WebToplevel::ProgramDefinition(pd) => pd.prettify(dest),
             WebToplevel::ModulifiedDeclaration(md) => md.prettify(dest),
