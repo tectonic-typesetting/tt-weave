@@ -635,6 +635,17 @@ impl<'a> WebStatement<'a> {
                 usize::max(ws, wc)
             }
 
+            WebStatement::Assignment(a) => {
+                let wl = a.lhs.measure_inline();
+                let wr = a.rhs.measure_inline();
+                let wc = a
+                    .comment
+                    .as_ref()
+                    .map(|c| 1 + prettify::comment_measure_inline(c))
+                    .unwrap_or(0);
+                wl + wr + wc + 3 // " = "
+            }
+
             _ => {
                 eprintln!("SMH: {:?}", self);
                 1
@@ -690,6 +701,19 @@ impl<'a> WebStatement<'a> {
                 dest.dedent_block();
                 dest.noscope_push("}");
                 dest.newline_needed();
+            }
+
+            WebStatement::Assignment(a) => {
+                a.lhs.render_inline(dest);
+                dest.noscope_push(" = ");
+                a.rhs.render_inline(dest);
+                dest.noscope_push(";");
+
+                if let Some(c) = a.comment.as_ref() {
+                    dest.space();
+                    prettify::comment_render_inline(c, dest);
+                    dest.newline_needed();
+                }
             }
 
             _ => {

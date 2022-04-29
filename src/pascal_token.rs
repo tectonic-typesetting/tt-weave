@@ -198,7 +198,7 @@ impl<'a> fmt::Display for PascalToken<'a> {
             PascalToken::Equals => write!(f, "=="),
             PascalToken::NotEquals => write!(f, "!="),
             PascalToken::DoubleDot => write!(f, ".."),
-            PascalToken::Gets => write!(f, ":="),
+            PascalToken::Gets => write!(f, "="), // sorry, Pascal
             PascalToken::Equivalence => write!(f, "==="),
             PascalToken::Colon => write!(f, ":"),
             PascalToken::Caret => write!(f, "^"),

@@ -417,6 +417,10 @@ impl<'a> WebExpr<'a> {
         match self {
             WebExpr::Token(tok) => tok.measure_inline(),
 
+            WebExpr::Binary(bin) => {
+                bin.lhs.measure_inline() + bin.rhs.measure_inline() + bin.op.measure_inline() + 2
+            }
+
             _ => {
                 eprintln!("EMI: {:?}", self);
                 999
@@ -427,6 +431,14 @@ impl<'a> WebExpr<'a> {
     pub fn render_inline(&self, dest: &mut Prettifier) {
         match self {
             WebExpr::Token(tok) => tok.render_inline(dest),
+
+            WebExpr::Binary(bin) => {
+                bin.lhs.render_inline(dest);
+                dest.space();
+                bin.op.render_inline(dest);
+                dest.space();
+                bin.rhs.render_inline(dest);
+            }
 
             _ => {}
         }
