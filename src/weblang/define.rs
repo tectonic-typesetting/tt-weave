@@ -30,7 +30,7 @@ pub struct WebDefine<'a> {
     rhs: WebDefineRhs<'a>,
 
     /// Optional trailing comment.
-    comment: Option<Vec<TypesetComment<'a>>>,
+    comment: Option<WebComment<'a>>,
 }
 
 pub fn parse_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
@@ -132,7 +132,7 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
 /// We handle fiddle with these to treat them homogeneously with other statements
 fn parse_inverted_statement<'a>(
     input: ParseInput<'a>,
-) -> ParseResult<'a, (WebDefineRhs<'a>, Option<Vec<TypesetComment<'a>>>)> {
+) -> ParseResult<'a, (WebDefineRhs<'a>, Option<WebComment<'a>>)> {
     map(
         tuple((
             map(comment, |c| Some(c)),
@@ -260,7 +260,7 @@ impl<'a> WebDefine<'a> {
         let c_width = self
             .comment
             .as_ref()
-            .map(|c| 1 + prettify::comment_measure_inline(c))
+            .map(|c| 1 + c.measure_inline())
             .unwrap_or(0);
 
         if dest.fits(10 + lhs_width + rhs_width + c_width) {
@@ -275,12 +275,12 @@ impl<'a> WebDefine<'a> {
 
             if let Some(c) = self.comment.as_ref() {
                 dest.space();
-                prettify::comment_render_inline(c, dest);
+                c.render_inline(dest);
             }
         } else if dest.fits(10 + lhs_width + rhs_width) {
             // We can't get here without the comment being Some, but ...
             if let Some(c) = self.comment.as_ref() {
-                prettify::comment_render_inline(c, dest);
+                c.render_inline(dest);
                 dest.newline_indent();
             }
 
@@ -294,7 +294,7 @@ impl<'a> WebDefine<'a> {
             render_rhs_inline(&self.rhs, dest);
         } else {
             if let Some(c) = self.comment.as_ref() {
-                prettify::comment_render_inline(c, dest);
+                c.render_inline(dest);
                 dest.newline_indent();
             }
 

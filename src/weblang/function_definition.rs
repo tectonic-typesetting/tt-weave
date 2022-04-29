@@ -35,7 +35,7 @@ pub struct WebFunctionDefinition<'a> {
     return_type: Option<WebType<'a>>,
 
     /// The comment associated with the definition of the function.
-    opening_comment: Option<Vec<TypesetComment<'a>>>,
+    opening_comment: Option<WebComment<'a>>,
 
     /// Labels
     labels: Vec<StringSpan<'a>>,
@@ -77,7 +77,7 @@ pub enum WebVarBlockItem<'a> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebInPlaceVariables<'a> {
     vars: WebVariables<'a>,
-    comment: Option<Vec<TypesetComment<'a>>>,
+    comment: Option<WebComment<'a>>,
 }
 
 fn parse_var_block_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVarBlockItem<'a>> {
@@ -200,7 +200,7 @@ impl<'a> WebFunctionDefinition<'a> {
         // Opening comment
 
         if let Some(c) = self.opening_comment.as_ref() {
-            prettify::comment_render_inline(c, dest);
+            c.render_inline(dest);
             dest.newline_needed();
         }
 
@@ -461,7 +461,7 @@ impl<'a> WebInPlaceVariables<'a> {
 
         if let Some(c) = self.comment.as_ref() {
             dest.space();
-            prettify::comment_render_inline(c, dest);
+            c.render_inline(dest);
         }
     }
 }

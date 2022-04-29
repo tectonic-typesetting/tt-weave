@@ -148,7 +148,7 @@ pub struct WebRecordType<'a> {
 pub struct WebRecordField<'a> {
     name: StringSpan<'a>,
     ty: Box<WebType<'a>>,
-    comment: Option<Vec<TypesetComment<'a>>>,
+    comment: Option<WebComment<'a>>,
 }
 
 fn parse_record<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {

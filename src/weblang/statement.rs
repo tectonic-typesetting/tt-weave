@@ -55,7 +55,7 @@ pub enum WebStatement<'a> {
     Case(WebCase<'a>),
 
     /// A statement that's just an expression.
-    Expr(WebExpr<'a>, Option<Vec<TypesetComment<'a>>>),
+    Expr(WebExpr<'a>, Option<WebComment<'a>>),
 
     /// A free-floating case statement, needed for WEAVE#88.
     SpecialFreeCase(SpecialFreeCase<'a>),
@@ -119,7 +119,7 @@ pub struct WebBlock<'a> {
     closer: PascalToken<'a>,
 
     /// Optional comment after
-    post_comment: Option<Vec<TypesetComment<'a>>>,
+    post_comment: Option<WebComment<'a>>,
 }
 
 fn parse_block<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
@@ -197,7 +197,7 @@ pub struct WebAssignment<'a> {
     rhs: Box<WebExpr<'a>>,
 
     /// Optional comment.
-    comment: Option<Vec<TypesetComment<'a>>>,
+    comment: Option<WebComment<'a>>,
 }
 
 fn parse_assignment<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
@@ -225,7 +225,7 @@ pub struct WebGoto<'a> {
     label: StringSpan<'a>,
 
     /// Optional comment.
-    comment: Option<Vec<TypesetComment<'a>>>,
+    comment: Option<WebComment<'a>>,
 }
 
 fn parse_goto<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
@@ -248,7 +248,7 @@ pub struct WebIf<'a> {
     test: Box<WebExpr<'a>>,
 
     /// Optional comment after the test
-    test_comment: Option<Vec<TypesetComment<'a>>>,
+    test_comment: Option<WebComment<'a>>,
 
     /// The `then` statement, which may be a block.
     then: Box<WebStatement<'a>>,
@@ -455,7 +455,7 @@ pub struct WebStandardCaseItem<'a> {
     stmt: Box<WebStatement<'a>>,
 
     /// Optional comment.
-    comment: Option<Vec<TypesetComment<'a>>>,
+    comment: Option<WebComment<'a>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -467,7 +467,7 @@ pub struct WebOtherCasesItem<'a> {
     stmt: Box<WebStatement<'a>>,
 
     /// Optional comment.
-    comment: Option<Vec<TypesetComment<'a>>>,
+    comment: Option<WebComment<'a>>,
 }
 
 fn parse_case<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
@@ -613,7 +613,7 @@ impl<'a> WebStatement<'a> {
                 expr.measure_inline()
                     + comment
                         .as_ref()
-                        .map(|c| 1 + prettify::comment_measure_inline(c))
+                        .map(|c| 1 + c.measure_inline())
                         .unwrap_or(0)
             }
 
@@ -630,7 +630,7 @@ impl<'a> WebStatement<'a> {
                 let wc = block
                     .post_comment
                     .as_ref()
-                    .map(|c| prettify::comment_measure_inline(c))
+                    .map(|c| c.measure_inline())
                     .unwrap_or(0);
                 usize::max(ws, wc)
             }
@@ -641,7 +641,7 @@ impl<'a> WebStatement<'a> {
                 let wc = a
                     .comment
                     .as_ref()
-                    .map(|c| 1 + prettify::comment_measure_inline(c))
+                    .map(|c| 1 + c.measure_inline())
                     .unwrap_or(0);
                 wl + wr + wc + 3 // " = "
             }
@@ -663,7 +663,7 @@ impl<'a> WebStatement<'a> {
 
                 if let Some(c) = comment.as_ref() {
                     dest.space();
-                    prettify::comment_render_inline(c, dest);
+                    c.render_inline(dest);
                 }
             }
 
@@ -694,7 +694,7 @@ impl<'a> WebStatement<'a> {
                 }
 
                 if let Some(c) = block.post_comment.as_ref() {
-                    prettify::comment_render_inline(c, dest);
+                    c.render_inline(dest);
                     dest.newline_needed();
                 }
 
@@ -711,7 +711,7 @@ impl<'a> WebStatement<'a> {
 
                 if let Some(c) = a.comment.as_ref() {
                     dest.space();
-                    prettify::comment_render_inline(c, dest);
+                    c.render_inline(dest);
                     dest.newline_needed();
                 }
             }

@@ -13,7 +13,7 @@ use crate::{
     reserved::PascalReservedWord,
     state::{ModuleId, State},
     token::{next_token, Token},
-    weblang::{TypesetComment, WebCode, WebSyntax, WebToken},
+    weblang::{base::TypesetComment, WebCode, WebSyntax, WebToken},
 };
 
 #[derive(Debug, Default)]

@@ -20,7 +20,7 @@ pub struct WebFormat<'a> {
     rhs: PascalReservedWord,
 
     /// Optional trailing comment.
-    comment: Option<Vec<TypesetComment<'a>>>,
+    comment: Option<WebComment<'a>>,
 }
 
 pub fn parse_format<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
@@ -99,7 +99,7 @@ impl<'a> WebFormat<'a> {
 
         if let Some(c) = self.comment.as_ref() {
             dest.space();
-            prettify::comment_render_inline(c, dest);
+            c.render_inline(dest);
         }
     }
 }

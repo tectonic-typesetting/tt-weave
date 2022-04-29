@@ -15,7 +15,7 @@ pub struct WebLabelDeclaration<'a> {
     name: StringSpan<'a>,
 
     /// An optional associated comment.
-    comment: Option<Vec<TypesetComment<'a>>>,
+    comment: Option<WebComment<'a>>,
 }
 
 pub fn parse_label_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
@@ -40,7 +40,7 @@ impl<'a> WebLabelDeclaration<'a> {
         let clen = self
             .comment
             .as_ref()
-            .map(|c| prettify::comment_measure_inline(c))
+            .map(|c| c.measure_inline())
             .unwrap_or(0);
         let slen = self.name.value.len() + 7;
 
@@ -51,13 +51,13 @@ impl<'a> WebLabelDeclaration<'a> {
 
             if let Some(c) = self.comment.as_ref() {
                 dest.space();
-                prettify::comment_render_inline(c, dest);
+                c.render_inline(dest);
             }
 
             dest.newline_needed();
         } else {
             if let Some(c) = self.comment.as_ref() {
-                prettify::comment_render_inline(c, dest);
+                c.render_inline(dest);
                 dest.newline_indent();
             }
 

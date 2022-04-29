@@ -19,7 +19,7 @@ pub struct WebConstantDeclaration<'a> {
     value: PascalToken<'a>,
 
     /// Optional comment.
-    comment: Option<Vec<TypesetComment<'a>>>,
+    comment: Option<WebComment<'a>>,
 }
 
 pub fn parse_constant_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {

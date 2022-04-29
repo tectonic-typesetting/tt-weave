@@ -20,6 +20,8 @@ pub use crate::{
     reserved::PascalReservedWord,
 };
 
+pub use super::comment::WebComment;
+
 /// Information about a typeset comment.
 ///
 /// This type is lame. The structure is an interleaving of TeX code and inline
@@ -313,11 +315,11 @@ pub fn close_delimiter<'a>(kind: DelimiterKind) -> impl Fn(ParseInput<'a>) -> Pa
 }
 
 /// Expect a comment, returning it.
-pub fn comment<'a>(input: ParseInput<'a>) -> ParseResult<'a, Vec<TypesetComment<'a>>> {
+pub fn comment<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebComment<'a>> {
     let (input, wt) = next_token(input)?;
 
     if let WebToken::Comment(c) = wt {
-        Ok((input, c))
+        Ok((input, WebComment(c)))
     } else {
         return new_parse_err(input, WebErrorKind::ExpectedComment);
     }

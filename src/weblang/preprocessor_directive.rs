@@ -15,7 +15,7 @@ pub struct WebPreprocessorDirective<'a> {
     tokens: Vec<PascalToken<'a>>,
 
     /// An optional associated comment
-    comment: Option<Vec<TypesetComment<'a>>>,
+    comment: Option<WebComment<'a>>,
 }
 
 pub fn parse_preprocessor_directive_base<'a>(
@@ -54,7 +54,7 @@ fn any_pascal_except_close_meta<'a>(input: ParseInput<'a>) -> ParseResult<'a, Pa
 impl<'a> WebPreprocessorDirective<'a> {
     pub fn prettify(&self, dest: &mut Prettifier) {
         if let Some(c) = self.comment.as_ref() {
-            prettify::comment_render_inline(c, dest);
+            c.render_inline(dest);
             dest.newline_needed();
         }
 

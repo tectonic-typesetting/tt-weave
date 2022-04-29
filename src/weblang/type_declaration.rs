@@ -23,7 +23,7 @@ pub struct WebTypeDeclaration<'a> {
     ty: WebType<'a>,
 
     /// Optional comment.
-    comment: Option<Vec<TypesetComment<'a>>>,
+    comment: Option<WebComment<'a>>,
 }
 
 pub fn parse_type_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {

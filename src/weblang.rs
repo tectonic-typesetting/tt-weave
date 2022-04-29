@@ -6,6 +6,7 @@
 use nom::{branch::alt, bytes::complete::take_while, multi::many1, Finish, InputLength};
 
 pub mod base;
+mod comment;
 mod const_declaration;
 mod define;
 mod expr;
@@ -25,7 +26,7 @@ use crate::prettify::{self, Prettifier};
 
 use self::{base::*, statement::WebStatement};
 
-pub use self::base::{TypesetComment, WebSyntax, WebToken};
+pub use self::base::{WebSyntax, WebToken};
 
 /// A top-level WEB production.
 ///
@@ -68,7 +69,7 @@ pub enum WebToplevel<'a> {
     TypeDeclaration(type_declaration::WebTypeDeclaration<'a>),
 
     /// A Pascal statement.
-    Statement(WebStatement<'a>, Option<Vec<TypesetComment<'a>>>),
+    Statement(WebStatement<'a>, Option<WebComment<'a>>),
 
     /// `( $ident $ident )`, needed for WEAVE:143
     SpecialParenTwoIdent(StringSpan<'a>, StringSpan<'a>),
@@ -283,13 +284,10 @@ mod tl_prettify {
 
     pub fn statement<'a>(
         stmt: &WebStatement<'a>,
-        comment: &Option<Vec<TypesetComment<'a>>>,
+        comment: &Option<WebComment<'a>>,
         dest: &mut Prettifier,
     ) {
-        let clen = comment
-            .as_ref()
-            .map(|c| prettify::comment_measure_inline(c))
-            .unwrap_or(0);
+        let clen = comment.as_ref().map(|c| c.measure_inline()).unwrap_or(0);
         let slen = stmt.measure_horz();
 
         if dest.fits(clen + slen + 1) {
@@ -297,11 +295,11 @@ mod tl_prettify {
 
             if clen > 0 {
                 dest.space();
-                prettify::comment_render_inline(comment.as_ref().unwrap(), dest);
+                comment.as_ref().unwrap().render_inline(dest);
             }
         } else if dest.fits(slen) {
             if clen > 0 {
-                prettify::comment_render_inline(comment.as_ref().unwrap(), dest);
+                comment.as_ref().unwrap().render_inline(dest);
                 dest.newline_needed();
             }
 

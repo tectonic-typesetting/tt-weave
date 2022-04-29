@@ -17,7 +17,7 @@ pub struct WebStandalone<'a> {
     token: PascalToken<'a>,
 
     /// An optional associated comment.
-    comment: Option<Vec<TypesetComment<'a>>>,
+    comment: Option<WebComment<'a>>,
 }
 
 pub fn parse_standalone_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStandalone<'a>> {
@@ -54,7 +54,7 @@ impl<'a> WebStandalone<'a> {
             + self
                 .comment
                 .as_ref()
-                .map(|c| 1 + prettify::comment_measure_inline(c))
+                .map(|c| 1 + c.measure_inline())
                 .unwrap_or(0)
     }
 
@@ -63,7 +63,7 @@ impl<'a> WebStandalone<'a> {
 
         if let Some(c) = self.comment.as_ref() {
             dest.space();
-            prettify::comment_render_inline(c, dest);
+            c.render_inline(dest);
         }
 
         dest.newline_needed();
