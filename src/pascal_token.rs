@@ -663,7 +663,7 @@ impl<'a> RenderInline for PascalToken<'a> {
             }
 
             PascalToken::Less => {
-                dest.noscope_push(',');
+                dest.noscope_push('<');
             }
 
             PascalToken::LessEquals => {
@@ -683,7 +683,7 @@ impl<'a> RenderInline for PascalToken<'a> {
             }
 
             PascalToken::Gets => {
-                dest.noscope_push(":=");
+                dest.noscope_push("=");
             }
 
             PascalToken::Equivalence => {

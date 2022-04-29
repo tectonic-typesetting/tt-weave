@@ -959,8 +959,107 @@ impl<'a> WebStatement<'a> {
                 dest.noscope_push("}");
             }
 
-            WebStatement::Case(c) => {}
-            WebStatement::SpecialFreeCase(sfc) => {}
+            WebStatement::Case(c) => {
+                dest.noscope_push("case ");
+                c.var.render_flex(dest);
+                dest.noscope_push(" {");
+                dest.indent_small();
+
+                for item in &c.items {
+                    dest.newline_needed();
+                    item.render_flex(dest);
+                }
+
+                dest.dedent_small();
+                dest.newline_needed();
+                dest.noscope_push("}");
+            }
+
+            WebStatement::SpecialFreeCase(sfc) => {
+                let wm = prettify::measure_inline_seq(&sfc.matches, 2) + 1;
+
+                if dest.fits(wm) {
+                    prettify::render_inline_seq(&sfc.matches, ", ", dest);
+                } else {
+                    let i_last = sfc.matches.len() - 1;
+
+                    for (i, tok) in sfc.matches.iter().enumerate() {
+                        dest.newline_needed();
+                        tok.render_inline(dest);
+
+                        if i != i_last {
+                            dest.noscope_push(',');
+                        }
+                    }
+                }
+
+                dest.noscope_push(':');
+                dest.indent_small();
+                dest.newline_indent();
+                sfc.stmt.render_in_block(dest);
+                sfc.stmt.maybe_semicolon(dest);
+                dest.dedent_small();
+            }
+        }
+    }
+}
+
+impl<'a> WebCaseItem<'a> {
+    fn render_flex(&self, dest: &mut Prettifier) {
+        match self {
+            WebCaseItem::ModuleReference(mr) => {
+                prettify::module_reference_render(mr, dest);
+            }
+
+            WebCaseItem::Standard(sc) => {
+                if let Some(c) = sc.comment.as_ref() {
+                    // align with the full indent
+                    dest.noscope_push("  ");
+                    c.render_inline(dest);
+                    dest.newline_indent();
+                }
+
+                let wm = prettify::measure_inline_seq(&sc.matches, 2) + 1;
+
+                if dest.fits(wm) {
+                    prettify::render_inline_seq(&sc.matches, ", ", dest);
+                } else {
+                    let i_last = sc.matches.len() - 1;
+
+                    for (i, expr) in sc.matches.iter().enumerate() {
+                        dest.newline_needed();
+                        expr.render_flex(dest);
+
+                        if i != i_last {
+                            dest.noscope_push(',');
+                        }
+                    }
+                }
+
+                dest.noscope_push(':');
+                dest.indent_small();
+                dest.newline_indent();
+                sc.stmt.render_in_block(dest);
+                sc.stmt.maybe_semicolon(dest);
+                dest.dedent_small();
+            }
+
+            WebCaseItem::OtherCases(oc) => {
+                if let Some(c) = oc.comment.as_ref() {
+                    // align with the full indent
+                    dest.noscope_push("  ");
+                    c.render_inline(dest);
+                    dest.newline_indent();
+                }
+
+                dest.noscope_push(&oc.tag);
+                dest.noscope_push(':');
+                dest.indent_small();
+                dest.newline_indent();
+                oc.stmt.render_in_block(dest);
+                oc.stmt.maybe_semicolon(dest);
+                dest.dedent_small();
+            }
         }
     }
 }
