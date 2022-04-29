@@ -9,7 +9,7 @@ use nom::{
     sequence::tuple,
 };
 
-use crate::prettify::{Prettifier, RenderInline};
+use crate::prettify::{self, Prettifier, RenderInline};
 
 use super::base::*;
 
@@ -262,12 +262,7 @@ impl<'a> RenderInline for WebArrayType<'a> {
         }
 
         w += 7; // "array ["
-
-        for t in &self.axes {
-            w += t.measure_inline();
-        }
-
-        w += 2 * (self.axes.len() - 1); // ", " between axes
+        w += prettify::measure_inline_seq(&self.axes, 2);
         w += 5; // "] of "
         w += self.element.measure_inline();
         w
@@ -279,18 +274,7 @@ impl<'a> RenderInline for WebArrayType<'a> {
         }
 
         dest.noscope_push("array [");
-        let mut first = true;
-
-        for t in &self.axes {
-            if first {
-                first = false;
-            } else {
-                dest.noscope_push(", ");
-            }
-
-            t.render_inline(dest);
-        }
-
+        prettify::render_inline_seq(&self.axes, ", ", dest);
         dest.noscope_push("] of ");
         self.element.render_inline(dest);
     }

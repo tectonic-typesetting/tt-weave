@@ -220,18 +220,7 @@ impl<'a> WebFunctionDefinition<'a> {
             dest.noscope_push("function ");
             dest.noscope_push(self.name.value.as_ref());
             dest.noscope_push('(');
-
-            let mut first = true;
-
-            for arg in &self.args {
-                if first {
-                    first = false;
-                } else {
-                    dest.noscope_push(", ");
-                }
-
-                arg.render_inline(dest);
-            }
+            prettify::render_inline_seq(&self.args, ", ", dest);
         } else {
             // Multi-line function prototype
             dest.noscope_push("function ");
@@ -316,19 +305,7 @@ impl<'a> WebFunctionDefinition<'a> {
             if dest.fits(wv + 5) {
                 // "var ;"
                 dest.noscope_push("var ");
-
-                let mut first = true;
-
-                for v in &self.vars {
-                    if first {
-                        first = false;
-                    } else {
-                        dest.noscope_push(", ");
-                    }
-
-                    v.render_inline(dest);
-                }
-
+                prettify::render_inline_seq(&self.vars, ", ", dest);
                 dest.noscope_push(";");
             } else {
                 // Multi-line var declarations

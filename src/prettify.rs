@@ -3,6 +3,7 @@
 use lazy_static::lazy_static;
 use std::{
     fmt::{self, Write},
+    ops::Deref,
     str::FromStr,
 };
 use syntect::{
@@ -10,7 +11,7 @@ use syntect::{
     parsing::{Scope, ScopeStack, ScopeStackOp},
 };
 
-use crate::weblang::base::StringSpan;
+use crate::weblang::base::{SpanValue, StringSpan};
 
 const INITIAL_SCOPES: &str = "source.c";
 
@@ -204,6 +205,75 @@ pub trait RenderInline {
 }
 
 pub const NOT_INLINE: usize = 9999;
+
+impl<T: RenderInline> RenderInline for Box<T> {
+    fn measure_inline(&self) -> usize {
+        self.deref().measure_inline()
+    }
+
+    fn render_inline(&self, dest: &mut Prettifier) {
+        self.deref().render_inline(dest)
+    }
+}
+
+impl<T: RenderInline> RenderInline for &T {
+    fn measure_inline(&self) -> usize {
+        self.deref().measure_inline()
+    }
+
+    fn render_inline(&self, dest: &mut Prettifier) {
+        self.deref().render_inline(dest)
+    }
+}
+
+impl<'a, T: RenderInline> RenderInline for SpanValue<'a, T> {
+    fn measure_inline(&self) -> usize {
+        self.value.measure_inline()
+    }
+
+    fn render_inline(&self, dest: &mut Prettifier) {
+        self.value.render_inline(dest)
+    }
+}
+
+/// Measure how wide a sequence of items will be if rendered inline.
+///
+/// The items are assumed to be rendered with a separator of width `sep_width`.
+pub fn measure_inline_seq<I: IntoIterator<Item = T>, T: RenderInline>(
+    seq: I,
+    sep_width: usize,
+) -> usize {
+    let mut n = 0;
+
+    for item in seq.into_iter() {
+        if n != 0 {
+            n += sep_width;
+        }
+
+        n += item.measure_inline();
+    }
+
+    n
+}
+
+/// Render a sequence of items inline.
+pub fn render_inline_seq<I: IntoIterator<Item = T>, T: RenderInline>(
+    seq: I,
+    sep: &str,
+    dest: &mut Prettifier,
+) {
+    let mut first = true;
+
+    for item in seq.into_iter() {
+        if first {
+            first = false;
+        } else {
+            dest.noscope_push(sep);
+        }
+
+        item.render_inline(dest);
+    }
+}
 
 struct ColorHexConvert(Color);
 

@@ -12,7 +12,7 @@ use nom::{
     InputLength,
 };
 
-use crate::prettify::{Prettifier, RenderInline};
+use crate::prettify::{self, Prettifier, RenderInline};
 
 use super::{
     base::*,
@@ -256,7 +256,7 @@ fn parse_synthesized_identifier<'a>(input: ParseInput<'a>) -> ParseResult<'a, We
 impl<'a> WebDefine<'a> {
     pub fn prettify(&self, dest: &mut Prettifier) {
         let lhs_width: usize = self.lhs.iter().map(|t| t.measure_inline()).sum();
-        let rhs_width = measure_rhs_inline(&self.rhs);
+        let rhs_width = self.rhs.measure_inline();
         let c_width = self
             .comment
             .as_ref()
@@ -271,7 +271,7 @@ impl<'a> WebDefine<'a> {
             }
 
             dest.noscope_push(" = ");
-            render_rhs_inline(&self.rhs, dest);
+            self.rhs.render_inline(dest);
 
             if let Some(c) = self.comment.as_ref() {
                 dest.space();
@@ -291,7 +291,7 @@ impl<'a> WebDefine<'a> {
             }
 
             dest.noscope_push(" = ");
-            render_rhs_inline(&self.rhs, dest);
+            self.rhs.render_inline(dest);
         } else {
             if let Some(c) = self.comment.as_ref() {
                 c.render_inline(dest);
@@ -314,73 +314,77 @@ impl<'a> WebDefine<'a> {
     }
 }
 
-fn measure_rhs_inline<'a>(rhs: &WebDefineRhs<'a>) -> usize {
-    match rhs {
-        WebDefineRhs::ReservedWord(s) => s.value.to_string().len(),
+impl<'a> RenderInline for WebDefineRhs<'a> {
+    fn measure_inline(&self) -> usize {
+        match self {
+            WebDefineRhs::ReservedWord(s) => s.value.to_string().len(),
 
-        WebDefineRhs::IfdefLike(_) => 13,
-        WebDefineRhs::LoopDefinition(t) => t.len() + 8, // "while  {"
-        WebDefineRhs::EmptyDefinition => 12,
-        WebDefineRhs::OthercasesDefinition(t) => t.len() + 1,
+            WebDefineRhs::IfdefLike(_) => 13,
+            WebDefineRhs::LoopDefinition(t) => t.len() + 8, // "while  {"
+            WebDefineRhs::EmptyDefinition => 12,
+            WebDefineRhs::OthercasesDefinition(t) => t.len() + 1,
 
-        WebDefineRhs::Statements(stmts) => {
-            if stmts.len() > 1 {
-                // If multi-line, never try to render as inline.
-                9999
-            } else {
-                stmts[0].measure_horz()
+            WebDefineRhs::Statements(stmts) => {
+                if stmts.len() > 1 {
+                    // If multi-line, never try to render as inline.
+                    prettify::NOT_INLINE
+                } else {
+                    stmts[0].measure_horz()
+                }
+            }
+
+            WebDefineRhs::CommaExprs(exprs) => prettify::measure_inline_seq(exprs, 2),
+            WebDefineRhs::StatementsThenEnd(_stmts) => prettify::NOT_INLINE,
+            WebDefineRhs::BeginThenStatements(_stmts) => prettify::NOT_INLINE,
+            WebDefineRhs::SynthesizedIdentifier(pieces) => {
+                pieces.iter().map(|p| p.len()).sum::<usize>() + 20
             }
         }
-
-        WebDefineRhs::CommaExprs(_) => 0,
-        WebDefineRhs::StatementsThenEnd(_stmts) => 0,
-        WebDefineRhs::BeginThenStatements(_stmts) => 0,
-        WebDefineRhs::SynthesizedIdentifier(_pieces) => 0,
     }
-}
 
-fn render_rhs_inline<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
-    match rhs {
-        WebDefineRhs::ReservedWord(s) => dest.noscope_push(s),
+    fn render_inline(&self, dest: &mut Prettifier) {
+        match self {
+            WebDefineRhs::ReservedWord(s) => dest.noscope_push(s),
 
-        WebDefineRhs::IfdefLike(is_opener) => dest.noscope_push(if *is_opener {
-            "begin_ignore!"
-        } else {
-            "end_ignore!"
-        }),
+            WebDefineRhs::IfdefLike(is_opener) => dest.noscope_push(if *is_opener {
+                "begin_ignore!"
+            } else {
+                "end_ignore!"
+            }),
 
-        WebDefineRhs::LoopDefinition(t) => {
-            dest.noscope_push("while ");
-            dest.noscope_push(t.value.as_ref());
-            dest.noscope_push(" {");
-        }
-
-        WebDefineRhs::EmptyDefinition => dest.noscope_push("/*nothing*/"),
-
-        WebDefineRhs::OthercasesDefinition(t) => {
-            dest.noscope_push(t);
-            dest.noscope_push(":");
-        }
-
-        WebDefineRhs::Statements(stmts) => {
-            // This should only be called if we consist of a single statement
-            for s in stmts {
-                s.render_horz(dest);
+            WebDefineRhs::LoopDefinition(t) => {
+                dest.noscope_push("while ");
+                dest.noscope_push(t.value.as_ref());
+                dest.noscope_push(" {");
             }
-        }
 
-        WebDefineRhs::CommaExprs(_) => {}
+            WebDefineRhs::EmptyDefinition => dest.noscope_push("/*nothing*/"),
 
-        // Should not be rendered inline:
-        WebDefineRhs::StatementsThenEnd(_stmts) => dest.noscope_push("XXXstmts-end"),
-        WebDefineRhs::BeginThenStatements(_stmts) => dest.noscope_push("XXXbegin-stmts"),
-
-        WebDefineRhs::SynthesizedIdentifier(pieces) => {
-            dest.noscope_push("synthesized_ident!(");
-            for p in pieces {
-                dest.noscope_push(p);
+            WebDefineRhs::OthercasesDefinition(t) => {
+                dest.noscope_push(t);
+                dest.noscope_push(":");
             }
-            dest.noscope_push(")")
+
+            WebDefineRhs::Statements(stmts) => {
+                // This should only be called if we consist of a single statement
+                for s in stmts {
+                    s.render_horz(dest);
+                }
+            }
+
+            WebDefineRhs::CommaExprs(exprs) => prettify::render_inline_seq(exprs, ", ", dest),
+
+            // Should not be rendered inline:
+            WebDefineRhs::StatementsThenEnd(_stmts) => dest.noscope_push("XXXstmts-end"),
+            WebDefineRhs::BeginThenStatements(_stmts) => dest.noscope_push("XXXbegin-stmts"),
+
+            WebDefineRhs::SynthesizedIdentifier(pieces) => {
+                dest.noscope_push("synthesized_ident!(");
+                for p in pieces {
+                    dest.noscope_push(p);
+                }
+                dest.noscope_push(")")
+            }
         }
     }
 }
@@ -393,7 +397,7 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
         | WebDefineRhs::EmptyDefinition
         | WebDefineRhs::OthercasesDefinition(_)
         | WebDefineRhs::SynthesizedIdentifier(_) => {
-            render_rhs_inline(rhs, dest);
+            rhs.render_inline(dest);
         }
 
         WebDefineRhs::Statements(stmts) => {
@@ -403,8 +407,46 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
             }
         }
 
-        WebDefineRhs::CommaExprs(_) => {}
-        WebDefineRhs::StatementsThenEnd(_stmts) => {}
-        WebDefineRhs::BeginThenStatements(_stmts) => {}
+        WebDefineRhs::CommaExprs(exprs) => {
+            let i_last = exprs.len() - 1;
+
+            for (i, e) in exprs.iter().enumerate() {
+                e.render_inline(dest);
+
+                if i != i_last {
+                    dest.noscope_push(",");
+                }
+
+                dest.newline_needed();
+            }
+        }
+
+        WebDefineRhs::StatementsThenEnd(stmts) => {
+            dest.noscope_push("/*... previous opener ...*/");
+            dest.indent_block();
+
+            for s in stmts {
+                dest.newline_indent();
+                s.render_flex(dest);
+            }
+
+            dest.dedent_block();
+            dest.newline_indent();
+            dest.noscope_push("}");
+        }
+
+        WebDefineRhs::BeginThenStatements(stmts) => {
+            dest.noscope_push("{");
+            dest.indent_block();
+
+            for s in stmts {
+                dest.newline_indent();
+                s.render_flex(dest);
+            }
+
+            dest.dedent_block();
+            dest.newline_indent();
+            dest.noscope_push("/* ... closed later ... */");
+        }
     }
 }
