@@ -56,6 +56,10 @@ impl Prettifier {
         width <= eff_width
     }
 
+    pub fn would_fit_on_new_line(&self, width: usize) -> bool {
+        width <= self.full_width - self.indent
+    }
+
     pub fn indent_block(&mut self) -> bool {
         if self.full_width - self.indent > 4 {
             self.indent += 4;

@@ -504,7 +504,10 @@ impl<'a> WebExpr<'a> {
             WebExpr::Token(tok) => {
                 let w = tok.measure_inline();
 
-                if dest.fits(w) {
+                // If it doesn't fit, it's possible that moving to a new line
+                // wouldn't actually help any (cf the string literal in
+                // WEAVE:106.
+                if dest.fits(w) || !dest.would_fit_on_new_line(w + 2) {
                     tok.render_inline(dest);
                 } else {
                     dest.noscope_push('(');
