@@ -545,7 +545,7 @@ impl<'a> WebExpr<'a> {
                     dest.newline_indent();
                     be.op.render_inline(dest);
                     dest.space();
-                    be.rhs.render_flex(dest);
+                    be.rhs.render_flex_maybe_continue_binop(dest);
                     dest.dedent_block();
                     dest.newline_needed();
                 }
@@ -646,6 +646,56 @@ impl<'a> WebExpr<'a> {
                     p.render_flex(dest);
                     dest.noscope_push(')');
                 }
+            }
+        }
+    }
+
+    /// Called when rendering a binary operator as a continauation of a vertical
+    /// rendering of another binary operator. We can chain them to avoid another
+    /// indent.
+    ///
+    /// This will be called with `dest` filled out ready to display `self` as the
+    /// RHS at the pipe symbol here:
+    ///
+    /// ```
+    /// <LHS>
+    /// <op> |<RHS>
+    /// ```
+    fn render_flex_maybe_continue_binop(&self, dest: &mut Prettifier) {
+        match self {
+            WebExpr::Binary(be) => {
+                let wl = be.lhs.measure_inline();
+                let wr = be.rhs.measure_inline();
+                let wo = be.op.measure_inline();
+
+                if dest.fits(wl + wr + wo + 2) {
+                    be.lhs.render_inline(dest);
+                    dest.space();
+                    be.op.render_inline(dest);
+                    dest.space();
+                    be.rhs.render_inline(dest);
+                } else if dest.fits(wl) {
+                    // This bit is the novelty compared to plain `render_flex()`
+                    be.lhs.render_flex(dest);
+                    dest.newline_indent();
+                    be.op.render_inline(dest);
+                    dest.space();
+                    be.rhs.render_flex_maybe_continue_binop(dest);
+                } else {
+                    dest.indent_block();
+                    dest.newline_indent();
+                    be.lhs.render_flex(dest);
+                    dest.newline_indent();
+                    be.op.render_inline(dest);
+                    dest.space();
+                    be.rhs.render_flex_maybe_continue_binop(dest);
+                    dest.dedent_block();
+                    dest.newline_needed();
+                }
+            }
+
+            _ => {
+                self.render_flex(dest);
             }
         }
     }
