@@ -6,7 +6,7 @@ use nom::{
     multi::{many0, many1, separated_list1},
     sequence::tuple,
 };
-use std::borrow::Cow;
+use std::{borrow::Cow, ops::Deref};
 
 use crate::prettify::{self, Prettifier, RenderInline};
 
@@ -883,13 +883,19 @@ impl<'a> WebStatement<'a> {
                 dest.noscope_push("}");
 
                 if let Some(e) = &i.else_ {
-                    dest.noscope_push(" else {");
-                    dest.indent_block();
-                    dest.newline_needed();
-                    e.render_in_block(dest);
-                    dest.dedent_block();
-                    dest.newline_needed();
-                    dest.noscope_push("}");
+                    // Make `else if` inline for prettiness
+                    if let WebStatement::If(_) = e.deref() {
+                        dest.noscope_push(" else ");
+                        e.render_flex(dest);
+                    } else {
+                        dest.noscope_push(" else {");
+                        dest.indent_block();
+                        dest.newline_needed();
+                        e.render_in_block(dest);
+                        dest.dedent_block();
+                        dest.newline_needed();
+                        dest.noscope_push("}");
+                    }
                 }
             }
 
