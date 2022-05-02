@@ -445,10 +445,15 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
             dest.noscope_push("{");
             dest.indent_block();
 
-            for s in stmts {
+            let i_last = stmts.len() - 1;
+
+            for (i, s) in stmts.iter().enumerate() {
                 dest.newline_indent();
                 s.render_flex(dest);
-                s.maybe_semicolon(dest);
+
+                if i != i_last {
+                    s.maybe_semicolon(dest);
+                }
             }
 
             dest.dedent_block();
