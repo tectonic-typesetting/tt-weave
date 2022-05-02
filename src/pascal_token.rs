@@ -452,6 +452,9 @@ fn match_hex_literal_token(span: Span) -> ParseResult<PascalToken> {
 /// In WEB, string literals escape their delimiters by repeating them: `""""` is
 /// `"\""`. WEAVE parsing ignores the semantics here and just treats such
 /// sequences as two adjacent string literals.
+///
+/// WEB control codes should be parsed inside string literals. Namely, at-signs
+/// need escaping.
 fn match_string_literal(span: Span) -> ParseResult<PascalToken> {
     let (span, start) = position(span)?;
     let (span, tok) = next_token(span)?;
@@ -462,26 +465,69 @@ fn match_string_literal(span: Span) -> ParseResult<PascalToken> {
         _ => return new_parse_error(span, ErrorKind::Char),
     };
 
-    let (span, contents) = span.split_at_position(|c| c == '\n' || c == delim)?;
+    let (span, contents) = span.split_at_position(|c| c == '\n' || c == '@' || c == delim)?;
     let (span, terminator) = next_token(span)?;
 
     if let Token::Char('\n') = terminator {
         return new_parse_error(span, ErrorKind::Char);
+    } else if let Token::Control(_) = terminator {
+        // We'll need to allocate this string.
+        let mut span = span;
+        let mut tok = terminator;
+        let mut text = contents.to_string();
+
+        loop {
+            match tok {
+                Token::Char(c) => {
+                    if c == delim {
+                        break;
+                    } else {
+                        text.push(c);
+                    }
+                }
+
+                Token::Control(ControlKind::AtLiteral) => {
+                    text.push('@');
+                }
+
+                _ => {
+                    return new_parse_error(span, ErrorKind::Char);
+                }
+            }
+
+            (span, tok) = next_token(span)?;
+        }
+
+        let (span, end) = position(span)?;
+
+        Ok((
+            span,
+            PascalToken::StringLiteral(
+                kind,
+                StringSpan {
+                    start,
+                    end,
+                    value: Cow::Owned(text),
+                },
+            ),
+        ))
+    } else {
+        // Nice, we can capture this string literal as a pure borrow from the
+        // source string.
+        let (span, end) = position(span)?;
+
+        Ok((
+            span,
+            PascalToken::StringLiteral(
+                kind,
+                StringSpan {
+                    start,
+                    end,
+                    value: Cow::Borrowed(&contents),
+                },
+            ),
+        ))
     }
-
-    let (span, end) = position(span)?;
-
-    Ok((
-        span,
-        PascalToken::StringLiteral(
-            kind,
-            StringSpan {
-                start,
-                end,
-                value: Cow::Borrowed(&contents),
-            },
-        ),
-    ))
 }
 
 fn match_index_entry(span: Span) -> ParseResult<PascalToken> {
