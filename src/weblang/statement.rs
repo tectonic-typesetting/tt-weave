@@ -594,8 +594,10 @@ fn parse_standard_case_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebCas
     )(input)
 }
 
-// "Special" statements that we need to have for funky WEB structures
-
+/// "Special" statements that we need to have for funky WEB structures.
+///
+/// Note that if the case is an identifier, we can't distinguish between this
+/// and a "goto" label. This happens in WEAVE:188.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SpecialFreeCase<'a> {
     /// The matched cases.
