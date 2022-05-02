@@ -13,6 +13,7 @@ mod const_declaration;
 mod define;
 mod expr;
 mod format;
+mod forward_declaration;
 mod function_definition;
 mod label_declaration;
 mod modulified_declaration;
@@ -70,6 +71,9 @@ pub enum WebToplevel<'a> {
     /// Declaration of a type.
     TypeDeclaration(type_declaration::WebTypeDeclaration<'a>),
 
+    /// Forward declaration of a function or procedure.
+    ForwardDeclaration(forward_declaration::WebForwardDeclaration<'a>),
+
     /// A Pascal statement.
     Statement(WebStatement<'a>, Option<WebComment<'a>>),
 
@@ -89,6 +93,13 @@ pub enum WebToplevel<'a> {
     SpecialIfdefFunction(
         PascalToken<'a>,
         function_definition::WebFunctionDefinition<'a>,
+        PascalToken<'a>,
+    ),
+
+    /// `$begin_like $forward_declaration $end_like`, needed for WEAVE:30 and others
+    SpecialIfdefForward(
+        PascalToken<'a>,
+        forward_declaration::WebForwardDeclaration<'a>,
         PascalToken<'a>,
     ),
 
@@ -147,10 +158,12 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         program_definition::parse_program_definition,
         label_declaration::parse_label_declaration,
         modulified_declaration::parse_modulified_declaration,
+        forward_declaration::parse_forward_declaration,
         function_definition::parse_function_definition,
         const_declaration::parse_constant_declaration,
         var_declaration::parse_var_declaration,
         type_declaration::parse_type_declaration,
+        tl_specials::parse_special_ifdef_forward,
         tl_specials::parse_special_ifdef_function,
         tl_specials::parse_special_ifdef_var_decl,
         tl_specials::parse_special_paren_two_ident,
@@ -270,6 +283,19 @@ mod tl_specials {
         )(input)
     }
 
+    pub fn parse_special_ifdef_forward<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                formatted_identifier_like(PascalReservedWord::Begin),
+                forward_declaration::parse_forward_declaration_base,
+                formatted_identifier_like(PascalReservedWord::End),
+            )),
+            |t| WebToplevel::SpecialIfdefForward(t.0, t.1, t.2),
+        )(input)
+    }
+
     pub fn parse_special_ifdef_var_decl<'a>(
         input: ParseInput<'a>,
     ) -> ParseResult<'a, WebToplevel<'a>> {
@@ -299,6 +325,7 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::ConstDeclaration(cd) => cd.prettify(dest),
             WebToplevel::VarDeclaration(vd) => vd.prettify(dest),
             WebToplevel::TypeDeclaration(td) => td.prettify(dest),
+            WebToplevel::ForwardDeclaration(fd) => fd.prettify(dest),
 
             WebToplevel::SpecialParenTwoIdent(id1, id2) => {
                 tl_prettify::special_paren_two_ident(id1, id2, dest)
@@ -310,6 +337,9 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::SpecialIntRange(n1, n2) => tl_prettify::special_int_range(n1, n2, dest),
             WebToplevel::SpecialIfdefFunction(beg, fd, end) => {
                 tl_prettify::special_ifdef_function(beg, fd, end, dest)
+            }
+            WebToplevel::SpecialIfdefForward(beg, fd, end) => {
+                tl_prettify::special_ifdef_forward(beg, fd, end, dest)
             }
             WebToplevel::SpecialIfdefVarDeclaration(beg, vd, end, comment) => {
                 tl_prettify::special_ifdef_var_declaration(beg, vd, end, comment, dest)
@@ -393,6 +423,22 @@ mod tl_prettify {
     pub fn special_ifdef_function<'a>(
         beg: &PascalToken<'a>,
         fd: &function_definition::WebFunctionDefinition<'a>,
+        _end: &PascalToken<'a>,
+        dest: &mut Prettifier,
+    ) {
+        beg.render_inline(dest);
+        dest.noscope_push("!{");
+        dest.indent_block();
+        dest.newline_indent();
+        fd.prettify(dest);
+        dest.dedent_block();
+        dest.newline_indent();
+        dest.noscope_push('}');
+    }
+
+    pub fn special_ifdef_forward<'a>(
+        beg: &PascalToken<'a>,
+        fd: &forward_declaration::WebForwardDeclaration<'a>,
         _end: &PascalToken<'a>,
         dest: &mut Prettifier,
     ) {
