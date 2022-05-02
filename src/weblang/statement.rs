@@ -401,7 +401,7 @@ fn parse_repeat<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> 
             many1(map(parse_statement_base, |s| Box::new(s))),
             reserved_word(PascalReservedWord::Until),
             parse_expr,
-            pascal_token(PascalToken::Semicolon),
+            opt(pascal_token(PascalToken::Semicolon)),
         )),
         |t| {
             WebStatement::Repeat(WebRepeat {
