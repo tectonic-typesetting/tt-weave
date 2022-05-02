@@ -45,7 +45,8 @@ impl<'a> WebLabelDeclaration<'a> {
         let slen = self.name.value.len() + 7;
 
         if dest.fits(clen + slen + 1) {
-            dest.noscope_push("label ");
+            dest.keyword("label");
+            dest.space();
             dest.noscope_push(self.name.value.as_ref());
             dest.noscope_push(';');
 
@@ -61,7 +62,8 @@ impl<'a> WebLabelDeclaration<'a> {
                 dest.newline_indent();
             }
 
-            dest.noscope_push("label ");
+            dest.keyword("label");
+            dest.space();
             dest.noscope_push(self.name.value.as_ref());
             dest.noscope_push(';');
             dest.newline_needed();

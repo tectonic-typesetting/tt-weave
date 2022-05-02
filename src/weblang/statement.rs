@@ -708,7 +708,8 @@ impl<'a> RenderInline for WebStatement<'a> {
             }
 
             WebStatement::Goto(g) => {
-                dest.noscope_push("goto ");
+                dest.keyword("goto");
+                dest.space();
                 dest.noscope_push(&g.label);
 
                 if let Some(c) = g.comment.as_ref() {
@@ -851,7 +852,8 @@ impl<'a> WebStatement<'a> {
                     dest.newline_needed();
                 }
 
-                dest.noscope_push("goto ");
+                dest.keyword("goto");
+                dest.space();
                 dest.noscope_push(&g.label);
             }
 
@@ -874,7 +876,8 @@ impl<'a> WebStatement<'a> {
                     dest.newline_needed();
                 }
 
-                dest.noscope_push("if (");
+                dest.keyword("if");
+                dest.noscope_push(" (");
                 i.test.render_flex(dest);
                 dest.noscope_push(") {");
                 dest.indent_block();
@@ -887,10 +890,14 @@ impl<'a> WebStatement<'a> {
                 if let Some(e) = &i.else_ {
                     // Make `else if` inline for prettiness
                     if let WebStatement::If(_) = e.deref() {
-                        dest.noscope_push(" else ");
+                        dest.space();
+                        dest.keyword("else");
+                        dest.space();
                         e.render_flex(dest);
                     } else {
-                        dest.noscope_push(" else {");
+                        dest.space();
+                        dest.keyword("else");
+                        dest.noscope_push(" {");
                         dest.indent_block();
                         dest.newline_needed();
                         e.render_in_block(dest);
@@ -907,7 +914,8 @@ impl<'a> WebStatement<'a> {
                     dest.newline_needed();
                 }
 
-                dest.noscope_push("while (");
+                dest.keyword("while");
+                dest.noscope_push(" (");
                 w.test.render_flex(dest);
                 dest.noscope_push(") {");
                 dest.indent_block();
@@ -919,15 +927,22 @@ impl<'a> WebStatement<'a> {
             }
 
             WebStatement::For(f) => {
-                dest.noscope_push("for (");
+                dest.keyword("for");
+                dest.noscope_push(" (");
                 dest.noscope_push(&f.var);
-                dest.noscope_push(" in ");
+                dest.space();
+                dest.keyword("in");
+                dest.space();
                 f.start.render_flex(dest);
 
                 if f.is_down {
-                    dest.noscope_push(" downto ");
+                    dest.space();
+                    dest.keyword("downto");
+                    dest.space();
                 } else {
-                    dest.noscope_push(" to ");
+                    dest.space();
+                    dest.keyword("to");
+                    dest.space();
                 }
 
                 f.end.render_flex(dest);
@@ -941,7 +956,8 @@ impl<'a> WebStatement<'a> {
             }
 
             WebStatement::Repeat(r) => {
-                dest.noscope_push("repeat {");
+                dest.keyword("repeat");
+                dest.noscope_push(" {");
                 dest.indent_block();
 
                 for s in &r.stmts {
@@ -952,13 +968,15 @@ impl<'a> WebStatement<'a> {
 
                 dest.dedent_block();
                 dest.newline_needed();
-                dest.noscope_push("} until (");
+                dest.noscope_push("} ");
+                dest.keyword("until");
+                dest.noscope_push(" (");
                 r.test.render_flex(dest);
                 dest.noscope_push(')');
             }
 
             WebStatement::Loop(l) => {
-                dest.noscope_push(&l.keyword);
+                dest.keyword(&l.keyword);
                 dest.noscope_push(" {");
                 dest.indent_block();
                 dest.newline_needed();
@@ -969,7 +987,8 @@ impl<'a> WebStatement<'a> {
             }
 
             WebStatement::Case(c) => {
-                dest.noscope_push("case ");
+                dest.keyword("case");
+                dest.noscope_push(" ");
                 c.var.render_flex(dest);
                 dest.noscope_push(" {");
                 dest.indent_small();

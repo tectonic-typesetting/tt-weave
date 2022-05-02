@@ -121,7 +121,7 @@ impl Prettifier {
         }
     }
 
-    pub fn scope_push<S: fmt::Display>(&mut self, scope: Scope, text: S) -> usize {
+    pub fn scope_push<S: fmt::Display>(&mut self, scope: Scope, text: S) {
         self.maybe_newline();
 
         let n0 = self.text.len();
@@ -130,7 +130,10 @@ impl Prettifier {
         let n1 = self.text.len();
         self.ops.push((n1, ScopeStackOp::Pop(1)));
         self.remaining_width = self.remaining_width.saturating_sub(n1 - n0);
-        n1 - n0
+    }
+
+    pub fn keyword<S: fmt::Display>(&mut self, text: S) {
+        self.scope_push(*KEYWORD_SCOPE, text)
     }
 
     pub fn noscope_push<S: fmt::Display>(&mut self, text: S) {

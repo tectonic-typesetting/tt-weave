@@ -56,7 +56,8 @@ impl<'a> WebTypeDeclaration<'a> {
             dest.newline_needed();
         }
 
-        dest.noscope_push("type ");
+        dest.keyword("type");
+        dest.space();
         dest.noscope_push(&self.name);
         dest.noscope_push(" = ");
         self.ty.render_flex(dest);

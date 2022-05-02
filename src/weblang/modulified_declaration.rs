@@ -51,7 +51,7 @@ pub fn parse_modulified_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a
 
 impl<'a> WebModulifiedDeclaration<'a> {
     pub fn prettify(&self, dest: &mut Prettifier) {
-        dest.noscope_push(self.kind);
+        dest.keyword(self.kind);
         dest.indent_block();
         dest.newline_indent();
         prettify::module_reference_render(&self.module, dest);

@@ -217,13 +217,15 @@ impl<'a> WebFunctionDefinition<'a> {
 
         if dest.fits(wname + wargs + wret + 13) {
             // Single-line prototype: "function () {"
-            dest.noscope_push("function ");
+            dest.keyword("function");
+            dest.space();
             dest.noscope_push(self.name.value.as_ref());
             dest.noscope_push('(');
             prettify::render_inline_seq(&self.args, ", ", dest);
         } else {
             // Multi-line function prototype
-            dest.noscope_push("function ");
+            dest.keyword("function");
+            dest.space();
             dest.noscope_push(self.name.value.as_ref());
             dest.noscope_push('(');
             dest.indent_small();
@@ -257,7 +259,8 @@ impl<'a> WebFunctionDefinition<'a> {
 
             if dest.fits(wl + 7) {
                 // "label ;"
-                dest.noscope_push("label ");
+                dest.keyword("label");
+                dest.space();
 
                 let mut first = true;
 
@@ -272,7 +275,7 @@ impl<'a> WebFunctionDefinition<'a> {
                 }
             } else {
                 // Multi-line label declarations
-                dest.noscope_push("label");
+                dest.keyword("label");
                 dest.indent_small();
                 dest.newline_needed();
 
@@ -304,12 +307,13 @@ impl<'a> WebFunctionDefinition<'a> {
 
             if dest.fits(wv + 5) {
                 // "var ;"
-                dest.noscope_push("var ");
+                dest.keyword("var");
+                dest.space();
                 prettify::render_inline_seq(&self.vars, ", ", dest);
                 dest.noscope_push(";");
             } else {
                 // Multi-line var declarations
-                dest.noscope_push("var");
+                dest.keyword("var");
                 dest.indent_small();
                 dest.newline_needed();
 
@@ -370,7 +374,8 @@ impl<'a> RenderInline for WebVariables<'a> {
 
     fn render_inline(&self, dest: &mut Prettifier) {
         if self.is_var {
-            dest.noscope_push("var ");
+            dest.keyword("var");
+            dest.space();
         }
 
         let mut first = true;

@@ -41,7 +41,8 @@ pub fn parse_program_definition<'a>(input: ParseInput<'a>) -> ParseResult<'a, We
 
 impl<'a> WebProgramDefinition<'a> {
     pub fn prettify(&self, dest: &mut Prettifier) {
-        dest.noscope_push("program ");
+        dest.keyword("program");
+        dest.space();
         dest.noscope_push(self.name.value.as_ref());
         dest.noscope_push('(');
 

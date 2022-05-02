@@ -71,7 +71,8 @@ impl<'a> WebVarDeclaration<'a> {
 
         wi += self.ty.measure_inline();
 
-        dest.noscope_push("var ");
+        dest.keyword("var");
+        dest.space();
 
         if dest.fits(wi) {
             let mut first = true;

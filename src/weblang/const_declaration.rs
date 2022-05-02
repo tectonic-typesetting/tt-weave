@@ -52,7 +52,8 @@ impl<'a> WebConstantDeclaration<'a> {
             dest.newline_needed();
         }
 
-        dest.noscope_push("const ");
+        dest.keyword("const");
+        dest.space();
         dest.noscope_push(&self.name);
         dest.noscope_push(" = ");
         self.value.render_inline(dest);

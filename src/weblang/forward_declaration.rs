@@ -43,7 +43,8 @@ pub fn parse_forward_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, W
 
 impl<'a> WebForwardDeclaration<'a> {
     pub fn prettify(&self, dest: &mut Prettifier) {
-        dest.noscope_push("forward_declaration ");
+        dest.keyword("forward_declaration");
+        dest.space();
         dest.noscope_push(&self.name);
         dest.noscope_push("();");
     }

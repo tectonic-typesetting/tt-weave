@@ -91,7 +91,8 @@ fn true_identifier_workaround<'a>(
 
 impl<'a> WebFormat<'a> {
     pub fn prettify(&self, dest: &mut Prettifier) {
-        dest.noscope_push("@format ");
+        dest.keyword("@format");
+        dest.space();
         dest.noscope_push(self.lhs.value.as_ref());
         dest.noscope_push(" ~ ");
         dest.noscope_push(self.rhs);

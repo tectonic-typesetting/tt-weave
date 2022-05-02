@@ -264,7 +264,8 @@ impl<'a> WebDefine<'a> {
             .unwrap_or(0);
 
         if dest.fits(11 + lhs_width + rhs_width + c_width) {
-            dest.noscope_push("@define ");
+            dest.keyword("@define");
+            dest.space();
 
             for t in &self.lhs {
                 dest.noscope_push(t);
@@ -284,7 +285,8 @@ impl<'a> WebDefine<'a> {
                 dest.newline_indent();
             }
 
-            dest.noscope_push("@define ");
+            dest.keyword("@define");
+            dest.space();
 
             for t in &self.lhs {
                 dest.noscope_push(t);
@@ -298,7 +300,8 @@ impl<'a> WebDefine<'a> {
                 dest.newline_indent();
             }
 
-            dest.noscope_push("@define ");
+            dest.keyword("@define");
+            dest.space();
 
             for t in &self.lhs {
                 dest.noscope_push(t);
@@ -353,7 +356,8 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
             }),
 
             WebDefineRhs::LoopDefinition(t) => {
-                dest.noscope_push("while ");
+                dest.keyword("while");
+                dest.space();
                 dest.noscope_push(t.value.as_ref());
                 dest.noscope_push(" {");
             }
