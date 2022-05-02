@@ -777,6 +777,7 @@ impl<'a> WebStatement<'a> {
         }
 
         self.render_flex(dest);
+        self.maybe_semicolon(dest);
     }
 
     pub fn render_flex(&self, dest: &mut Prettifier) {
@@ -1040,7 +1041,6 @@ impl<'a> WebCaseItem<'a> {
                 dest.indent_small();
                 dest.newline_indent();
                 sc.stmt.render_in_block(dest);
-                sc.stmt.maybe_semicolon(dest);
                 dest.dedent_small();
             }
 
@@ -1057,7 +1057,6 @@ impl<'a> WebCaseItem<'a> {
                 dest.indent_small();
                 dest.newline_indent();
                 oc.stmt.render_in_block(dest);
-                oc.stmt.maybe_semicolon(dest);
                 dest.dedent_small();
             }
         }
