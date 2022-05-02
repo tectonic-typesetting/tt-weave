@@ -20,6 +20,12 @@ const INITIAL_SCOPES: &str = "source.c";
 lazy_static! {
     pub static ref KEYWORD_SCOPE: Scope = Scope::new("keyword.control.c").unwrap();
     pub static ref COMMENT_SCOPE: Scope = Scope::new("comment.line.c").unwrap();
+    pub static ref STRING_LITERAL_SCOPE: Scope = Scope::new("string.quoted.double").unwrap();
+    pub static ref HEX_LITERAL_SCOPE: Scope =
+        Scope::new("constant.numeric.integer.hexadecimal").unwrap();
+    pub static ref DECIMAL_LITERAL_SCOPE: Scope =
+        Scope::new("constant.numeric.integer.decimal").unwrap();
+    pub static ref LABEL_NAME_SCOPE: Scope = Scope::new("entity.name.label").unwrap();
 }
 
 const WIDTH: usize = 60;

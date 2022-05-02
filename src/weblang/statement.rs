@@ -710,7 +710,7 @@ impl<'a> RenderInline for WebStatement<'a> {
             WebStatement::Goto(g) => {
                 dest.keyword("goto");
                 dest.space();
-                dest.noscope_push(&g.label);
+                dest.scope_push(*prettify::LABEL_NAME_SCOPE, &g.label);
 
                 if let Some(c) = g.comment.as_ref() {
                     dest.space();
@@ -719,7 +719,7 @@ impl<'a> RenderInline for WebStatement<'a> {
             }
 
             WebStatement::Label(l) => {
-                dest.noscope_push(l);
+                dest.scope_push(*prettify::LABEL_NAME_SCOPE, l);
                 dest.noscope_push(':');
             }
         }

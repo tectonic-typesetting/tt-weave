@@ -17,7 +17,9 @@ use crate::{
     control::ControlKind,
     index::IndexEntryKind,
     parse_base::{new_parse_error, ParseError, ParseResult, Span, SpanValue, StringSpan},
-    prettify::{Prettifier, RenderInline},
+    prettify::{
+        Prettifier, RenderInline, DECIMAL_LITERAL_SCOPE, HEX_LITERAL_SCOPE, STRING_LITERAL_SCOPE,
+    },
     reserved::PascalReservedWord,
     token::{expect_token, next_token, take_until_terminator, Token},
 };
@@ -761,25 +763,29 @@ impl<'a> RenderInline for PascalToken<'a> {
 
             PascalToken::IntLiteral(kind, n) => {
                 match kind {
-                    IntLiteralKind::Decimal => dest.noscope_push(n),
+                    IntLiteralKind::Decimal => dest.scope_push(*DECIMAL_LITERAL_SCOPE, n),
 
                     // I think octal is dumb, so I present it as hex.
                     IntLiteralKind::Octal | IntLiteralKind::Hex => {
-                        dest.noscope_push(format!("0x{:x}", n));
+                        dest.scope_push(*HEX_LITERAL_SCOPE, format!("0x{:x}", n));
                     }
                 }
             }
 
             PascalToken::StringLiteral(kind, ss) => match kind {
                 StringLiteralKind::SingleQuote => {
-                    dest.noscope_push(format!("{:?}", ss.value));
+                    dest.scope_push(*STRING_LITERAL_SCOPE, format!("{:?}", ss.value));
                 }
 
                 StringLiteralKind::DoubleQuote => {
                     if ss.len() == 1 {
-                        dest.noscope_push(format!("ord!({:?})", ss.value));
+                        dest.noscope_push("ord!(");
+                        dest.scope_push(*STRING_LITERAL_SCOPE, format!("{:?}", ss.value));
+                        dest.noscope_push(")");
                     } else {
-                        dest.noscope_push(format!("strpool!({:?})", ss.value));
+                        dest.noscope_push("strpool!(");
+                        dest.scope_push(*STRING_LITERAL_SCOPE, format!("{:?}", ss.value));
+                        dest.noscope_push(")");
                     }
                 }
             },
