@@ -685,14 +685,11 @@ impl<'a> WebExpr<'a> {
                     dest.space();
                     be.rhs.render_flex_maybe_continue_binop(dest);
                 } else {
-                    dest.indent_block();
-                    dest.newline_indent();
                     be.lhs.render_flex(dest);
                     dest.newline_indent();
                     be.op.render_inline(dest);
                     dest.space();
                     be.rhs.render_flex_maybe_continue_binop(dest);
-                    dest.dedent_block();
                     dest.newline_needed();
                 }
             }
