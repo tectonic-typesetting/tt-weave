@@ -13,10 +13,13 @@ use syntect::{
 
 use crate::weblang::base::{SpanValue, StringSpan};
 
+// See https://www.sublimetext.com/docs/scope_naming.html for some scope hints.
+
 const INITIAL_SCOPES: &str = "source.c";
 
 lazy_static! {
     pub static ref KEYWORD_SCOPE: Scope = Scope::new("keyword.control.c").unwrap();
+    pub static ref COMMENT_SCOPE: Scope = Scope::new("comment.line.c").unwrap();
 }
 
 const WIDTH: usize = 60;

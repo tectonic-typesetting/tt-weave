@@ -1,6 +1,6 @@
 //! Comments
 
-use crate::prettify::{Prettifier, RenderInline};
+use crate::prettify::{Prettifier, RenderInline, COMMENT_SCOPE};
 
 use super::base::*;
 
@@ -36,10 +36,10 @@ impl<'a> RenderInline for WebComment<'a> {
     }
 
     fn render_inline(&self, dest: &mut Prettifier) {
-        dest.noscope_push("//");
+        dest.scope_push(*COMMENT_SCOPE, "//");
 
         for piece in &self.0[..] {
-            dest.noscope_push(' ');
+            dest.scope_push(*COMMENT_SCOPE, ' ');
 
             match piece {
                 TypesetComment::Tex(s) => {
@@ -53,7 +53,7 @@ impl<'a> RenderInline for WebComment<'a> {
                             dest.space();
                         }
 
-                        dest.noscope_push(word);
+                        dest.scope_push(*COMMENT_SCOPE, word);
                     }
                 }
 
@@ -64,10 +64,10 @@ impl<'a> RenderInline for WebComment<'a> {
                         if first {
                             first = false;
                         } else {
-                            dest.noscope_push(' ');
+                            dest.scope_push(*COMMENT_SCOPE, ' ');
                         }
 
-                        dest.noscope_push(tok);
+                        dest.scope_push(*COMMENT_SCOPE, tok);
                     }
                 }
             }
