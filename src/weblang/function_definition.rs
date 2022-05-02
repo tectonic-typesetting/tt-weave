@@ -395,7 +395,7 @@ impl<'a> RenderInline for WebVarBlockItem<'a> {
         match self {
             WebVarBlockItem::ModuleReference(mr) => prettify::module_reference_measure_inline(mr),
             WebVarBlockItem::InPlace(ip) => ip.measure_inline(),
-            WebVarBlockItem::IfdefInPlace(..) => 9999, // never inline
+            WebVarBlockItem::IfdefInPlace(..) => prettify::NOT_INLINE,
         }
     }
 
@@ -417,7 +417,16 @@ impl<'a> WebVarBlockItem<'a> {
             }
 
             WebVarBlockItem::InPlace(ip) => ip.prettify(dest, term),
-            WebVarBlockItem::IfdefInPlace(..) => dest.noscope_push("XXXifdefvbiREAL"),
+            WebVarBlockItem::IfdefInPlace(beg, vars, _end) => {
+                beg.render_inline(dest);
+                dest.noscope_push("!{");
+                dest.indent_block();
+                dest.newline_indent();
+                vars.prettify(dest, ';');
+                dest.dedent_block();
+                dest.newline_indent();
+                dest.noscope_push('}');
+            }
         }
     }
 }

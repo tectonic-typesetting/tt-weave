@@ -196,7 +196,7 @@ impl<'a> RenderInline for WebType<'a> {
             WebType::Range(blo, bhi) => blo.measure_inline() + bhi.measure_inline() + 4,
             WebType::PackedFileOf(t) => 15 + t.value.as_ref().len(),
             WebType::Array(arr) => arr.measure_inline(),
-            WebType::Record(_rec) => 9999, // never inline
+            WebType::Record(_rec) => prettify::NOT_INLINE,
             WebType::UserDefined(s) => s.value.as_ref().len(),
         }
     }
