@@ -363,6 +363,11 @@ pub fn merged_string_literals<'a>(input: ParseInput<'a>) -> ParseResult<'a, Pasc
 
     let mut tail = rest.split_off(rest.len() - 1);
 
+    let sep = match kind {
+        StringLiteralKind::DoubleQuote => '"',
+        StringLiteralKind::SingleQuote => '\'',
+    };
+
     for s in rest.drain(..) {
         let (ikind, iss) = unpack(s);
 
@@ -370,7 +375,7 @@ pub fn merged_string_literals<'a>(input: ParseInput<'a>) -> ParseResult<'a, Pasc
             return new_parse_err(input, WebErrorKind::StringLiteralMergeFail);
         }
 
-        text.push('"');
+        text.push(sep);
         text.push_str(iss.value.as_ref());
     }
 
@@ -383,7 +388,7 @@ pub fn merged_string_literals<'a>(input: ParseInput<'a>) -> ParseResult<'a, Pasc
     }
 
     let end = tail_ss.end;
-    text.push('"');
+    text.push(sep);
     text.push_str(tail_ss.value.as_ref());
 
     // Synthesize our result.
