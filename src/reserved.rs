@@ -56,7 +56,7 @@ pub enum PascalReservedWord {
 impl fmt::Display for PascalReservedWord {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let text = match self {
-            PascalReservedWord::And => "and",
+            PascalReservedWord::And => "&&", // This only gets displayed as an operator
             PascalReservedWord::Array => "array",
             PascalReservedWord::Begin => "begin",
             PascalReservedWord::Case => "case",
@@ -75,11 +75,11 @@ impl fmt::Display for PascalReservedWord {
             PascalReservedWord::If => "if",
             PascalReservedWord::In => "in",
             PascalReservedWord::Label => "label",
-            PascalReservedWord::Mod => "mod",
+            PascalReservedWord::Mod => "%", // Like And
             PascalReservedWord::Nil => "nil",
-            PascalReservedWord::Not => "not",
+            PascalReservedWord::Not => "!", // Like And
             PascalReservedWord::Of => "of",
-            PascalReservedWord::Or => "or",
+            PascalReservedWord::Or => "||", // Like And
             PascalReservedWord::Packed => "packed",
             PascalReservedWord::Procedure => "procedure",
             PascalReservedWord::Program => "program",
