@@ -4,6 +4,7 @@
 //! it's easiest to treat them as toplevels.
 
 use nom::{
+    branch::alt,
     combinator::{map, opt},
     sequence::tuple,
 };
@@ -22,6 +23,9 @@ pub struct WebConstantDeclaration<'a> {
 
     /// Optional comment.
     comment: Option<WebComment<'a>>,
+
+    /// Optional second comment, needed for XeTeX(2022.0):11.
+    second_comment: Option<WebComment<'a>>,
 }
 
 pub fn parse_constant_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
@@ -29,8 +33,9 @@ pub fn parse_constant_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, 
         tuple((
             identifier,
             pascal_token(PascalToken::Equals),
-            int_literal,
+            alt((int_literal, identifier_as_token)),
             pascal_token(PascalToken::Semicolon),
+            opt(comment),
             opt(comment),
         )),
         |tup| {
@@ -38,6 +43,7 @@ pub fn parse_constant_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, 
                 name: tup.0,
                 value: tup.2,
                 comment: tup.4,
+                second_comment: tup.5,
             })
         },
     )(input)
@@ -48,6 +54,11 @@ pub fn parse_constant_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, 
 impl<'a> WebConstantDeclaration<'a> {
     pub fn prettify(&self, dest: &mut Prettifier) {
         if let Some(c) = self.comment.as_ref() {
+            c.render_inline(dest);
+            dest.newline_needed();
+        }
+
+        if let Some(c) = self.second_comment.as_ref() {
             c.render_inline(dest);
             dest.newline_needed();
         }

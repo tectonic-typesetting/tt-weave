@@ -127,7 +127,7 @@ pub enum PascalToken<'a> {
 
     CancelDefinitionFlag,
 
-    IntLiteral(IntLiteralKind, usize),
+    IntLiteral(IntLiteralKind, isize),
 
     StringLiteral(StringLiteralKind, StringSpan<'a>),
 
@@ -419,7 +419,10 @@ fn scan_decimal_literal(span: Span) -> ParseResult<usize> {
 
 fn match_decimal_literal_token(span: Span) -> ParseResult<PascalToken> {
     let (span, v) = scan_decimal_literal(span)?;
-    Ok((span, PascalToken::IntLiteral(IntLiteralKind::Decimal, v)))
+    Ok((
+        span,
+        PascalToken::IntLiteral(IntLiteralKind::Decimal, v as isize),
+    ))
 }
 
 pub fn scan_octal_literal(span: Span) -> ParseResult<usize> {
@@ -432,7 +435,10 @@ pub fn scan_octal_literal(span: Span) -> ParseResult<usize> {
 fn match_octal_literal_token(span: Span) -> ParseResult<PascalToken> {
     let (span, _) = expect_token(Token::Control(ControlKind::OctalLiteral))(span)?;
     let (span, v) = scan_octal_literal(span)?;
-    Ok((span, PascalToken::IntLiteral(IntLiteralKind::Octal, v)))
+    Ok((
+        span,
+        PascalToken::IntLiteral(IntLiteralKind::Octal, v as isize),
+    ))
 }
 
 pub fn scan_hex_literal(span: Span) -> ParseResult<usize> {
@@ -446,7 +452,10 @@ pub fn scan_hex_literal(span: Span) -> ParseResult<usize> {
 fn match_hex_literal_token(span: Span) -> ParseResult<PascalToken> {
     let (span, _) = expect_token(Token::Control(ControlKind::HexLiteral))(span)?;
     let (span, v) = scan_hex_literal(span)?;
-    Ok((span, PascalToken::IntLiteral(IntLiteralKind::Hex, v)))
+    Ok((
+        span,
+        PascalToken::IntLiteral(IntLiteralKind::Hex, v as isize),
+    ))
 }
 
 /// See WEAVE:99

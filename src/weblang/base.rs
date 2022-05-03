@@ -233,6 +233,17 @@ pub fn identifier<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan<'a>> 
     }
 }
 
+/// Expect a Pascal identifier, returning it as a Pascal token.
+pub fn identifier_as_token<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+    let (input, wt) = next_token(input)?;
+
+    match wt {
+        WebToken::Pascal(tok @ PascalToken::Identifier(_)) => Ok((input, tok)),
+        WebToken::Pascal(tok @ PascalToken::Hash(_)) => Ok((input, tok)),
+        _ => new_parse_err(input, WebErrorKind::ExpectedIdentifier),
+    }
+}
+
 /// Expect a Pascal reserved word, returning its span-value.
 pub fn reserved_word<'a>(
     rw: PascalReservedWord,
@@ -275,11 +286,20 @@ pub fn string_literal<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<
 }
 
 /// Expect a Pascal integer literal token, returning it.
+///
+/// The handling of the sign here is pretty shady.
 pub fn int_literal<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
-    let (input, wt) = next_token(input)?;
+    let (mut input, mut wt) = next_token(input)?;
 
-    if let WebToken::Pascal(lit @ PascalToken::IntLiteral(..)) = wt {
-        Ok((input, lit))
+    let sign = if let WebToken::Pascal(PascalToken::Minus) = wt {
+        (input, wt) = next_token(input)?;
+        -1
+    } else {
+        1
+    };
+
+    if let WebToken::Pascal(PascalToken::IntLiteral(kind, n)) = wt {
+        Ok((input, PascalToken::IntLiteral(kind, sign * n)))
     } else {
         return new_parse_err(input, WebErrorKind::ExpectedIntLiteral);
     }
