@@ -4,7 +4,7 @@ use nom::{branch::alt, combinator::map, multi::separated_list0, sequence::tuple}
 
 use crate::prettify::{self, Prettifier, RenderInline};
 
-use super::base::*;
+use super::{base::*, module_reference::parse_module_reference};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum WebExpr<'a> {
@@ -34,6 +34,9 @@ pub enum WebExpr<'a> {
 
     /// A parenthesized subexpression.
     Paren(Box<WebExpr<'a>>),
+
+    /// A module reference as an expression, needed for XeTeX(2022.0):59.
+    ModuleReference(WebModuleReference<'a>),
 }
 
 pub fn parse_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
@@ -45,6 +48,7 @@ pub fn parse_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
         parse_paren_expr,
         map(merged_string_literals, |t| WebExpr::Token(t)),
         parse_token_expr,
+        map(parse_module_reference, |mr| WebExpr::ModuleReference(mr)),
     ))(input);
 
     let (mut input, mut expr) = match result {
@@ -438,6 +442,8 @@ impl<'a> RenderInline for WebExpr<'a> {
             WebExpr::Format(f) => f.inner.measure_inline() + 1 + f.width.measure_inline(),
 
             WebExpr::Paren(p) => p.measure_inline() + 2,
+
+            WebExpr::ModuleReference(mr) => mr.measure_inline(),
         }
     }
 
@@ -494,6 +500,8 @@ impl<'a> RenderInline for WebExpr<'a> {
                 p.render_inline(dest);
                 dest.noscope_push(')');
             }
+
+            WebExpr::ModuleReference(mr) => mr.render_inline(dest),
         }
     }
 }
@@ -647,6 +655,23 @@ impl<'a> WebExpr<'a> {
                 } else {
                     dest.noscope_push('(');
                     p.render_flex(dest);
+                    dest.noscope_push(')');
+                }
+            }
+
+            WebExpr::ModuleReference(mr) => {
+                // Same approach as Token:
+                let w = mr.measure_inline();
+
+                if dest.fits(w) || !dest.would_fit_on_new_line(w + 2) {
+                    mr.render_inline(dest);
+                } else {
+                    dest.noscope_push('(');
+                    dest.indent_small();
+                    dest.newline_indent();
+                    mr.render_inline(dest);
+                    dest.dedent_small();
+                    dest.newline_indent();
                     dest.noscope_push(')');
                 }
             }
