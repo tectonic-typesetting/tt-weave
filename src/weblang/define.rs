@@ -17,7 +17,8 @@ use crate::prettify::{self, Prettifier, RenderInline};
 use super::{
     base::*,
     expr::{parse_expr, WebExpr},
-    statement, WebToplevel,
+    statement::{self, WebStatement},
+    WebToplevel,
 };
 
 /// A `@d` definition
@@ -71,7 +72,7 @@ pub fn parse_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a
 
     if let WebDefineRhs::Statements(ref mut stmts) = &mut rhs {
         if stmts.len() == 1 && comment.is_none() {
-            if let statement::WebStatement::Expr(_, ref mut sc) = &mut stmts[0] {
+            if let WebStatement::Expr(_, ref mut sc) = &mut stmts[0] {
                 comment = sc.take();
             }
         }
@@ -97,18 +98,18 @@ pub enum WebDefineRhs<'a> {
     /// Definition of `othercases`: `{label}{colon}`
     OthercasesDefinition(StringSpan<'a>),
 
-    Statements(Vec<statement::WebStatement<'a>>),
+    Statements(Vec<WebStatement<'a>>),
 
     /// A comma-separated group of exprs, needed for WEAVE#95.
     CommaExprs(Vec<Box<WebExpr<'a>>>),
 
     /// A series of statements, then an imbalanced `end` keyword. Needed for
     /// WEAVE#125, WEAVE#148.
-    StatementsThenEnd(Vec<statement::WebStatement<'a>>),
+    StatementsThenEnd(Vec<WebStatement<'a>>),
 
     /// An imbalanced `begin` keyword, then a series of statements. Needed
     /// for WEAVE#148.
-    BeginThenStatements(Vec<statement::WebStatement<'a>>),
+    BeginThenStatements(Vec<WebStatement<'a>>),
 
     /// A synthesized identifier, needed for XeTeX(2022.0)#4
     SynthesizedIdentifier(Vec<StringSpan<'a>>),
@@ -118,8 +119,14 @@ pub enum WebDefineRhs<'a> {
     /// identifier in the `if` statement.
     IfdefAndIf(PascalToken<'a>, StringSpan<'a>),
 
-    /// The closing dual for IfdefAndIF — and `end` and a closing ifdef-like.
+    /// The closing dual for IfdefAndIf — an `end` and a closing ifdef-like.
     EndAndEndif(PascalToken<'a>),
+
+    /// A statement ending with `.0` because it involves floating point
+    /// literals. Big old hack for a couple of forms appearing in
+    /// XeTeX(2022.0):113. The token is the trailing int-literal token that is
+    /// really the fractional part of a float literal.
+    FloatyStatement(WebStatement<'a>, PascalToken<'a>),
 }
 
 fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
@@ -128,6 +135,7 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
         parse_loop_definition,
         map(peek_end_of_define, |_| WebDefineRhs::EmptyDefinition),
         parse_othercases,
+        parse_floaty_statement,
         parse_statement_series,
         parse_ifdef_and_if,
         parse_end_and_endif,
@@ -170,6 +178,18 @@ fn peek_end_of_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, ()> {
     } else {
         new_parse_err(input, WebErrorKind::NotDefineEdge)
     }
+}
+
+/// Parse a "floaty" statement (XeTeX(2022.0):113).
+fn parse_floaty_statement<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    map(
+        tuple((
+            statement::parse_statement_base,
+            pascal_token(PascalToken::Period),
+            int_literal,
+        )),
+        |t| WebDefineRhs::FloatyStatement(t.0, t.2),
+    )(input)
 }
 
 /// Parse a sequence of statements, potentially followed by an imbalanced `end`
@@ -379,6 +399,9 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
             }
             WebDefineRhs::IfdefAndIf(..) => prettify::NOT_INLINE,
             WebDefineRhs::EndAndEndif(_) => prettify::NOT_INLINE,
+            WebDefineRhs::FloatyStatement(stmt, n) => {
+                stmt.measure_inline() + 1 + n.measure_inline()
+            }
         }
     }
 
@@ -429,6 +452,12 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
 
             WebDefineRhs::IfdefAndIf(..) => dest.noscope_push("XXXifdef-and-if"),
             WebDefineRhs::EndAndEndif(..) => dest.noscope_push("XXXend-and-endif"),
+
+            WebDefineRhs::FloatyStatement(stmt, n) => {
+                stmt.render_inline(dest);
+                dest.noscope_push(".");
+                n.render_inline(dest);
+            }
         }
     }
 }
@@ -440,7 +469,8 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
         | WebDefineRhs::LoopDefinition(_)
         | WebDefineRhs::EmptyDefinition
         | WebDefineRhs::OthercasesDefinition(_)
-        | WebDefineRhs::SynthesizedIdentifier(_) => {
+        | WebDefineRhs::SynthesizedIdentifier(_)
+        | WebDefineRhs::FloatyStatement(..) => {
             rhs.render_inline(dest);
         }
 
