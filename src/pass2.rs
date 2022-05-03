@@ -8,7 +8,7 @@ use tectonic_errors::prelude::*;
 use crate::{
     control::ControlKind,
     parse_base::{new_parse_error, ParseResult, Span, SpanValue, StringSpan},
-    pascal_token::PascalToken,
+    pascal_token::{PascalToken, StringLiteralKind},
     prettify::{Prettifier, RenderInline},
     reserved::PascalReservedWord,
     state::{ModuleId, State},
@@ -186,11 +186,11 @@ fn scan_pascal_only<'a>(
             // expressions in inline Pascal expressions. If we elide them
             // entirely, this causes WEB parser to choke. Our current hack is to
             // try to pick out the ones that are used this way and transform
-            // them into identifiers. It *looks* like we can do this by
-            // searching for ones that wrap math expressions.
+            // them into identifiers.
             PascalToken::TexString(sv) => {
                 let text = sv.value.as_ref();
 
+                // Tex strings wrapping math work as identifiers
                 if let Some(t) = text.strip_prefix("$") {
                     if let Some(t) = t.strip_suffix("$") {
                         ptoks.push(PascalToken::Identifier(StringSpan {
@@ -198,6 +198,21 @@ fn scan_pascal_only<'a>(
                             end: sv.start.clone(),
                             value: Cow::Owned(t.to_owned()),
                         }));
+                    }
+                }
+
+                // In XeTeX(2022.0):49, we have a TeX string wrapping
+                // a string literal.
+                if let Some(t) = text.strip_prefix("\\.{\\'") {
+                    if let Some(t) = t.strip_suffix("\\'}") {
+                        ptoks.push(PascalToken::StringLiteral(
+                            StringLiteralKind::SingleQuote,
+                            StringSpan {
+                                start: sv.start.clone(),
+                                end: sv.start.clone(),
+                                value: Cow::Owned(t.to_owned()),
+                            },
+                        ));
                     }
                 }
             }
