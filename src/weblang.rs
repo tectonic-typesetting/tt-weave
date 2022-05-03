@@ -32,7 +32,7 @@ mod webtype;
 
 use crate::prettify::{self, Prettifier, RenderInline, COMMENT_SCOPE};
 
-use self::{base::*, statement::WebStatement};
+use self::{base::*, expr::WebExpr, statement::WebStatement};
 
 pub use self::base::{WebSyntax, WebToken};
 
@@ -94,8 +94,8 @@ pub enum WebToplevel<'a> {
     /// `$relational_op $ident`, needed for WEAVE:144
     SpecialRelationalIdent(PascalToken<'a>, StringSpan<'a>),
 
-    /// `$int .. $int`, needed for WEAVE:144
-    SpecialIntRange(PascalToken<'a>, PascalToken<'a>),
+    /// `$int .. $expr`, needed for WEAVE:144, XeTeX(2022.0):83
+    SpecialIntRange(PascalToken<'a>, WebExpr<'a>),
 
     /// `$begin_like $function $end_like`, needed for WEAVE:260
     SpecialIfdefFunction(
@@ -318,7 +318,7 @@ mod tl_specials {
             tuple((
                 int_literal,
                 pascal_token(PascalToken::DoubleDot),
-                int_literal,
+                self::expr::parse_expr,
             )),
             |t| WebToplevel::SpecialIntRange(t.0, t.2),
         )(input)
@@ -442,7 +442,7 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::SpecialRelationalIdent(op, id) => {
                 tl_prettify::special_relational_ident(op, id, dest)
             }
-            WebToplevel::SpecialIntRange(n1, n2) => tl_prettify::special_int_range(n1, n2, dest),
+            WebToplevel::SpecialIntRange(n, e) => tl_prettify::special_int_range(n, e, dest),
             WebToplevel::SpecialIfdefFunction(beg, fd, end) => {
                 tl_prettify::special_ifdef_function(beg, fd, end, dest)
             }
@@ -525,14 +525,10 @@ mod tl_prettify {
         dest.noscope_push(id);
     }
 
-    pub fn special_int_range<'a>(
-        n1: &PascalToken<'a>,
-        n2: &PascalToken<'a>,
-        dest: &mut Prettifier,
-    ) {
-        n1.render_inline(dest);
+    pub fn special_int_range<'a>(n: &PascalToken<'a>, e: &WebExpr<'a>, dest: &mut Prettifier) {
+        n.render_inline(dest);
         dest.noscope_push(" .. ");
-        n2.render_inline(dest);
+        e.render_inline(dest);
     }
 
     pub fn special_ifdef_function<'a>(
