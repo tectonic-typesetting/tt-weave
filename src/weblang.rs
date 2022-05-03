@@ -114,6 +114,9 @@ pub enum WebToplevel<'a> {
         PascalToken<'a>,
         Option<WebComment<'a>>,
     ),
+
+    /// `$start_meta_comment $statement $end_meta_comment`, needed for XeTeX(2022.0):31.
+    SpecialCommentedOut(WebStatement<'a>),
 }
 
 /// A block of WEB code: a sequence of parsed-out WEB toplevels
@@ -178,6 +181,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         tl_specials::parse_special_empty_brackets,
         tl_specials::parse_special_relational_ident,
         tl_specials::parse_special_int_range,
+        tl_specials::parse_special_commented_out,
         statement::parse_statement,
         standalone::parse_standalone,
     ))(input);
@@ -317,6 +321,19 @@ mod tl_specials {
             |t| WebToplevel::SpecialIfdefVarDeclaration(t.0, t.1, t.2, t.3),
         )(input)
     }
+
+    pub fn parse_special_commented_out<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                pascal_token(PascalToken::OpenDelimiter(DelimiterKind::MetaComment)),
+                statement::parse_statement_base,
+                pascal_token(PascalToken::CloseDelimiter(DelimiterKind::MetaComment)),
+            )),
+            |t| WebToplevel::SpecialCommentedOut(t.1),
+        )(input)
+    }
 }
 
 impl<'a> WebToplevel<'a> {
@@ -352,6 +369,9 @@ impl<'a> WebToplevel<'a> {
             }
             WebToplevel::SpecialIfdefVarDeclaration(beg, vd, end, comment) => {
                 tl_prettify::special_ifdef_var_declaration(beg, vd, end, comment, dest)
+            }
+            WebToplevel::SpecialCommentedOut(stmt) => {
+                tl_prettify::special_commented_out(stmt, dest)
             }
         }
     }
@@ -481,5 +501,18 @@ mod tl_prettify {
         dest.dedent_block();
         dest.newline_indent();
         dest.noscope_push('}');
+    }
+
+    pub fn special_commented_out<'a>(stmt: &WebStatement<'a>, dest: &mut Prettifier) {
+        dest.with_scope(*COMMENT_SCOPE, |d| {
+            d.noscope_push("/*");
+            d.indent_block();
+            d.newline_needed();
+            stmt.render_flex(d);
+            stmt.maybe_semicolon(d);
+            d.dedent_block();
+            d.newline_needed();
+            d.noscope_push("*/");
+        });
     }
 }

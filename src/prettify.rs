@@ -136,6 +136,14 @@ impl Prettifier {
         self.remaining_width = self.remaining_width.saturating_sub(n1 - n0);
     }
 
+    pub fn with_scope<F: FnOnce(&mut Self)>(&mut self, scope: Scope, func: F) {
+        let n0 = self.text.len();
+        self.ops.push((n0, ScopeStackOp::Push(scope)));
+        func(self);
+        let n1 = self.text.len();
+        self.ops.push((n1, ScopeStackOp::Pop(1)));
+    }
+
     pub fn keyword<S: fmt::Display>(&mut self, text: S) {
         self.scope_push(*KEYWORD_SCOPE, text)
     }
