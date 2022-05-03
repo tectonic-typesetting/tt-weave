@@ -19,14 +19,17 @@ use super::{
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebVarDeclaration<'a> {
-    /// The name(s) of the constant(s).
+    /// The name(s) of the variable(s).
     names: Vec<StringSpan<'a>>,
 
-    /// The type of the constant(s).
+    /// The type of the variable(s).
     ty: WebType<'a>,
 
     /// Optional comment.
     comment: Option<WebComment<'a>>,
+
+    /// Optional second comment.
+    second_comment: Option<WebComment<'a>>,
 }
 
 pub fn parse_var_declaration_base<'a>(
@@ -39,11 +42,13 @@ pub fn parse_var_declaration_base<'a>(
             parse_type,
             pascal_token(PascalToken::Semicolon),
             opt(comment),
+            opt(comment),
         )),
         |tup| WebVarDeclaration {
             names: tup.0,
             ty: tup.2,
             comment: tup.4,
+            second_comment: tup.5,
         },
     )(input)
 }
@@ -59,6 +64,11 @@ pub fn parse_var_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebTo
 impl<'a> WebVarDeclaration<'a> {
     pub fn prettify(&self, dest: &mut Prettifier) {
         if let Some(c) = self.comment.as_ref() {
+            c.render_inline(dest);
+            dest.newline_needed();
+        }
+
+        if let Some(c) = self.second_comment.as_ref() {
             c.render_inline(dest);
             dest.newline_needed();
         }
