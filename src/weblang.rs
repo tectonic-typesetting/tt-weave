@@ -94,8 +94,8 @@ pub enum WebToplevel<'a> {
     /// `$relational_op $ident`, needed for WEAVE:144
     SpecialRelationalIdent(PascalToken<'a>, StringSpan<'a>),
 
-    /// `$int .. $expr`, needed for WEAVE:144, XeTeX(2022.0):83
-    SpecialIntRange(PascalToken<'a>, WebExpr<'a>),
+    /// `$expr .. $expr`, needed for WEAVE:144, XeTeX(2022.0):83
+    SpecialRange(WebExpr<'a>, WebExpr<'a>),
 
     /// `$begin_like $function $end_like`, needed for WEAVE:260
     SpecialIfdefFunction(
@@ -219,7 +219,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
             tl_specials::parse_special_paren_two_ident,
             tl_specials::parse_special_empty_brackets,
             tl_specials::parse_special_relational_ident,
-            tl_specials::parse_special_int_range,
+            tl_specials::parse_special_range,
             tl_specials::parse_special_commented_out,
             tl_specials::parse_special_int_list,
             tl_specials::parse_special_ident_in_int_list,
@@ -313,14 +313,14 @@ mod tl_specials {
         return new_parse_err(input, WebErrorKind::Eof);
     }
 
-    pub fn parse_special_int_range<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+    pub fn parse_special_range<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
         map(
             tuple((
-                int_literal,
+                self::expr::parse_expr,
                 pascal_token(PascalToken::DoubleDot),
                 self::expr::parse_expr,
             )),
-            |t| WebToplevel::SpecialIntRange(t.0, t.2),
+            |t| WebToplevel::SpecialRange(t.0, t.2),
         )(input)
     }
 
@@ -442,7 +442,7 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::SpecialRelationalIdent(op, id) => {
                 tl_prettify::special_relational_ident(op, id, dest)
             }
-            WebToplevel::SpecialIntRange(n, e) => tl_prettify::special_int_range(n, e, dest),
+            WebToplevel::SpecialRange(e1, e2) => tl_prettify::special_range(e1, e2, dest),
             WebToplevel::SpecialIfdefFunction(beg, fd, end) => {
                 tl_prettify::special_ifdef_function(beg, fd, end, dest)
             }
@@ -525,10 +525,10 @@ mod tl_prettify {
         dest.noscope_push(id);
     }
 
-    pub fn special_int_range<'a>(n: &PascalToken<'a>, e: &WebExpr<'a>, dest: &mut Prettifier) {
-        n.render_inline(dest);
+    pub fn special_range<'a>(e1: &WebExpr<'a>, e2: &WebExpr<'a>, dest: &mut Prettifier) {
+        e1.render_inline(dest);
         dest.noscope_push(" .. ");
-        e.render_inline(dest);
+        e2.render_inline(dest);
     }
 
     pub fn special_ifdef_function<'a>(
