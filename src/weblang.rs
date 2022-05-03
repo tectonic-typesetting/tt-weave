@@ -16,6 +16,7 @@ mod format;
 mod forward_declaration;
 mod function_definition;
 mod label_declaration;
+pub mod module_reference;
 mod modulified_declaration;
 mod preprocessor_directive;
 mod program_definition;

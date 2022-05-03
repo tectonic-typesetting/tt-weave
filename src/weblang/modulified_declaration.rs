@@ -2,9 +2,9 @@
 
 use nom::sequence::tuple;
 
-use crate::prettify::{self, Prettifier};
+use crate::prettify::{Prettifier, RenderInline};
 
-use super::{base::*, WebToplevel};
+use super::{base::*, module_reference::parse_module_reference, WebToplevel};
 
 /// A group of declarations done by referencing a module.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -13,7 +13,7 @@ pub struct WebModulifiedDeclaration<'a> {
     kind: PascalReservedWord,
 
     /// The associated module
-    module: StringSpan<'a>,
+    module: WebModuleReference<'a>,
 }
 
 /// `(const|type|var) <module-ref>`
@@ -38,7 +38,7 @@ pub fn parse_modulified_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a
         }
     }
 
-    let (input, items) = tuple((declaration_keyword, module_reference))(input)?;
+    let (input, items) = tuple((declaration_keyword, parse_module_reference))(input)?;
 
     Ok((
         input,
@@ -54,7 +54,7 @@ impl<'a> WebModulifiedDeclaration<'a> {
         dest.keyword(self.kind);
         dest.indent_block();
         dest.newline_indent();
-        prettify::module_reference_render(&self.module, dest);
+        self.module.render_inline(dest);
         dest.dedent_block();
         dest.newline_needed();
     }

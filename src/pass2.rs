@@ -461,9 +461,9 @@ fn handle_pascal<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token
             }
 
             Token::Control(ControlKind::ModuleName) => {
-                let mod_name;
-                (span, mod_name) = state.scan_module_name(span)?;
-                code.push(WebToken::ModuleReference(mod_name));
+                let mref;
+                (span, mref) = state.scan_module_reference(span)?;
+                code.push(WebToken::ModuleReference(mref));
 
                 prev_span = span.clone();
                 (span, tok) = next_token(span)?;
@@ -552,26 +552,3 @@ pub fn execute(basename: &str, state: &State, span: Span) -> Result<()> {
 
     Ok(())
 }
-
-// Start:
-// ```
-// let ps = SyntaxSet::load_defaults_newlines();
-// let ts = ThemeSet::load_defaults();
-// let syntax = ps.find_syntax_by_extension("rs").unwrap();
-// ```
-//
-// In most cases you'd get scope stack operations with
-// `syntect::parsing::ParseState::parse_line`. But we're generating this stuff
-// manually!
-//
-// Use `syntect::highlighting::HighlightIterator`:
-// ```
-// pub fn new(
-//     state: &'a mut HighlightState,
-//     changes: &'a [(usize, ScopeStackOp)],
-//     text: &'b str,
-//     highlighter: &'a Highlighter<'_>
-// ) -> HighlightIterator<'a, 'b>ⓘ
-// ```
-//
-// Generates sequence of `(Style, &str)`. That can be converted to HTML.

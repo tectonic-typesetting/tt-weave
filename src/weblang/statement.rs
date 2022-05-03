@@ -13,13 +13,14 @@ use crate::prettify::{self, Prettifier, RenderInline};
 use super::{
     base::*,
     expr::{parse_case_match_expr, parse_expr, parse_lhs_expr, WebExpr},
+    module_reference::parse_module_reference,
     preprocessor_directive, WebToplevel,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum WebStatement<'a> {
     /// A reference to a module.
-    ModuleReference(StringSpan<'a>),
+    ModuleReference(WebModuleReference<'a>),
 
     /// A block of statements.
     Block(WebBlock<'a>),
@@ -91,7 +92,10 @@ pub fn parse_statement<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel
 
 fn parse_mod_ref_statement<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     map(
-        tuple((module_reference, opt(pascal_token(PascalToken::Semicolon)))),
+        tuple((
+            parse_module_reference,
+            opt(pascal_token(PascalToken::Semicolon)),
+        )),
         |t| WebStatement::ModuleReference(t.0),
     )(input)
 }
@@ -458,7 +462,7 @@ pub struct WebCase<'a> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum WebCaseItem<'a> {
-    ModuleReference(StringSpan<'a>),
+    ModuleReference(WebModuleReference<'a>),
     Standard(WebStandardCaseItem<'a>),
     OtherCases(WebOtherCasesItem<'a>),
 }
@@ -538,7 +542,10 @@ fn parse_case_terminator<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpa
 
 fn parse_mod_ref_case_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebCaseItem<'a>> {
     map(
-        tuple((module_reference, opt(pascal_token(PascalToken::Semicolon)))),
+        tuple((
+            parse_module_reference,
+            opt(pascal_token(PascalToken::Semicolon)),
+        )),
         |t| WebCaseItem::ModuleReference(t.0),
     )(input)
 }
@@ -647,7 +654,7 @@ impl<'a> RenderInline for WebStatement<'a> {
                         .unwrap_or(0)
             }
 
-            WebStatement::ModuleReference(name) => prettify::module_reference_measure_inline(name),
+            WebStatement::ModuleReference(mr) => mr.measure_inline(),
 
             WebStatement::Assignment(a) => {
                 a.lhs.measure_inline()
@@ -692,9 +699,7 @@ impl<'a> RenderInline for WebStatement<'a> {
                 }
             }
 
-            WebStatement::ModuleReference(name) => {
-                prettify::module_reference_render(name, dest);
-            }
+            WebStatement::ModuleReference(mr) => mr.render_inline(dest),
 
             WebStatement::Assignment(a) => {
                 a.lhs.render_inline(dest);
@@ -794,9 +799,7 @@ impl<'a> WebStatement<'a> {
                 expr.render_flex(dest);
             }
 
-            WebStatement::ModuleReference(name) => {
-                prettify::module_reference_render(name, dest);
-            }
+            WebStatement::ModuleReference(mr) => mr.render_inline(dest),
 
             WebStatement::PreprocessorDirective(pd) => {
                 pd.prettify(dest);
@@ -1035,9 +1038,7 @@ impl<'a> WebStatement<'a> {
 impl<'a> WebCaseItem<'a> {
     fn render_flex(&self, dest: &mut Prettifier) {
         match self {
-            WebCaseItem::ModuleReference(mr) => {
-                prettify::module_reference_render(mr, dest);
-            }
+            WebCaseItem::ModuleReference(mr) => mr.render_inline(dest),
 
             WebCaseItem::Standard(sc) => {
                 if let Some(c) = sc.comment.as_ref() {

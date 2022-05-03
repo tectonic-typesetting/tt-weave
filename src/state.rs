@@ -4,7 +4,7 @@ use lexical_sort::{natural_lexical_cmp, StringSort};
 use nom::{bytes::complete::take_while, error::ErrorKind};
 use nom_locate::position;
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeMap, HashMap},
     convert::TryFrom,
     fmt::Write,
 };
@@ -16,6 +16,7 @@ use crate::{
     pascal_token::{match_pascal_token, FormatOverrides, PascalToken},
     reserved::PascalReservedWord,
     token::{next_token, take_until_terminator, Token},
+    weblang::module_reference::WebModuleReference,
 };
 
 pub type ModuleId = usize;
@@ -45,11 +46,11 @@ impl IndexState {
 pub struct State {
     definition_flag: bool,
 
-    /// Map from full-length module name to the module that initially defines
-    /// it. Every entry here also has a record in the index table, where
-    /// `is_definition` modules indicate ones that contribute code to the
-    /// module.
-    named_modules: BTreeSet<String>,
+    /// Sorted map of module names to their canonical ID numbers. The sorting
+    /// allows us to look up partial names. Every entry here also has a record
+    /// in the index table, where `is_definition` entries indicate ones that
+    /// contribute code to the module.
+    named_modules: BTreeMap<String, ModuleId>,
 
     index_entries: HashMap<String, IndexState>,
 
@@ -171,13 +172,13 @@ impl State {
         let matched_name = if let Some(body) = value.strip_suffix("...") {
             let mut matched_name = String::new();
 
-            for name in self
+            for item in self
                 .named_modules
                 .range(body.to_owned()..)
-                .take_while(|n| n.starts_with(body))
+                .take_while(|i| i.0.starts_with(body))
             {
                 if matched_name.is_empty() {
-                    matched_name.push_str(&name);
+                    matched_name.push_str(&item.0);
                 } else {
                     return new_parse_error(span, ErrorKind::Fail);
                 }
@@ -207,9 +208,25 @@ impl State {
         span: Span<'a>,
     ) -> ParseResult<'a, StringSpan<'a>> {
         let (span, text) = self.scan_module_name(span)?;
-        self.named_modules.insert(text.value.to_string());
+        self.named_modules.insert(text.value.to_string(), module);
         self.add_index_entry(text.value.to_string(), IndexEntryKind::Normal, module);
         Ok((span, text))
+    }
+
+    /// For the second pass: scan a module name and resolve it to a full module
+    /// reference, looking up the module-id.
+    pub fn scan_module_reference<'a>(
+        &self,
+        span: Span<'a>,
+    ) -> ParseResult<'a, WebModuleReference<'a>> {
+        let (span, name) = self.scan_module_name(span)?;
+
+        let id = match self.named_modules.get(name.value.as_ref()) {
+            Some(i) => *i,
+            None => return new_parse_error(span, ErrorKind::Fail),
+        };
+
+        Ok((span, WebModuleReference { name, id }))
     }
 
     #[allow(dead_code)]
@@ -224,7 +241,7 @@ impl State {
         index.string_sort_unstable(natural_lexical_cmp);
 
         for name in &index {
-            if self.named_modules.contains(&**name) {
+            if self.named_modules.contains_key(&**name) {
                 continue;
             }
 

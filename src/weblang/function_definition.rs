@@ -14,6 +14,7 @@ use crate::prettify::{self, Prettifier, RenderInline};
 
 use super::{
     base::*,
+    module_reference::parse_module_reference,
     statement::{parse_statement_base, WebStatement},
     webtype::{parse_type, WebType},
     WebToplevel,
@@ -65,7 +66,7 @@ pub struct WebVariables<'a> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum WebVarBlockItem<'a> {
     /// A reference to a module that (hopefully) contains variable definitions.
-    ModuleReference(StringSpan<'a>),
+    ModuleReference(WebModuleReference<'a>),
 
     /// Actual in-place definitions
     InPlace(WebInPlaceVariables<'a>),
@@ -82,7 +83,9 @@ pub struct WebInPlaceVariables<'a> {
 
 fn parse_var_block_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVarBlockItem<'a>> {
     alt((
-        map(module_reference, |t| WebVarBlockItem::ModuleReference(t)),
+        map(parse_module_reference, |t| {
+            WebVarBlockItem::ModuleReference(t)
+        }),
         map(parse_in_place_vars, |v| WebVarBlockItem::InPlace(v)),
         map(
             tuple((
@@ -398,7 +401,7 @@ impl<'a> RenderInline for WebVariables<'a> {
 impl<'a> RenderInline for WebVarBlockItem<'a> {
     fn measure_inline(&self) -> usize {
         match self {
-            WebVarBlockItem::ModuleReference(mr) => prettify::module_reference_measure_inline(mr),
+            WebVarBlockItem::ModuleReference(mr) => mr.measure_inline(),
             WebVarBlockItem::InPlace(ip) => ip.measure_inline(),
             WebVarBlockItem::IfdefInPlace(..) => prettify::NOT_INLINE,
         }
@@ -406,7 +409,7 @@ impl<'a> RenderInline for WebVarBlockItem<'a> {
 
     fn render_inline(&self, dest: &mut Prettifier) {
         match self {
-            WebVarBlockItem::ModuleReference(mr) => prettify::module_reference_render(mr, dest),
+            WebVarBlockItem::ModuleReference(mr) => mr.render_inline(dest),
             WebVarBlockItem::InPlace(ip) => ip.render_inline(dest),
             WebVarBlockItem::IfdefInPlace(..) => dest.noscope_push("XXXifdefvbiinline"),
         }
@@ -417,7 +420,7 @@ impl<'a> WebVarBlockItem<'a> {
     pub fn prettify(&self, dest: &mut Prettifier, term: char) {
         match self {
             WebVarBlockItem::ModuleReference(mr) => {
-                prettify::module_reference_render(mr, dest);
+                mr.render_inline(dest);
                 dest.noscope_push(term);
             }
 

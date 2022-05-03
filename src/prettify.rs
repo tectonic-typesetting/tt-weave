@@ -11,7 +11,7 @@ use syntect::{
     parsing::{Scope, ScopeStack, ScopeStackOp},
 };
 
-use crate::weblang::base::{SpanValue, StringSpan};
+use crate::weblang::base::SpanValue;
 
 // See https://www.sublimetext.com/docs/scope_naming.html for some scope hints.
 
@@ -220,16 +220,6 @@ impl Prettifier {
         println!("%");
         print!("\\end{{{}}}{}", env, terminator);
     }
-}
-
-pub fn module_reference_measure_inline<'a>(mr: &StringSpan<'a>) -> usize {
-    mr.value.as_ref().len() + 4
-}
-
-pub fn module_reference_render<'a>(mr: &StringSpan<'a>, dest: &mut Prettifier) {
-    dest.noscope_push("< ");
-    dest.noscope_push(mr.value.as_ref());
-    dest.noscope_push(" >");
 }
 
 /// A trait for measuring how wide some WEB language items that can be rendered

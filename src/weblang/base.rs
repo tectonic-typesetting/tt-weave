@@ -18,9 +18,10 @@ pub use crate::{
     parse_base::{SpanValue, StringSpan},
     pascal_token::{DelimiterKind, PascalToken, StringLiteralKind},
     reserved::PascalReservedWord,
+    state::ModuleId,
 };
 
-pub use super::comment::WebComment;
+pub use super::{comment::WebComment, module_reference::WebModuleReference};
 
 /// Information about a typeset comment.
 ///
@@ -43,7 +44,7 @@ pub enum WebToken<'a> {
     Comment(Vec<TypesetComment<'a>>),
 
     /// A reference to a WEB module.
-    ModuleReference(StringSpan<'a>),
+    ModuleReference(WebModuleReference<'a>),
 }
 
 impl<'a> WebToken<'a> {
@@ -322,17 +323,6 @@ pub fn comment<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebComment<'a>> {
         Ok((input, WebComment(c)))
     } else {
         return new_parse_err(input, WebErrorKind::ExpectedComment);
-    }
-}
-
-/// Expect a module reference, returning its value.
-pub fn module_reference<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan<'a>> {
-    let (input, wt) = next_token(input)?;
-
-    if let WebToken::ModuleReference(s) = wt {
-        Ok((input, s))
-    } else {
-        return new_parse_err(input, WebErrorKind::ExpectedIdentifier);
     }
 }
 
