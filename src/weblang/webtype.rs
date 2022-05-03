@@ -23,6 +23,7 @@ pub enum WebType<'a> {
     Array(WebArrayType<'a>),
     Record(WebRecordType<'a>),
     UserDefined(StringSpan<'a>),
+    Pointer(Box<WebType<'a>>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -37,6 +38,7 @@ pub fn parse_type<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
         named("integer", WebType::Integer),
         named("real", WebType::Real),
         named("boolean", WebType::Boolean),
+        parse_pointer,
         parse_packed_file_of,
         parse_record,
         parse_array,
@@ -58,6 +60,12 @@ fn named<'a>(
             new_parse_err(input, WebErrorKind::ExpectedIdentifier)
         }
     }
+}
+
+fn parse_pointer<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
+    map(tuple((pascal_token(PascalToken::Caret), parse_type)), |t| {
+        WebType::Pointer(Box::new(t.1))
+    })(input)
 }
 
 fn parse_range<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
@@ -197,6 +205,7 @@ impl<'a> RenderInline for WebType<'a> {
             WebType::PackedFileOf(t) => 15 + t.value.as_ref().len(),
             WebType::Array(arr) => arr.measure_inline(),
             WebType::Record(_rec) => prettify::NOT_INLINE,
+            WebType::Pointer(ty) => 1 + ty.measure_inline(),
             WebType::UserDefined(s) => s.value.as_ref().len(),
         }
     }
@@ -220,6 +229,12 @@ impl<'a> RenderInline for WebType<'a> {
 
             WebType::Array(arr) => arr.render_inline(dest),
             WebType::Record(_rec) => dest.noscope_push("XXXrecordXXX"),
+
+            WebType::Pointer(ty) => {
+                dest.noscope_push("^");
+                ty.render_inline(dest);
+            }
+
             WebType::UserDefined(s) => dest.noscope_push(s.value.as_ref()),
         }
     }
@@ -233,6 +248,7 @@ impl<'a> WebType<'a> {
             | WebType::Boolean
             | WebType::UserDefined(_)
             | WebType::PackedFileOf(_)
+            | WebType::Pointer(_)
             | WebType::Range(..) => self.render_inline(dest),
 
             WebType::Array(arr) => arr.render_flex(dest),
