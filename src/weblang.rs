@@ -4,7 +4,11 @@
 //! `nom` where the underlying datatype is a sequence of tokens.
 
 use nom::{
-    branch::alt, bytes::complete::take_while, combinator::opt, multi::many1, Finish, InputLength,
+    branch::alt,
+    bytes::complete::take_while,
+    combinator::opt,
+    multi::{many1, separated_list1},
+    Finish, InputLength,
 };
 
 pub mod base;
@@ -26,7 +30,7 @@ mod type_declaration;
 mod var_declaration;
 mod webtype;
 
-use crate::prettify::{Prettifier, RenderInline, COMMENT_SCOPE};
+use crate::prettify::{self, Prettifier, RenderInline, COMMENT_SCOPE};
 
 use self::{base::*, statement::WebStatement};
 
@@ -117,6 +121,38 @@ pub enum WebToplevel<'a> {
 
     /// `$start_meta_comment $statement $end_meta_comment`, needed for XeTeX(2022.0):31.
     SpecialCommentedOut(WebStatement<'a>),
+
+    /// `$[$int0, $int1a .. $int1b, ...]`, needed for XeTeX(2022.0):49.
+    SpecialIntList(Vec<SpecialIntListTerm<'a>>),
+
+    /// `$ident in [$int0, $int1a .. $int1b, ...]`, needed for XeTeX(2022.0):49.
+    SpecialIdentInIntList(StringSpan<'a>, Vec<SpecialIntListTerm<'a>>),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum SpecialIntListTerm<'a> {
+    Single(PascalToken<'a>),
+    Range(PascalToken<'a>, PascalToken<'a>),
+}
+
+impl<'a> RenderInline for SpecialIntListTerm<'a> {
+    fn measure_inline(&self) -> usize {
+        match self {
+            SpecialIntListTerm::Single(t) => t.measure_inline(),
+            SpecialIntListTerm::Range(t1, t2) => t1.measure_inline() + 4 + t2.measure_inline(),
+        }
+    }
+
+    fn render_inline(&self, dest: &mut Prettifier) {
+        match self {
+            SpecialIntListTerm::Single(t) => t.render_inline(dest),
+            SpecialIntListTerm::Range(t1, t2) => {
+                t1.render_inline(dest);
+                dest.noscope_push(" .. ");
+                t2.render_inline(dest);
+            }
+        }
+    }
 }
 
 /// A block of WEB code: a sequence of parsed-out WEB toplevels
@@ -162,6 +198,8 @@ fn is_ignored_token(t: WebToken) -> bool {
 fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
     let (input, _) = take_while(is_ignored_token)(input)?;
 
+    // We have so many possibilities that we need to use multiple alt() calls to
+    // avoid the limit of 20-item tuples!
     let result = alt((
         // Define comes first since its tail is a toplevel in and of itself.
         define::parse_define,
@@ -174,14 +212,18 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
         const_declaration::parse_constant_declaration,
         var_declaration::parse_var_declaration,
         type_declaration::parse_type_declaration,
-        tl_specials::parse_special_ifdef_forward,
-        tl_specials::parse_special_ifdef_function,
-        tl_specials::parse_special_ifdef_var_decl,
-        tl_specials::parse_special_paren_two_ident,
-        tl_specials::parse_special_empty_brackets,
-        tl_specials::parse_special_relational_ident,
-        tl_specials::parse_special_int_range,
-        tl_specials::parse_special_commented_out,
+        alt((
+            tl_specials::parse_special_ifdef_forward,
+            tl_specials::parse_special_ifdef_function,
+            tl_specials::parse_special_ifdef_var_decl,
+            tl_specials::parse_special_paren_two_ident,
+            tl_specials::parse_special_empty_brackets,
+            tl_specials::parse_special_relational_ident,
+            tl_specials::parse_special_int_range,
+            tl_specials::parse_special_commented_out,
+            tl_specials::parse_special_int_list,
+            tl_specials::parse_special_ident_in_int_list,
+        )),
         statement::parse_statement,
         standalone::parse_standalone,
     ))(input);
@@ -334,6 +376,46 @@ mod tl_specials {
             |t| WebToplevel::SpecialCommentedOut(t.1),
         )(input)
     }
+
+    pub fn parse_special_int_list<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                pascal_token(PascalToken::OpenDelimiter(DelimiterKind::SquareBracket)),
+                separated_list1(pascal_token(PascalToken::Comma), int_list_term),
+                pascal_token(PascalToken::CloseDelimiter(DelimiterKind::SquareBracket)),
+            )),
+            |t| WebToplevel::SpecialIntList(t.1),
+        )(input)
+    }
+
+    pub fn parse_special_ident_in_int_list<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                identifier,
+                reserved_word(PascalReservedWord::In),
+                pascal_token(PascalToken::OpenDelimiter(DelimiterKind::SquareBracket)),
+                separated_list1(pascal_token(PascalToken::Comma), int_list_term),
+                pascal_token(PascalToken::CloseDelimiter(DelimiterKind::SquareBracket)),
+            )),
+            |t| WebToplevel::SpecialIdentInIntList(t.0, t.3),
+        )(input)
+    }
+
+    fn int_list_term<'a>(input: ParseInput<'a>) -> ParseResult<'a, SpecialIntListTerm<'a>> {
+        alt((
+            map(
+                tuple((
+                    int_literal,
+                    pascal_token(PascalToken::DoubleDot),
+                    int_literal,
+                )),
+                |t| SpecialIntListTerm::Range(t.0, t.2),
+            ),
+            map(int_literal, |i| SpecialIntListTerm::Single(i)),
+        ))(input)
+    }
 }
 
 impl<'a> WebToplevel<'a> {
@@ -373,6 +455,10 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::SpecialCommentedOut(stmt) => {
                 tl_prettify::special_commented_out(stmt, dest)
             }
+            WebToplevel::SpecialIdentInIntList(id, vals) => {
+                tl_prettify::special_ident_in_int_list(id, vals, dest)
+            }
+            WebToplevel::SpecialIntList(vals) => tl_prettify::special_int_list(vals, dest),
         }
     }
 }
@@ -514,5 +600,25 @@ mod tl_prettify {
             d.newline_needed();
             d.noscope_push("*/");
         });
+    }
+
+    pub fn special_int_list<'a>(vals: &Vec<SpecialIntListTerm<'a>>, dest: &mut Prettifier) {
+        dest.noscope_push("[");
+        prettify::render_inline_seq(vals, ", ", dest);
+        dest.noscope_push("]");
+    }
+
+    pub fn special_ident_in_int_list<'a>(
+        id: &StringSpan<'a>,
+        vals: &Vec<SpecialIntListTerm<'a>>,
+        dest: &mut Prettifier,
+    ) {
+        dest.noscope_push(id);
+        dest.space();
+        dest.keyword("in");
+        dest.space();
+        dest.noscope_push("[");
+        prettify::render_inline_seq(vals, ", ", dest);
+        dest.noscope_push("]");
     }
 }
