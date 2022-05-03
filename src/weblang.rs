@@ -26,7 +26,7 @@ mod type_declaration;
 mod var_declaration;
 mod webtype;
 
-use crate::prettify::{Prettifier, RenderInline};
+use crate::prettify::{Prettifier, RenderInline, COMMENT_SCOPE};
 
 use self::{base::*, statement::WebStatement};
 
@@ -78,6 +78,9 @@ pub enum WebToplevel<'a> {
     /// A Pascal statement.
     Statement(WebStatement<'a>, Option<WebComment<'a>>),
 
+    /// No code at all, needed for XeTeX(2022.0):23.
+    Empty,
+
     /// `( $ident $ident )`, needed for WEAVE:143
     SpecialParenTwoIdent(StringSpan<'a>, StringSpan<'a>),
 
@@ -121,6 +124,10 @@ impl<'a> WebCode<'a> {
     /// Parse a sequence of WEB tokens into sequence of toplevels.
     pub fn parse(syntax: &'a WebSyntax<'a>) -> Option<WebCode<'a>> {
         let input = ParseInput(&syntax.0[..]);
+
+        if input.input_len() == 0 {
+            return Some(WebCode(vec![WebToplevel::Empty]));
+        }
 
         match many1(parse_toplevel)(input).finish() {
             Ok((remainder, value)) => {
@@ -327,6 +334,7 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::VarDeclaration(vd) => vd.prettify(dest),
             WebToplevel::TypeDeclaration(td) => td.prettify(dest),
             WebToplevel::ForwardDeclaration(fd) => fd.prettify(dest),
+            WebToplevel::Empty => dest.scope_push(*COMMENT_SCOPE, "/*nothing*/"),
 
             WebToplevel::SpecialParenTwoIdent(id1, id2) => {
                 tl_prettify::special_paren_two_ident(id1, id2, dest)
