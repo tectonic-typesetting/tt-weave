@@ -49,6 +49,9 @@ pub struct WebFunctionDefinition<'a> {
 
     /// The statements that comprise the function.
     stmts: Vec<WebStatement<'a>>,
+
+    /// The comment associated with end of the function.
+    closing_comment: Option<WebComment<'a>>,
 }
 
 // The `var` block
@@ -170,6 +173,7 @@ pub fn parse_function_definition_base<'a>(
         many1(parse_statement_base),
         reserved_word(PascalReservedWord::End),
         pascal_token(PascalToken::Semicolon),
+        opt(comment),
     ))(input)?;
 
     let name = items.1;
@@ -182,6 +186,7 @@ pub fn parse_function_definition_base<'a>(
         .unwrap_or((Vec::default(), None));
     let vars = items.7.map(|t| t.1).unwrap_or_default();
     let stmts = items.9;
+    let closing_comment = items.12;
 
     Ok((
         input,
@@ -194,6 +199,7 @@ pub fn parse_function_definition_base<'a>(
             label_comment,
             vars,
             stmts,
+            closing_comment,
         },
     ))
 }
@@ -358,6 +364,13 @@ impl<'a> WebFunctionDefinition<'a> {
         for s in &self.stmts {
             s.render_flex(dest);
             s.maybe_semicolon(dest);
+            dest.newline_needed();
+        }
+
+        // Closing comment
+
+        if let Some(c) = self.closing_comment.as_ref() {
+            c.render_inline(dest);
             dest.newline_needed();
         }
 
