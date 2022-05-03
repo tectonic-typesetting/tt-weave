@@ -35,19 +35,17 @@ pub struct Prettifier {
     full_width: usize,
     indent: usize,
     remaining_width: usize,
-    is_inline: bool,
     newline_needed: bool,
     text: String,
     ops: Vec<(usize, ScopeStackOp)>,
 }
 
 impl Prettifier {
-    pub fn new_inline(is_inline: bool) -> Self {
+    pub fn new() -> Self {
         Prettifier {
             full_width: WIDTH,
             indent: 0,
             remaining_width: WIDTH,
-            is_inline,
             newline_needed: false,
             text: String::default(),
             ops: Vec::default(),

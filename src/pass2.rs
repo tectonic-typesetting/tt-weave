@@ -9,11 +9,13 @@ use crate::{
     control::ControlKind,
     parse_base::{new_parse_error, ParseResult, Span, SpanValue, StringSpan},
     pascal_token::PascalToken,
-    prettify::Prettifier,
+    prettify::{Prettifier, RenderInline},
     reserved::PascalReservedWord,
     state::{ModuleId, State},
     token::{next_token, Token},
-    weblang::{base::TypesetComment, WebCode, WebSyntax, WebToken},
+    weblang::{
+        base::TypesetComment, module_reference::WebModuleReference, WebCode, WebSyntax, WebToken,
+    },
 };
 
 #[derive(Debug, Default)]
@@ -260,14 +262,46 @@ fn scan_pascal<'a>(mut span: Span<'a>, state: &State) -> ParseResult<'a, (WebSyn
     }
 }
 
-fn emit_pascal<'a>(syntax: WebSyntax<'a>, inline: bool) {
+#[derive(Debug)]
+enum EmitPascalMode<'a> {
+    Inline,
+    Define,
+    Format,
+    Anonymous,
+
+    /// If the bool is true, this chunk declares the module;
+    /// otherwise it extends it
+    NamedModule(WebModuleReference<'a>, bool),
+}
+
+impl<'a> EmitPascalMode<'a> {
+    fn is_inline(&self) -> bool {
+        if let EmitPascalMode::Inline = self {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+fn emit_pascal<'a>(syntax: WebSyntax<'a>, mode: EmitPascalMode<'a>) {
     // parse into the AST
 
     let code = WebCode::parse(&syntax).expect("parse failed");
 
     // Prettify
 
-    let mut pretty = Prettifier::new_inline(inline);
+    let mut pretty = Prettifier::new();
+
+    if let EmitPascalMode::NamedModule(mref, is_definition) = &mode {
+        mref.render_inline(&mut pretty);
+        pretty.space();
+        pretty.noscope_push(if *is_definition { "=" } else { "+=" });
+        pretty.noscope_push(" ⟦");
+        pretty.indent_block();
+        pretty.newline_needed();
+    }
+
     let mut first = true;
 
     for tl in &code.0 {
@@ -280,11 +314,17 @@ fn emit_pascal<'a>(syntax: WebSyntax<'a>, inline: bool) {
         tl.prettify(&mut pretty);
     }
 
+    if let EmitPascalMode::NamedModule(..) = &mode {
+        pretty.dedent_block();
+        pretty.newline_needed();
+        pretty.noscope_push("⟧");
+    }
+
     // Emit with highlighting.
 
     let ts = ThemeSet::load_defaults();
     let theme = &ts.themes["InspiredGitHub"];
-    pretty.emit(theme, inline);
+    pretty.emit(theme, mode.is_inline());
 }
 
 /// WEAVE:222
@@ -312,7 +352,7 @@ fn handle_tex<'a>(
                 let mut ptoks;
                 (span, (ptoks, _)) = scan_pascal_only(span, state)?;
                 let wrapped = ptoks.drain(..).map(|t| WebToken::Pascal(t)).collect();
-                emit_pascal(WebSyntax(wrapped), true);
+                emit_pascal(WebSyntax(wrapped), EmitPascalMode::Inline);
                 (span, tok) = copy_tex(output, span)?;
             }
 
@@ -389,7 +429,7 @@ fn handle_definitions<'a>(
                         value: PascalReservedWord::Define,
                     })),
                 );
-                emit_pascal(code, false);
+                emit_pascal(code, EmitPascalMode::Define);
             }
 
             Token::Control(ControlKind::FormatDefinition) => {
@@ -418,7 +458,7 @@ fn handle_definitions<'a>(
                 let mut rest;
                 (span, (rest, tok)) = scan_pascal(span, state)?;
                 code.append(&mut rest.0);
-                emit_pascal(WebSyntax(code), false);
+                emit_pascal(WebSyntax(code), EmitPascalMode::Format);
             }
 
             Token::Control(ControlKind::RomanIndexEntry) => {
@@ -434,7 +474,7 @@ fn handle_definitions<'a>(
             Token::Char('|') => {
                 (span, (ptoks, tok)) = scan_pascal_only(span, state)?;
                 let wrapped = ptoks.drain(..).map(|t| WebToken::Pascal(t)).collect();
-                emit_pascal(WebSyntax(wrapped), true);
+                emit_pascal(WebSyntax(wrapped), EmitPascalMode::Inline);
             }
 
             _ => {
@@ -444,7 +484,11 @@ fn handle_definitions<'a>(
     }
 }
 
-fn handle_pascal<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token> {
+fn handle_pascal<'a>(
+    state: &State,
+    mut span: Span<'a>,
+    mode: EmitPascalMode<'a>,
+) -> ParseResult<'a, Token> {
     let mut tok;
 
     let mut prev_span = span.clone();
@@ -456,7 +500,7 @@ fn handle_pascal<'a>(state: &State, mut span: Span<'a>) -> ParseResult<'a, Token
         match tok {
             Token::Control(ControlKind::NewMajorModule)
             | Token::Control(ControlKind::NewMinorModule) => {
-                emit_pascal(WebSyntax(code), false);
+                emit_pascal(WebSyntax(code), mode);
                 return Ok((span, tok));
             }
 
@@ -526,16 +570,19 @@ fn second_pass_inner<'a>(basename: &str, state: &State, span: Span<'a>) -> Parse
 
         match tok {
             Token::Control(ControlKind::StartUnnamedPascal) => {
-                (span, tok) = handle_pascal(state, span)?;
+                (span, tok) = handle_pascal(state, span, EmitPascalMode::Anonymous)?;
             }
 
             Token::Control(ControlKind::ModuleName) => {
-                (span, _) = state.scan_module_name(span)?;
+                let mref;
+                (span, mref) = state.scan_module_reference(span)?;
+                let is_definition = mref.id == cur_module;
+                let mode = EmitPascalMode::NamedModule(mref, is_definition);
 
                 // there's like one module in XeTeX with a space between module name and equals sign
                 (span, _) = take_while(|c| c == ' ' || c == '\t' || c == '\n')(span)?;
                 (span, _) = char('=')(span)?;
-                (span, tok) = handle_pascal(state, span)?;
+                (span, tok) = handle_pascal(state, span, mode)?;
             }
 
             _ => {}
