@@ -465,6 +465,10 @@ pub enum WebCaseItem<'a> {
     ModuleReference(WebModuleReference<'a>),
     Standard(WebStandardCaseItem<'a>),
     OtherCases(WebOtherCasesItem<'a>),
+
+    /// A standard-looking item encased in an ifdef-like construct, needed for
+    /// XeTeX(2022.0):88.
+    IfdefStandard(PascalToken<'a>, WebStandardCaseItem<'a>, PascalToken<'a>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -502,6 +506,7 @@ fn parse_case<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
                 parse_mod_ref_case_item,
                 parse_other_cases_item,
                 parse_standard_case_item,
+                parse_ifdef_case_item,
             ))),
             parse_case_terminator,
             opt(pascal_token(PascalToken::Semicolon)),
@@ -579,7 +584,9 @@ fn parse_other_cases_tag<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpa
     }
 }
 
-fn parse_standard_case_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebCaseItem<'a>> {
+fn parse_standard_case_item_base<'a>(
+    input: ParseInput<'a>,
+) -> ParseResult<'a, WebStandardCaseItem<'a>> {
     map(
         tuple((
             separated_list1(
@@ -591,13 +598,26 @@ fn parse_standard_case_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebCas
             opt(pascal_token(PascalToken::Semicolon)),
             opt(comment),
         )),
-        |t| {
-            WebCaseItem::Standard(WebStandardCaseItem {
-                matches: t.0,
-                stmt: Box::new(t.2),
-                comment: t.4,
-            })
+        |t| WebStandardCaseItem {
+            matches: t.0,
+            stmt: Box::new(t.2),
+            comment: t.4,
         },
+    )(input)
+}
+
+fn parse_standard_case_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebCaseItem<'a>> {
+    map(parse_standard_case_item_base, WebCaseItem::Standard)(input)
+}
+
+pub fn parse_ifdef_case_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebCaseItem<'a>> {
+    map(
+        tuple((
+            formatted_identifier_like(PascalReservedWord::Begin),
+            parse_standard_case_item_base,
+            formatted_identifier_like(PascalReservedWord::End),
+        )),
+        |t| WebCaseItem::IfdefStandard(t.0, t.1, t.2),
     )(input)
 }
 
@@ -1040,37 +1060,7 @@ impl<'a> WebCaseItem<'a> {
         match self {
             WebCaseItem::ModuleReference(mr) => mr.render_inline(dest),
 
-            WebCaseItem::Standard(sc) => {
-                if let Some(c) = sc.comment.as_ref() {
-                    // align with the full indent
-                    dest.noscope_push("  ");
-                    c.render_inline(dest);
-                    dest.newline_indent();
-                }
-
-                let wm = prettify::measure_inline_seq(&sc.matches, 2) + 1;
-
-                if dest.fits(wm) {
-                    prettify::render_inline_seq(&sc.matches, ", ", dest);
-                } else {
-                    let i_last = sc.matches.len() - 1;
-
-                    for (i, expr) in sc.matches.iter().enumerate() {
-                        dest.newline_needed();
-                        expr.render_flex(dest);
-
-                        if i != i_last {
-                            dest.noscope_push(',');
-                        }
-                    }
-                }
-
-                dest.noscope_push(':');
-                dest.indent_small();
-                dest.newline_indent();
-                sc.stmt.render_in_block(dest);
-                dest.dedent_small();
-            }
+            WebCaseItem::Standard(sc) => sc.render_flex(dest),
 
             WebCaseItem::OtherCases(oc) => {
                 if let Some(c) = oc.comment.as_ref() {
@@ -1087,6 +1077,51 @@ impl<'a> WebCaseItem<'a> {
                 oc.stmt.render_in_block(dest);
                 dest.dedent_small();
             }
+
+            WebCaseItem::IfdefStandard(beg, sci, _end) => {
+                beg.render_inline(dest);
+                dest.noscope_push("!{");
+                dest.indent_block();
+                dest.newline_indent();
+                sci.render_flex(dest);
+                dest.dedent_block();
+                dest.newline_indent();
+                dest.noscope_push('}');
+            }
         }
+    }
+}
+
+impl<'a> WebStandardCaseItem<'a> {
+    fn render_flex(&self, dest: &mut Prettifier) {
+        if let Some(c) = self.comment.as_ref() {
+            // align with the full indent
+            dest.noscope_push("  ");
+            c.render_inline(dest);
+            dest.newline_indent();
+        }
+
+        let wm = prettify::measure_inline_seq(&self.matches, 2) + 1;
+
+        if dest.fits(wm) {
+            prettify::render_inline_seq(&self.matches, ", ", dest);
+        } else {
+            let i_last = self.matches.len() - 1;
+
+            for (i, expr) in self.matches.iter().enumerate() {
+                dest.newline_needed();
+                expr.render_flex(dest);
+
+                if i != i_last {
+                    dest.noscope_push(',');
+                }
+            }
+        }
+
+        dest.noscope_push(':');
+        dest.indent_small();
+        dest.newline_indent();
+        self.stmt.render_in_block(dest);
+        dest.dedent_small();
     }
 }
