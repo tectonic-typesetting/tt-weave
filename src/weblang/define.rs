@@ -112,6 +112,14 @@ pub enum WebDefineRhs<'a> {
 
     /// A synthesized identifier, needed for XeTeX(2022.0)#4
     SynthesizedIdentifier(Vec<StringSpan<'a>>),
+
+    /// An ifdef-like construct and an incomplete `if`, needed for
+    /// XeTeX(2022.0)#8. The token is the ifdef-like and the string span is the
+    /// identifier in the `if` statement.
+    IfdefAndIf(PascalToken<'a>, StringSpan<'a>),
+
+    /// The closing dual for IfdefAndIF — and `end` and a closing ifdef-like.
+    EndAndEndif(PascalToken<'a>),
 }
 
 fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
@@ -121,6 +129,8 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
         map(peek_end_of_define, |_| WebDefineRhs::EmptyDefinition),
         parse_othercases,
         parse_statement_series,
+        parse_ifdef_and_if,
+        parse_end_and_endif,
         parse_begin_then_statements,
         parse_comma_exprs,
         map(any_reserved_word, |rw| WebDefineRhs::ReservedWord(rw)),
@@ -251,6 +261,31 @@ fn parse_synthesized_identifier<'a>(input: ParseInput<'a>) -> ParseResult<'a, We
     }
 }
 
+fn parse_ifdef_and_if<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    map(
+        tuple((
+            formatted_identifier_like(PascalReservedWord::Begin),
+            reserved_word(PascalReservedWord::If),
+            identifier,
+            reserved_word(PascalReservedWord::Then),
+            reserved_word(PascalReservedWord::Begin),
+            peek_end_of_define,
+        )),
+        |t| WebDefineRhs::IfdefAndIf(t.0, t.2),
+    )(input)
+}
+
+fn parse_end_and_endif<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    map(
+        tuple((
+            reserved_word(PascalReservedWord::End),
+            pascal_token(PascalToken::Semicolon),
+            formatted_identifier_like(PascalReservedWord::End),
+        )),
+        |t| WebDefineRhs::EndAndEndif(t.1),
+    )(input)
+}
+
 // Prettification
 
 impl<'a> WebDefine<'a> {
@@ -342,6 +377,8 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
             WebDefineRhs::SynthesizedIdentifier(pieces) => {
                 pieces.iter().map(|p| p.len()).sum::<usize>() + 20
             }
+            WebDefineRhs::IfdefAndIf(..) => prettify::NOT_INLINE,
+            WebDefineRhs::EndAndEndif(_) => prettify::NOT_INLINE,
         }
     }
 
@@ -389,6 +426,9 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
                 }
                 dest.noscope_push(")")
             }
+
+            WebDefineRhs::IfdefAndIf(..) => dest.noscope_push("XXXifdef-and-if"),
+            WebDefineRhs::EndAndEndif(..) => dest.noscope_push("XXXend-and-endif"),
         }
     }
 }
@@ -463,6 +503,26 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
             dest.dedent_block();
             dest.newline_indent();
             dest.noscope_push("/* ... closed later ... */");
+        }
+
+        WebDefineRhs::IfdefAndIf(beg, ident) => {
+            beg.render_inline(dest);
+            dest.noscope_push("!{");
+            dest.indent_block();
+            dest.newline_indent();
+            dest.keyword("if");
+            dest.space();
+            dest.noscope_push(ident);
+            dest.space();
+            dest.noscope_push("{");
+        }
+
+        WebDefineRhs::EndAndEndif(end) => {
+            dest.indent_block();
+            dest.noscope_push("}");
+            dest.dedent_block();
+            dest.newline_indent();
+            end.render_inline(dest);
         }
     }
 }
