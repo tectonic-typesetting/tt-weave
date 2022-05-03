@@ -41,6 +41,9 @@ pub struct WebFunctionDefinition<'a> {
     /// Labels
     labels: Vec<StringSpan<'a>>,
 
+    /// A comment associated with the definition of the labels.
+    label_comment: Option<WebComment<'a>>,
+
     /// Records in the function's `var` block.
     vars: Vec<WebVarBlockItem<'a>>,
 
@@ -157,6 +160,7 @@ pub fn parse_function_definition_base<'a>(
             reserved_word(PascalReservedWord::Label),
             separated_list1(pascal_token(PascalToken::Comma), identifier),
             pascal_token(PascalToken::Semicolon),
+            opt(comment),
         ))),
         opt(tuple((
             reserved_word(PascalReservedWord::Var),
@@ -172,7 +176,10 @@ pub fn parse_function_definition_base<'a>(
     let args = items.2.map(|t| t.1).unwrap_or_default();
     let return_type = items.3.map(|t| t.1);
     let opening_comment = items.5;
-    let labels = items.6.map(|t| t.1).unwrap_or_default();
+    let (labels, label_comment) = items
+        .6
+        .map(|t| (t.1, t.3))
+        .unwrap_or((Vec::default(), None));
     let vars = items.7.map(|t| t.1).unwrap_or_default();
     let stmts = items.9;
 
@@ -184,6 +191,7 @@ pub fn parse_function_definition_base<'a>(
             return_type,
             opening_comment,
             labels,
+            label_comment,
             vars,
             stmts,
         },
@@ -257,6 +265,11 @@ impl<'a> WebFunctionDefinition<'a> {
         // Labels
 
         if !self.labels.is_empty() {
+            if let Some(c) = self.label_comment.as_ref() {
+                c.render_inline(dest);
+                dest.newline_needed();
+            }
+
             let mut wl: usize = self.labels.iter().map(|s| s.value.as_ref().len()).sum();
             wl += 2 * (self.labels.len() - 1);
 
