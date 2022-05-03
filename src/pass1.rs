@@ -367,6 +367,7 @@ fn first_pass_handle_pascal<'a>(
             }
 
             Token::Control(ControlKind::ModuleName) => {
+                state.set_definition_flag(false);
                 (span, _) = state.scan_module_name_and_register(cur_module, span)?;
                 prev_span = span.clone();
                 (span, tok) = next_token(span)?;
@@ -448,5 +449,6 @@ pub fn execute(span: Span) -> Result<State> {
         Err((_remainder, kind)) => return Err(anyhow!(kind.description().to_owned())),
     }
 
+    state.compute_module_ids();
     Ok(state)
 }

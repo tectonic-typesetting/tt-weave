@@ -26,11 +26,11 @@ pub fn parse_module_reference<'a>(
 
 impl<'a> RenderInline for WebModuleReference<'a> {
     fn measure_inline(&self) -> usize {
-        self.name.len() + 2
+        self.name.len() + 3 + self.id.to_string().len()
     }
 
     fn render_inline(&self, dest: &mut Prettifier) {
-        dest.noscope_push("⟦");
+        dest.noscope_push(format!("⟦{} ", self.id));
         dest.noscope_push(self.name.value.as_ref());
         dest.noscope_push("⟧");
     }

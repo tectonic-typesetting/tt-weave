@@ -4,7 +4,7 @@ use lexical_sort::{natural_lexical_cmp, StringSort};
 use nom::{bytes::complete::take_while, error::ErrorKind};
 use nom_locate::position;
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{btree_map::Entry, BTreeMap, HashMap},
     convert::TryFrom,
     fmt::Write,
 };
@@ -49,7 +49,10 @@ pub struct State {
     /// Sorted map of module names to their canonical ID numbers. The sorting
     /// allows us to look up partial names. Every entry here also has a record
     /// in the index table, where `is_definition` entries indicate ones that
-    /// contribute code to the module.
+    /// contribute code to the module. During the first pass the ID numbers are
+    /// just zeros: module names might be referenced before they're actually
+    /// defined, so we can't know their "real" module-IDs before we've finished
+    /// the pass.
     named_modules: BTreeMap<String, ModuleId>,
 
     index_entries: HashMap<String, IndexState>,
@@ -208,7 +211,11 @@ impl State {
         span: Span<'a>,
     ) -> ParseResult<'a, StringSpan<'a>> {
         let (span, text) = self.scan_module_name(span)?;
-        self.named_modules.insert(text.value.to_string(), module);
+
+        // This might be a reference to the module name but not its actual
+        // definition, so we should just insert a placeholder module ID for now.
+        self.named_modules.insert(text.value.to_string(), 0);
+
         self.add_index_entry(text.value.to_string(), IndexEntryKind::Normal, module);
         Ok((span, text))
     }
@@ -227,6 +234,19 @@ impl State {
         };
 
         Ok((span, WebModuleReference { name, id }))
+    }
+
+    pub fn compute_module_ids(&mut self) {
+        for (name, info) in &self.index_entries {
+            if let Entry::Occupied(mut occ) = self.named_modules.entry(name.clone()) {
+                for r in &info.refs {
+                    if r.is_definition {
+                        occ.insert(r.module);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     #[allow(dead_code)]
