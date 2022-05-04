@@ -792,7 +792,7 @@ impl<'a> WebStatement<'a> {
     /// Render the statement given the knowledge that it is already wrapped in a
     /// block structure. All statements are rendered normally except for Blocks
     /// that don't have an unusual guard.
-    fn render_in_block(&self, dest: &mut Prettifier) {
+    pub fn render_in_block(&self, dest: &mut Prettifier) {
         if let WebStatement::Block(block) = self {
             if block.opener.is_reserved_word(PascalReservedWord::Begin) {
                 if let Some(c) = block.pre_comment.as_ref() {
