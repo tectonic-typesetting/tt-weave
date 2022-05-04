@@ -138,6 +138,10 @@ pub enum WebToplevel<'a> {
 
     /// `$expr, $expr, $expr`, needed for XeTeX(2022.0):375.
     SpecialCommaExprs(Vec<Box<WebExpr<'a>>>),
+
+    /// `[$expr..$expr]$ident`, needed for XeTeX(2022.0):576, which uses some
+    /// macros to create a specialized array table.
+    SpecialArrayMacro(WebExpr<'a>, WebExpr<'a>, StringSpan<'a>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -232,6 +236,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
             tl_specials::parse_special_relational_expr,
             tl_specials::parse_special_range,
             tl_specials::parse_special_commented_out,
+            tl_specials::parse_special_array_macro,
             tl_specials::parse_special_int_list,
             tl_specials::parse_special_ident_in_int_list,
             tl_specials::parse_special_inline_define,
@@ -457,6 +462,22 @@ mod tl_specials {
             Ok((input, WebToplevel::SpecialCommaExprs(t.0)))
         }
     }
+
+    pub fn parse_special_array_macro<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                pascal_token(PascalToken::OpenDelimiter(DelimiterKind::SquareBracket)),
+                parse_expr,
+                pascal_token(PascalToken::DoubleDot),
+                parse_expr,
+                pascal_token(PascalToken::CloseDelimiter(DelimiterKind::SquareBracket)),
+                identifier,
+            )),
+            |t| WebToplevel::SpecialArrayMacro(t.1, t.3, t.5),
+        )(input)
+    }
 }
 
 impl<'a> WebToplevel<'a> {
@@ -504,6 +525,9 @@ impl<'a> WebToplevel<'a> {
                 tl_prettify::special_inline_define(lhs, rhs, dest)
             }
             WebToplevel::SpecialCommaExprs(exprs) => tl_prettify::special_comma_exprs(exprs, dest),
+            WebToplevel::SpecialArrayMacro(e1, e2, id) => {
+                tl_prettify::special_array_macro(e1, e2, id, dest)
+            }
         }
     }
 }
@@ -697,5 +721,24 @@ mod tl_prettify {
                 expr.render_flex(dest);
             }
         }
+    }
+
+    /// This has a weird layout because it's used in the midst of of a custom
+    /// TeX table macro used to lay out some pseudo-code.
+    pub fn special_array_macro<'a>(
+        e1: &WebExpr<'a>,
+        e2: &WebExpr<'a>,
+        id: &StringSpan<'a>,
+        dest: &mut Prettifier,
+    ) {
+        dest.noscope_push('[');
+        e1.render_inline(dest);
+        dest.noscope_push(" .. ");
+        e2.render_inline(dest);
+        dest.noscope_push(']');
+        dest.space();
+        dest.keyword("of");
+        dest.space();
+        dest.noscope_push(id.value.as_ref());
     }
 }

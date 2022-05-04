@@ -231,6 +231,21 @@ fn scan_pascal_only<'a>(
                     ));
                     continue;
                 }
+
+                // In XeTeX(2022.0):576, we need to treat the following as an
+                // identifier.
+                if let Some(t) = text.strip_prefix("\\\\{") {
+                    if let Some(t) = t.strip_suffix("}") {
+                        if t == "stuff" {
+                            ptoks.push(PascalToken::Identifier(StringSpan {
+                                start: sv.start.clone(),
+                                end: sv.start.clone(),
+                                value: Cow::Owned(t.to_owned()),
+                            }));
+                            continue;
+                        }
+                    }
+                }
             }
 
             other => {
