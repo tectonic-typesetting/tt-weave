@@ -396,6 +396,9 @@ pub struct WebRepeat<'a> {
     /// statements, these come in a sequence without being encased in a
     /// begin/end block.
     stmts: Vec<Box<WebStatement<'a>>>,
+
+    /// Optional comment at end of loop.
+    closing_comment: Option<WebComment<'a>>,
 }
 
 fn parse_repeat<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
@@ -406,11 +409,13 @@ fn parse_repeat<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> 
             reserved_word(PascalReservedWord::Until),
             parse_expr,
             opt(pascal_token(PascalToken::Semicolon)),
+            opt(comment),
         )),
         |t| {
             WebStatement::Repeat(WebRepeat {
                 test: Box::new(t.3),
                 stmts: t.1,
+                closing_comment: t.5,
             })
         },
     )(input)
@@ -987,6 +992,11 @@ impl<'a> WebStatement<'a> {
                     dest.newline_needed();
                     s.render_flex(dest);
                     s.maybe_semicolon(dest);
+                }
+
+                if let Some(c) = r.closing_comment.as_ref() {
+                    c.render_inline(dest);
+                    dest.newline_needed();
                 }
 
                 dest.dedent_block();
