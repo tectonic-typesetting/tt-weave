@@ -1,8 +1,9 @@
 //! A "standalone" bit of syntax.
 //!
-//! Allowed tokens are reserved words and formatted identifiers, which act as
-//! reserved words. These shouldn't come up in actual code, but are needed for
-//! inline TeX discussion of the code.
+//! Allowed tokens are reserved words; formatted identifiers, which act as
+//! reserved words; and "verbatim Pascal" (XeTeX(2022.0):135). These shouldn't
+//! come up in actual code, but are needed for inline TeX discussion of the
+//! code.
 
 use nom::{branch::alt, combinator::map};
 
@@ -22,6 +23,7 @@ pub fn parse_standalone_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebSt
             token: PascalToken::ReservedWord(s),
         }),
         any_formatted_identifier,
+        map(verbatim_pascal, |token| WebStandalone { token }),
     ))(input)
 }
 

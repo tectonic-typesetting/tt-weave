@@ -154,6 +154,7 @@ pub enum WebErrorKind {
     ExpectedAnyReservedWord,
     ExpectedOpenDelimiter(DelimiterKind),
     ExpectedCloseDelimiter(DelimiterKind),
+    ExpectedVerbatimPascal,
     IncompleteDefine,
     NotDefineEdge,
     StringLiteralMergeFail,
@@ -432,6 +433,17 @@ pub fn formatted_identifier_like<'a>(
 
         return new_parse_err(input, WebErrorKind::Eof);
     }
+}
+
+/// Accept a "verbatim Pascal" token.
+pub fn verbatim_pascal<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
+    let (input, wt) = next_token(input)?;
+
+    if let WebToken::Pascal(tok @ PascalToken::VerbatimPascal(..)) = wt {
+        return Ok((input, tok));
+    }
+
+    return new_parse_err(input, WebErrorKind::ExpectedVerbatimPascal);
 }
 
 #[allow(dead_code)]

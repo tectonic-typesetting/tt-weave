@@ -643,7 +643,7 @@ impl<'a> RenderInline for PascalToken<'a> {
             },
 
             PascalToken::IndexEntry(..) => 0,
-            PascalToken::VerbatimPascal(ss) => ss.value.len(),
+            PascalToken::VerbatimPascal(ss) => ss.value.len() + 11,
         }
     }
 
@@ -802,7 +802,9 @@ impl<'a> RenderInline for PascalToken<'a> {
             PascalToken::IndexEntry(..) => {}
 
             PascalToken::VerbatimPascal(ss) => {
+                dest.noscope_push("verbatim!{");
                 dest.noscope_push(ss.value.as_ref());
+                dest.noscope_push("}");
             }
         }
     }
