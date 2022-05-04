@@ -5,7 +5,7 @@
 use nom::{
     branch::alt,
     combinator::{map, opt},
-    multi::{many1, separated_list0},
+    multi::{many1, separated_list0, separated_list1},
     sequence::tuple,
 };
 
@@ -31,6 +31,7 @@ pub enum RangeBound<'a> {
     Literal(PascalToken<'a>),
     Symbolic1(StringSpan<'a>),
     Symbolic2(StringSpan<'a>, PascalToken<'a>, PascalToken<'a>),
+    UnarySymbolic(PascalToken<'a>, StringSpan<'a>),
 }
 
 pub fn parse_type<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
@@ -84,7 +85,21 @@ fn parse_range_bound<'a>(input: ParseInput<'a>) -> ParseResult<'a, RangeBound<'a
         map(int_literal, |t| RangeBound::Literal(t)),
         parse_binary_range_bound,
         map(identifier, |i| RangeBound::Symbolic1(i)),
+        parse_unary_range_bound,
     ))(input)
+}
+
+fn parse_unary_range_bound<'a>(input: ParseInput<'a>) -> ParseResult<'a, RangeBound<'a>> {
+    map(
+        tuple((
+            alt((
+                pascal_token(PascalToken::Plus),
+                pascal_token(PascalToken::Minus),
+            )),
+            identifier,
+        )),
+        |t| RangeBound::UnarySymbolic(t.0, t.1),
+    )(input)
 }
 
 /// This is for WEB range bounds that rely on math performed on @define
@@ -154,7 +169,7 @@ pub struct WebRecordType<'a> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebRecordField<'a> {
-    name: StringSpan<'a>,
+    names: Vec<PascalToken<'a>>,
     ty: Box<WebType<'a>>,
     comment: Option<WebComment<'a>>,
 }
@@ -179,14 +194,14 @@ fn parse_record<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
 fn parse_record_field<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebRecordField<'a>> {
     map(
         tuple((
-            identifier,
+            separated_list1(pascal_token(PascalToken::Comma), identifier_as_token),
             pascal_token(PascalToken::Colon),
             parse_type,
             pascal_token(PascalToken::Semicolon),
             opt(comment),
         )),
         |t| WebRecordField {
-            name: t.0,
+            names: t.0,
             ty: Box::new(t.2),
             comment: t.4,
         },
@@ -265,6 +280,7 @@ impl<'a> RenderInline for RangeBound<'a> {
             RangeBound::Symbolic2(s1, op, s2) => {
                 s1.value.as_ref().len() + op.measure_inline() + s2.measure_inline() + 4
             }
+            RangeBound::UnarySymbolic(op, s) => op.measure_inline() + s.len(),
         }
     }
 
@@ -280,6 +296,10 @@ impl<'a> RenderInline for RangeBound<'a> {
                 dest.space();
                 s2.render_inline(dest);
                 dest.noscope_push(')');
+            }
+            RangeBound::UnarySymbolic(op, s) => {
+                op.render_inline(dest);
+                dest.noscope_push(s.value.as_ref());
             }
         }
     }
@@ -375,8 +395,10 @@ impl<'a> WebRecordType<'a> {
                 .map(|c| c.measure_inline() + 1)
                 .unwrap_or(0);
 
-            if dest.fits(f.name.len() + f.ty.measure_inline() + wc + 3) {
-                dest.noscope_push(&f.name);
+            let wn = prettify::measure_inline_seq(&f.names, 2);
+
+            if dest.fits(wn + f.ty.measure_inline() + wc + 3) {
+                prettify::render_inline_seq(&f.names, ", ", dest);
                 dest.noscope_push(": ");
                 f.ty.render_inline(dest);
                 dest.noscope_push(',');
@@ -385,13 +407,13 @@ impl<'a> WebRecordType<'a> {
                     dest.space();
                     c.render_inline(dest);
                 }
-            } else if dest.fits(f.name.len() + f.ty.measure_inline() + 3) {
+            } else if dest.fits(wn + f.ty.measure_inline() + 3) {
                 if let Some(c) = f.comment.as_ref() {
                     c.render_inline(dest);
                     dest.newline_needed();
                 }
 
-                dest.noscope_push(&f.name);
+                prettify::render_inline_seq(&f.names, ", ", dest);
                 dest.noscope_push(": ");
                 f.ty.render_inline(dest);
                 dest.noscope_push(',');
@@ -401,7 +423,7 @@ impl<'a> WebRecordType<'a> {
                     dest.newline_needed();
                 }
 
-                dest.noscope_push(&f.name);
+                prettify::render_inline_seq(&f.names, ", ", dest);
                 dest.noscope_push(": ");
                 f.ty.render_flex(dest);
                 dest.noscope_push(',');
