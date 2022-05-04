@@ -20,7 +20,7 @@ use super::{
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum WebStatement<'a> {
     /// A reference to a module.
-    ModuleReference(WebModuleReference<'a>),
+    ModuleReference(WebModuleReference<'a>, Option<WebComment<'a>>),
 
     /// A block of statements.
     Block(WebBlock<'a>),
@@ -95,8 +95,9 @@ fn parse_mod_ref_statement<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStat
         tuple((
             parse_module_reference,
             opt(pascal_token(PascalToken::Semicolon)),
+            opt(comment),
         )),
-        |t| WebStatement::ModuleReference(t.0),
+        |t| WebStatement::ModuleReference(t.0, t.2),
     )(input)
 }
 
@@ -736,7 +737,13 @@ impl<'a> RenderInline for WebStatement<'a> {
                         .unwrap_or(0)
             }
 
-            WebStatement::ModuleReference(mr) => mr.measure_inline(),
+            WebStatement::ModuleReference(mr, comment) => {
+                mr.measure_inline()
+                    + comment
+                        .as_ref()
+                        .map(|c| c.measure_inline() + 1)
+                        .unwrap_or(0)
+            }
 
             WebStatement::Assignment(a) => {
                 a.lhs.measure_inline()
@@ -781,7 +788,14 @@ impl<'a> RenderInline for WebStatement<'a> {
                 }
             }
 
-            WebStatement::ModuleReference(mr) => mr.render_inline(dest),
+            WebStatement::ModuleReference(mr, comment) => {
+                mr.render_inline(dest);
+
+                if let Some(c) = comment {
+                    dest.space();
+                    c.render_inline(dest);
+                }
+            }
 
             WebStatement::Assignment(a) => {
                 a.lhs.render_inline(dest);
@@ -817,7 +831,7 @@ impl<'a> WebStatement<'a> {
     fn wants_semicolon(&self) -> bool {
         match self {
             WebStatement::Block(_)
-            | WebStatement::ModuleReference(_)
+            | WebStatement::ModuleReference(..)
             | WebStatement::Label(_)
             | WebStatement::If(_)
             | WebStatement::Case(_)
@@ -881,7 +895,14 @@ impl<'a> WebStatement<'a> {
                 expr.render_flex(dest);
             }
 
-            WebStatement::ModuleReference(mr) => mr.render_inline(dest),
+            WebStatement::ModuleReference(mr, comment) => {
+                if let Some(c) = comment.as_ref() {
+                    c.render_inline(dest);
+                    dest.newline_needed();
+                }
+
+                mr.render_inline(dest);
+            }
 
             WebStatement::PreprocessorDirective(pd) => {
                 pd.prettify(dest);
