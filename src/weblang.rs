@@ -135,6 +135,9 @@ pub enum WebToplevel<'a> {
 
     /// `$expr == $expr`, needed for XeTeX(2022.0):134.
     SpecialInlineDefine(WebExpr<'a>, WebExpr<'a>),
+
+    /// `$expr, $expr, $expr`, needed for XeTeX(2022.0):375.
+    SpecialCommaExprs(Vec<Box<WebExpr<'a>>>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -232,6 +235,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
             tl_specials::parse_special_int_list,
             tl_specials::parse_special_ident_in_int_list,
             tl_specials::parse_special_inline_define,
+            tl_specials::parse_special_comma_exprs,
         )),
         statement::parse_statement,
         standalone::parse_standalone,
@@ -435,6 +439,21 @@ mod tl_specials {
             |t| WebToplevel::SpecialInlineDefine(t.0, t.2),
         )(input)
     }
+
+    // We have to peek at the end of the input here because otherwise we'll
+    // accept (e.g) the LHS of `a := b`. (We can't parse the generic statement
+    // mode first since it would accept the `a` of `a, b, c`.)
+    pub fn parse_special_comma_exprs<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                separated_list1(pascal_token(PascalToken::Comma), map(parse_expr, Box::new)),
+                self::define::peek_end_of_define,
+            )),
+            |t| WebToplevel::SpecialCommaExprs(t.0),
+        )(input)
+    }
 }
 
 impl<'a> WebToplevel<'a> {
@@ -481,6 +500,7 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::SpecialInlineDefine(lhs, rhs) => {
                 tl_prettify::special_inline_define(lhs, rhs, dest)
             }
+            WebToplevel::SpecialCommaExprs(exprs) => tl_prettify::special_comma_exprs(exprs, dest),
         }
     }
 }
@@ -655,5 +675,24 @@ mod tl_prettify {
         lhs.render_inline(dest);
         dest.noscope_push(" => ");
         rhs.render_inline(dest);
+    }
+
+    pub fn special_comma_exprs<'a>(exprs: &Vec<Box<WebExpr<'a>>>, dest: &mut Prettifier) {
+        if dest.fits(prettify::measure_inline_seq(exprs, 2)) {
+            prettify::render_inline_seq(exprs, ", ", dest);
+        } else {
+            let mut first = true;
+
+            for expr in exprs {
+                if first {
+                    first = false;
+                } else {
+                    dest.noscope_push(",");
+                }
+
+                dest.newline_needed();
+                expr.render_flex(dest);
+            }
+        }
     }
 }

@@ -166,7 +166,7 @@ fn parse_inverted_statement<'a>(
 /// Verify that the current input position is an "edge" of define content:
 /// either an empty input, or there's a comment coming up. But we don't
 /// consume the comment.
-fn peek_end_of_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, ()> {
+pub fn peek_end_of_define<'a>(input: ParseInput<'a>) -> ParseResult<'a, ()> {
     match input.input_len() {
         0 => return Ok((input, ())),
         1 => {}
