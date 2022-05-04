@@ -95,8 +95,8 @@ pub enum WebToplevel<'a> {
     /// `[]`, needed for WEAVE:143
     SpecialEmptyBrackets,
 
-    /// `$relational_op $ident`, needed for WEAVE:144
-    SpecialRelationalIdent(PascalToken<'a>, StringSpan<'a>),
+    /// `$relational_op $expr`, needed for WEAVE:144
+    SpecialRelationalExpr(PascalToken<'a>, WebExpr<'a>),
 
     /// `$expr .. $expr`, needed for WEAVE:144, XeTeX(2022.0):83
     SpecialRange(WebExpr<'a>, WebExpr<'a>),
@@ -225,7 +225,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
             tl_specials::parse_special_ifdef_var_decl,
             tl_specials::parse_special_paren_two_ident,
             tl_specials::parse_special_empty_brackets,
-            tl_specials::parse_special_relational_ident,
+            tl_specials::parse_special_relational_expr,
             tl_specials::parse_special_range,
             tl_specials::parse_special_commented_out,
             tl_specials::parse_special_int_list,
@@ -294,11 +294,11 @@ mod tl_specials {
         )(input)
     }
 
-    pub fn parse_special_relational_ident<'a>(
+    pub fn parse_special_relational_expr<'a>(
         input: ParseInput<'a>,
     ) -> ParseResult<'a, WebToplevel<'a>> {
-        map(tuple((relational_ident_op, identifier)), |t| {
-            WebToplevel::SpecialRelationalIdent(t.0, t.1)
+        map(tuple((relational_ident_op, parse_expr)), |t| {
+            WebToplevel::SpecialRelationalExpr(t.0, t.1)
         })(input)
     }
 
@@ -456,8 +456,8 @@ impl<'a> WebToplevel<'a> {
                 tl_prettify::special_paren_two_ident(id1, id2, dest)
             }
             WebToplevel::SpecialEmptyBrackets => tl_prettify::special_empty_brackets(dest),
-            WebToplevel::SpecialRelationalIdent(op, id) => {
-                tl_prettify::special_relational_ident(op, id, dest)
+            WebToplevel::SpecialRelationalExpr(op, expr) => {
+                tl_prettify::special_relational_expr(op, expr, dest)
             }
             WebToplevel::SpecialRange(e1, e2) => tl_prettify::special_range(e1, e2, dest),
             WebToplevel::SpecialIfdefFunction(beg, fd, end) => {
@@ -536,13 +536,13 @@ mod tl_prettify {
         dest.noscope_push("[]");
     }
 
-    pub fn special_relational_ident<'a>(
+    pub fn special_relational_expr<'a>(
         op: &PascalToken<'a>,
-        id: &StringSpan<'a>,
+        expr: &WebExpr<'a>,
         dest: &mut Prettifier,
     ) {
         op.render_inline(dest);
-        dest.noscope_push(id);
+        expr.render_inline(dest);
     }
 
     pub fn special_range<'a>(e1: &WebExpr<'a>, e2: &WebExpr<'a>, dest: &mut Prettifier) {
