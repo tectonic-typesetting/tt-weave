@@ -130,9 +130,12 @@ pub struct WebBlock<'a> {
     post_comment: Option<WebComment<'a>>,
 }
 
+/// The early optional semicolon is for XeTeX(2022.0):571, near the
+/// `wlog("entering extended mode")`.
 fn parse_block<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     let (input, items) = tuple((
         block_opener,
+        opt(pascal_token(PascalToken::Semicolon)),
         opt(comment),
         many0(map(parse_statement_base, |s| Box::new(s))),
         block_closer,
@@ -142,10 +145,10 @@ fn parse_block<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     ))(input)?;
 
     let opener = items.0;
-    let pre_comment = items.1;
-    let stmts = items.2;
-    let closer = items.3;
-    let post_comment = items.6;
+    let pre_comment = items.2;
+    let stmts = items.3;
+    let closer = items.4;
+    let post_comment = items.7;
 
     Ok((
         input,
@@ -255,6 +258,9 @@ fn parse_goto<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebIf<'a> {
+    /// Optional comment before the `if`
+    opening_comment: Option<WebComment<'a>>,
+
     /// The test expression
     test: Box<WebExpr<'a>>,
 
@@ -274,6 +280,7 @@ pub struct WebIf<'a> {
 
 fn parse_if<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     let (input, items) = tuple((
+        opt(comment),
         reserved_word(PascalReservedWord::If),
         parse_expr,
         reserved_word(PascalReservedWord::Then),
@@ -286,15 +293,17 @@ fn parse_if<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
         opt(comment),
     ))(input)?;
 
-    let test = Box::new(items.1);
-    let test_comment = items.3;
-    let then = Box::new(items.4);
-    let else_ = items.5.map(|t| Box::new(t.1));
-    let else_comment = items.6;
+    let opening_comment = items.0;
+    let test = Box::new(items.2);
+    let test_comment = items.4;
+    let then = Box::new(items.5);
+    let else_ = items.6.map(|t| Box::new(t.1));
+    let else_comment = items.7;
 
     Ok((
         input,
         WebStatement::If(WebIf {
+            opening_comment,
             test,
             test_comment,
             then,
@@ -977,16 +986,32 @@ impl<'a> WebStatement<'a> {
             }
 
             WebStatement::If(i) => {
-                if let Some(c) = i.test_comment.as_ref() {
+                let did_opening = if let Some(c) = i.opening_comment.as_ref() {
                     c.render_inline(dest);
                     dest.newline_needed();
-                }
+                    true
+                } else {
+                    if let Some(c) = i.test_comment.as_ref() {
+                        c.render_inline(dest);
+                        dest.newline_needed();
+                    }
+
+                    false
+                };
 
                 dest.keyword("if");
                 dest.noscope_push(" (");
                 i.test.render_flex(dest);
                 dest.noscope_push(") {");
                 dest.indent_block();
+
+                if did_opening {
+                    if let Some(c) = i.test_comment.as_ref() {
+                        c.render_inline(dest);
+                        dest.newline_needed();
+                    }
+                }
+
                 dest.newline_needed();
                 i.then.render_in_block(dest);
                 dest.dedent_block();
