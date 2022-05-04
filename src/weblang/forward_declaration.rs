@@ -1,8 +1,12 @@
 //! A forward declaration of a procedure.
 
-use nom::{branch::alt, combinator::map, sequence::tuple};
+use nom::{
+    branch::alt,
+    combinator::{map, opt},
+    sequence::tuple,
+};
 
-use crate::prettify::Prettifier;
+use crate::prettify::{Prettifier, RenderInline};
 
 use super::{base::*, WebToplevel};
 
@@ -10,6 +14,9 @@ use super::{base::*, WebToplevel};
 pub struct WebForwardDeclaration<'a> {
     /// The name(s) of the function or procedure.
     name: StringSpan<'a>,
+
+    /// Optional associated comment.
+    comment: Option<WebComment<'a>>,
 }
 
 pub fn parse_forward_declaration_base<'a>(
@@ -24,10 +31,17 @@ pub fn parse_forward_declaration_base<'a>(
         pascal_token(PascalToken::Semicolon),
         identifier,
         pascal_token(PascalToken::Semicolon),
+        opt(comment),
     ))(input)?;
 
     if items.3.value == "forward" {
-        Ok((input, WebForwardDeclaration { name: items.1 }))
+        Ok((
+            input,
+            WebForwardDeclaration {
+                name: items.1,
+                comment: items.5,
+            },
+        ))
     } else {
         new_parse_err(input, WebErrorKind::ExpectedIdentifier)
     }
@@ -43,6 +57,11 @@ pub fn parse_forward_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, W
 
 impl<'a> WebForwardDeclaration<'a> {
     pub fn prettify(&self, dest: &mut Prettifier) {
+        if let Some(c) = self.comment.as_ref() {
+            c.render_inline(dest);
+            dest.newline_needed();
+        }
+
         dest.keyword("forward_declaration");
         dest.space();
         dest.noscope_push(&self.name);
