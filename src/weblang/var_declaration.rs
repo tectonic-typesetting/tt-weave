@@ -32,6 +32,8 @@ pub struct WebVarDeclaration<'a> {
     second_comment: Option<WebComment<'a>>,
 }
 
+// We need to use a "peek end" because a variable declaration can be confused
+// with a label + statement.
 pub fn parse_var_declaration_base<'a>(
     input: ParseInput<'a>,
 ) -> ParseResult<'a, WebVarDeclaration<'a>> {
@@ -40,7 +42,7 @@ pub fn parse_var_declaration_base<'a>(
             separated_list0(pascal_token(PascalToken::Comma), identifier),
             pascal_token(PascalToken::Colon),
             parse_type,
-            opt(pascal_token(PascalToken::Semicolon)),
+            peek_toplevel_boundary,
             opt(comment),
             opt(comment),
         )),
@@ -51,6 +53,28 @@ pub fn parse_var_declaration_base<'a>(
             second_comment: tup.5,
         },
     )(input)
+}
+
+fn peek_toplevel_boundary<'a>(input: ParseInput<'a>) -> ParseResult<'a, ()> {
+    match next_token(input) {
+        Err(nom::Err::Error((_next_input, kind))) => {
+            if kind == WebErrorKind::Eof {
+                return Ok((input, ()));
+            }
+        }
+
+        Ok((_next_input, WebToken::Comment(..))) => {
+            return Ok((input, ()));
+        }
+
+        Ok((next_input, WebToken::Pascal(PascalToken::Semicolon))) => {
+            return Ok((next_input, ()));
+        }
+
+        _ => {}
+    }
+
+    new_parse_err(input, WebErrorKind::NotDefineEdge)
 }
 
 pub fn parse_var_declaration<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
