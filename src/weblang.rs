@@ -142,6 +142,9 @@ pub enum WebToplevel<'a> {
     /// `[$expr..$expr]$ident`, needed for XeTeX(2022.0):576, which uses some
     /// macros to create a specialized array table.
     SpecialArrayMacro(WebExpr<'a>, WebExpr<'a>, StringSpan<'a>),
+
+    /// `$ident=.25`, needed for XeTeX(2022.0):582.
+    SpecialFloatEquality(StringSpan<'a>, PascalToken<'a>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -241,6 +244,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
             tl_specials::parse_special_ident_in_int_list,
             tl_specials::parse_special_inline_define,
             tl_specials::parse_special_comma_exprs,
+            tl_specials::parse_special_float_equality,
         )),
         statement::parse_statement,
         standalone::parse_standalone,
@@ -480,6 +484,20 @@ mod tl_specials {
             |t| WebToplevel::SpecialArrayMacro(t.1, t.3, t.5),
         )(input)
     }
+
+    pub fn parse_special_float_equality<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                identifier,
+                pascal_token(PascalToken::Equals),
+                pascal_token(PascalToken::Period),
+                int_literal,
+            )),
+            |t| WebToplevel::SpecialFloatEquality(t.0, t.3),
+        )(input)
+    }
 }
 
 impl<'a> WebToplevel<'a> {
@@ -529,6 +547,9 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::SpecialCommaExprs(exprs) => tl_prettify::special_comma_exprs(exprs, dest),
             WebToplevel::SpecialArrayMacro(e1, e2, id) => {
                 tl_prettify::special_array_macro(e1, e2, id, dest)
+            }
+            WebToplevel::SpecialFloatEquality(id, frac) => {
+                tl_prettify::special_float_equality(id, frac, dest)
             }
         }
     }
@@ -742,5 +763,15 @@ mod tl_prettify {
         dest.keyword("of");
         dest.space();
         dest.noscope_push(id.value.as_ref());
+    }
+
+    pub fn special_float_equality<'a>(
+        id: &StringSpan<'a>,
+        frac: &PascalToken<'a>,
+        dest: &mut Prettifier,
+    ) {
+        dest.noscope_push(id.value.as_ref());
+        dest.noscope_push(" = 0.");
+        frac.render_inline(dest);
     }
 }
