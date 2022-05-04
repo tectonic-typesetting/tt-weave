@@ -622,6 +622,7 @@ fn parse_other_cases_tag<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpa
     }
 }
 
+/// Note that if both comments are present, we'll lose one.
 fn parse_standard_case_item_base<'a>(
     input: ParseInput<'a>,
 ) -> ParseResult<'a, WebStandardCaseItem<'a>> {
@@ -632,14 +633,15 @@ fn parse_standard_case_item_base<'a>(
                 map(parse_case_match_expr, Box::new),
             ),
             pascal_token(PascalToken::Colon),
+            opt(comment),
             parse_statement_base,
             opt(pascal_token(PascalToken::Semicolon)),
             opt(comment),
         )),
         |t| WebStandardCaseItem {
             matches: t.0,
-            stmt: Box::new(t.2),
-            comment: t.4,
+            stmt: Box::new(t.3),
+            comment: t.2.or(t.5),
         },
     )(input)
 }
