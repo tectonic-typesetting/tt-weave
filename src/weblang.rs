@@ -32,7 +32,11 @@ mod webtype;
 
 use crate::prettify::{self, Prettifier, RenderInline, COMMENT_SCOPE};
 
-use self::{base::*, expr::WebExpr, statement::WebStatement};
+use self::{
+    base::*,
+    expr::{parse_expr, WebExpr},
+    statement::WebStatement,
+};
 
 pub use self::base::{WebSyntax, WebToken};
 
@@ -127,6 +131,9 @@ pub enum WebToplevel<'a> {
 
     /// `$ident in [$int0, $int1a .. $int1b, ...]`, needed for XeTeX(2022.0):49.
     SpecialIdentInIntList(StringSpan<'a>, Vec<SpecialIntListTerm<'a>>),
+
+    /// `$expr == $expr`, needed for XeTeX(2022.0):134.
+    SpecialInlineDefine(WebExpr<'a>, WebExpr<'a>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -223,6 +230,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
             tl_specials::parse_special_commented_out,
             tl_specials::parse_special_int_list,
             tl_specials::parse_special_ident_in_int_list,
+            tl_specials::parse_special_inline_define,
         )),
         statement::parse_statement,
         standalone::parse_standalone,
@@ -315,11 +323,7 @@ mod tl_specials {
 
     pub fn parse_special_range<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>> {
         map(
-            tuple((
-                self::expr::parse_expr,
-                pascal_token(PascalToken::DoubleDot),
-                self::expr::parse_expr,
-            )),
+            tuple((parse_expr, pascal_token(PascalToken::DoubleDot), parse_expr)),
             |t| WebToplevel::SpecialRange(t.0, t.2),
         )(input)
     }
@@ -416,6 +420,19 @@ mod tl_specials {
             map(int_literal, |i| SpecialIntListTerm::Single(i)),
         ))(input)
     }
+
+    pub fn parse_special_inline_define<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                parse_expr,
+                pascal_token(PascalToken::Equivalence),
+                parse_expr,
+            )),
+            |t| WebToplevel::SpecialInlineDefine(t.0, t.2),
+        )(input)
+    }
 }
 
 impl<'a> WebToplevel<'a> {
@@ -459,6 +476,9 @@ impl<'a> WebToplevel<'a> {
                 tl_prettify::special_ident_in_int_list(id, vals, dest)
             }
             WebToplevel::SpecialIntList(vals) => tl_prettify::special_int_list(vals, dest),
+            WebToplevel::SpecialInlineDefine(lhs, rhs) => {
+                tl_prettify::special_inline_define(lhs, rhs, dest)
+            }
         }
     }
 }
@@ -616,5 +636,11 @@ mod tl_prettify {
         dest.noscope_push("[");
         prettify::render_inline_seq(vals, ", ", dest);
         dest.noscope_push("]");
+    }
+
+    pub fn special_inline_define<'a>(lhs: &WebExpr<'a>, rhs: &WebExpr<'a>, dest: &mut Prettifier) {
+        lhs.render_inline(dest);
+        dest.noscope_push(" => ");
+        rhs.render_inline(dest);
     }
 }
