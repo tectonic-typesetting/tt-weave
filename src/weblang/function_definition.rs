@@ -6,7 +6,7 @@
 use nom::{
     branch::alt,
     combinator::{map, opt},
-    multi::{many1, separated_list0, separated_list1},
+    multi::{many1, separated_list0},
     sequence::tuple,
 };
 
@@ -39,10 +39,7 @@ pub struct WebFunctionDefinition<'a> {
     opening_comment: Option<WebComment<'a>>,
 
     /// Labels
-    labels: Vec<StringSpan<'a>>,
-
-    /// A comment associated with the definition of the labels.
-    label_comment: Option<WebComment<'a>>,
+    labels: Vec<WebLabel<'a>>,
 
     /// Records in the function's `var` block.
     vars: Vec<WebVarBlockItem<'a>>,
@@ -140,6 +137,45 @@ fn parse_argument_group<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVariabl
     )(input)
 }
 
+/// This machinery is mainly needed for XeTeX(2022.0):371, where each label gets
+/// its own associated comment.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebLabel<'a> {
+    name: StringSpan<'a>,
+    comment: Option<WebComment<'a>>,
+}
+
+/// This is a little tricky since the comments are optional and *after* the
+/// separator between items.
+fn parse_label_section<'a>(input: ParseInput<'a>) -> ParseResult<'a, Vec<WebLabel<'a>>> {
+    let (mut input, _) = reserved_word(PascalReservedWord::Label)(input)?;
+
+    let mut items = Vec::new();
+
+    loop {
+        let item;
+        (input, item) = tuple((
+            identifier,
+            alt((
+                pascal_token(PascalToken::Comma),
+                pascal_token(PascalToken::Semicolon),
+            )),
+            opt(comment),
+        ))(input)?;
+
+        items.push(WebLabel {
+            name: item.0,
+            comment: item.2,
+        });
+
+        if let PascalToken::Semicolon = item.1 {
+            break;
+        }
+    }
+
+    Ok((input, items))
+}
+
 // Tying it all together
 
 pub fn parse_function_definition_base<'a>(
@@ -159,12 +195,7 @@ pub fn parse_function_definition_base<'a>(
         opt(tuple((pascal_token(PascalToken::Colon), parse_type))),
         pascal_token(PascalToken::Semicolon),
         opt(comment),
-        opt(tuple((
-            reserved_word(PascalReservedWord::Label),
-            separated_list1(pascal_token(PascalToken::Comma), identifier),
-            pascal_token(PascalToken::Semicolon),
-            opt(comment),
-        ))),
+        opt(parse_label_section),
         opt(tuple((
             reserved_word(PascalReservedWord::Var),
             many1(parse_var_block_item),
@@ -177,10 +208,7 @@ pub fn parse_function_definition_base<'a>(
     let args = items.2.map(|t| t.1).unwrap_or_default();
     let return_type = items.3.map(|t| t.1);
     let opening_comment = items.5;
-    let (labels, label_comment) = items
-        .6
-        .map(|t| (t.1, t.3))
-        .unwrap_or((Vec::default(), None));
+    let labels = items.6.unwrap_or_default();
     let vars = items.7.map(|t| t.1).unwrap_or_default();
     let stmt = items.8;
     let closing_comment = items.9;
@@ -193,7 +221,6 @@ pub fn parse_function_definition_base<'a>(
             return_type,
             opening_comment,
             labels,
-            label_comment,
             vars,
             stmt,
             closing_comment,
@@ -268,54 +295,82 @@ impl<'a> WebFunctionDefinition<'a> {
         // Labels
 
         if !self.labels.is_empty() {
-            if let Some(c) = self.label_comment.as_ref() {
-                c.render_inline(dest);
-                dest.newline_needed();
-            }
+            // This measurement will include all labels and the associated
+            // comment inline, if there is no more than one comment.
+            let wl = self.labels.measure_inline();
 
-            let mut wl: usize = self.labels.iter().map(|s| s.value.as_ref().len()).sum();
-            wl += 2 * (self.labels.len() - 1);
-
-            if dest.fits(wl + 7) {
-                // "label ;"
+            if dest.fits(wl + 6) {
                 dest.keyword("label");
                 dest.space();
-
-                let mut first = true;
-
-                for l in &self.labels {
-                    if first {
-                        first = false;
-                    } else {
-                        dest.noscope_push(", ");
-                    }
-
-                    dest.noscope_push(l.value.as_ref());
-                }
+                self.labels.render_inline(dest);
             } else {
-                // Multi-line label declarations
-                dest.keyword("label");
-                dest.indent_small();
-                dest.newline_needed();
+                // If that didn't work, but there is only one comment, maybe we can
+                // render that comment on one line and the labels inline?
 
-                let mut first = true;
+                let mut comment = None;
+                let mut n_comments = 0;
+                let mut wl = 0;
 
-                for l in &self.labels {
-                    if first {
-                        first = false;
-                    } else {
-                        dest.noscope_push(",");
-                        dest.newline_indent();
+                for label in &self.labels {
+                    if label.comment.is_some() {
+                        n_comments += 1;
+                        comment = label.comment.as_ref();
                     }
 
-                    dest.noscope_push(l.value.as_ref());
+                    wl += label.name.len() + 2;
                 }
 
-                dest.dedent_small();
-            }
+                // 5 = len("label ;") - len(", ")
+                if n_comments == 1 && dest.fits(wl + 5) {
+                    // Yes, we can do that. This `if let` should never fail,
+                    // because otherwise the simplest case would have worked.
+                    if let Some(c) = comment {
+                        c.render_inline(dest);
+                        dest.newline_needed();
+                    }
 
-            dest.noscope_push(";");
-            dest.newline_needed();
+                    dest.keyword("label");
+                    dest.space();
+
+                    let mut first = true;
+
+                    for label in &self.labels {
+                        if first {
+                            first = false;
+                        } else {
+                            dest.noscope_push(", ");
+                        }
+
+                        dest.noscope_push(&label.name);
+                    }
+
+                    dest.noscope_push(";");
+                } else {
+                    // If that didn't work, we'll need to render in a vertical layout.
+
+                    dest.keyword("label");
+                    dest.indent_block();
+
+                    let i_last = self.labels.len() - 1;
+
+                    for (i, label) in self.labels.iter().enumerate() {
+                        dest.newline_needed();
+
+                        let sep = if i == i_last { ';' } else { ',' };
+
+                        dest.noscope_push(&label.name);
+                        dest.noscope_push(sep);
+
+                        if let Some(c) = label.comment.as_ref() {
+                            dest.space();
+                            c.render_inline(dest);
+                        }
+                    }
+
+                    dest.dedent_block();
+                    dest.newline_needed();
+                }
+            }
         }
 
         // Vars
@@ -480,6 +535,56 @@ impl<'a> WebInPlaceVariables<'a> {
         dest.noscope_push(term);
 
         if let Some(c) = self.comment.as_ref() {
+            dest.space();
+            c.render_inline(dest);
+        }
+    }
+}
+
+impl<'a> RenderInline for Vec<WebLabel<'a>> {
+    fn measure_inline(&self) -> usize {
+        let mut n = 0;
+        let mut n_comments = 0;
+
+        for label in self {
+            if let Some(c) = label.comment.as_ref() {
+                n += c.measure_inline() + 1;
+                n_comments += 1;
+
+                if n_comments > 1 {
+                    return prettify::NOT_INLINE;
+                }
+            }
+
+            n += label.name.len() + 2;
+        }
+
+        // We accounted for an excessive ", " before, but need to add a trailing
+        // semicolon, because we need to render our own comment.
+        n - 1
+    }
+
+    fn render_inline(&self, dest: &mut Prettifier) {
+        let mut comment = None;
+        let mut first = true;
+
+        for label in self {
+            if first {
+                first = false;
+            } else {
+                dest.noscope_push(", ");
+            }
+
+            if label.comment.is_some() {
+                comment = label.comment.as_ref();
+            }
+
+            dest.noscope_push(&label.name);
+        }
+
+        dest.noscope_push(";");
+
+        if let Some(c) = comment {
             dest.space();
             c.render_inline(dest);
         }
