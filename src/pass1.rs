@@ -321,6 +321,31 @@ fn first_pass_handle_definitions<'a>(
                             );
                         }
                     }
+                } else if let PascalToken::ReservedWord(sv) = ptok {
+                    // See also weblang::format::true_identifier workaround.
+                    // XeTeX formats "type" (a reserved word) as "true" (an
+                    // identifier). We clumsily support this by filing it as a
+                    // "Define" reserved word.
+                    state.add_index_entry(sv.value.to_string(), IndexEntryKind::Normal, cur_module);
+                    (span, ptok) = match_pascal_token(span, None)?;
+
+                    if let PascalToken::Equivalence = ptok {
+                        (span, ptok) = match_pascal_token(span, None)?;
+
+                        if let PascalToken::Identifier(s) = ptok {
+                            if s.value == "true" {
+                                state.add_formatted_identifier(
+                                    sv.value.to_string(),
+                                    PascalReservedWord::Define,
+                                );
+                                state.add_index_entry(
+                                    s.value.to_string(),
+                                    IndexEntryKind::Normal,
+                                    cur_module,
+                                );
+                            }
+                        }
+                    }
                 }
 
                 (span, tok) = first_pass_scan_pascal(cur_module, state, span)?;

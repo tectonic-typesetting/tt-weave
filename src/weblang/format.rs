@@ -67,6 +67,9 @@ fn identifier_or_formatted_or_reserved<'a>(
 /// isn't a reserved word. Since our support for "format" is hacky anyway, hack
 /// some more by mapping this to `Define`, which is PascalReservedWord enum
 /// variant that we've added relative to WEB.
+///
+/// (Xe)TeX also formats `mtype` as `type`, which is parsed as an identifier
+/// due to the above. So in that case we have to hack in the other direction.
 fn true_identifier_workaround<'a>(
     input: ParseInput<'a>,
 ) -> ParseResult<'a, SpanValue<'a, PascalReservedWord>> {
@@ -76,6 +79,14 @@ fn true_identifier_workaround<'a>(
         if s.value == "true" {
             let rv = SpanValue {
                 value: PascalReservedWord::Define,
+                start: s.start,
+                end: s.end,
+            };
+
+            return Ok((input, rv));
+        } else if s.value == "type" {
+            let rv = SpanValue {
+                value: PascalReservedWord::Type,
                 start: s.start,
                 end: s.end,
             };

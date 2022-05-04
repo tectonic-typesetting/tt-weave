@@ -266,17 +266,39 @@ fn match_pascal_control_code_token(span: Span) -> ParseResult<PascalToken> {
     Ok((span, ptok))
 }
 
-fn match_reserved_word_token(span: Span) -> ParseResult<PascalToken> {
-    let (span, start) = position(span)?;
-    let (span, text) = recognize(pair(alpha1, many0_count(alt((alphanumeric1, tag("_"))))))(span)?;
-    let (span, end) = position(span)?;
+fn match_reserved_word_token<'a>(
+    overrides: Option<&FormatOverrides>,
+) -> impl Fn(Span<'a>) -> ParseResult<'a, PascalToken<'a>> + '_ {
+    move |span: Span<'a>| {
+        let (span, start) = position(span)?;
+        let (span, text) =
+            recognize(pair(alpha1, many0_count(alt((alphanumeric1, tag("_"))))))(span)?;
+        let (span, end) = position(span)?;
 
-    match PascalReservedWord::try_from(&text[..]) {
-        Ok(value) => Ok((
-            span,
-            PascalToken::ReservedWord(SpanValue { start, end, value }),
-        )),
-        Err(_) => new_parse_error(span, ErrorKind::Tag),
+        match PascalReservedWord::try_from(&text[..]) {
+            Ok(value) => {
+                // In XeTeX, `type` is formatted like `true` to defuse its
+                // special-ness. We hackily support that by (ab)using the
+                // override system with the Define reserved word type, which
+                // isn't used in real WEB.
+                let rw = overrides.and_then(|hm| hm.get(&text[..]));
+
+                if rw == Some(&PascalReservedWord::Define) {
+                    let value: Cow<str> = Cow::Borrowed(&text);
+                    Ok((
+                        span,
+                        PascalToken::Identifier(SpanValue { start, end, value }),
+                    ))
+                } else {
+                    Ok((
+                        span,
+                        PascalToken::ReservedWord(SpanValue { start, end, value }),
+                    ))
+                }
+            }
+
+            Err(_) => new_parse_error(span, ErrorKind::Tag),
+        }
     }
 }
 
@@ -563,7 +585,7 @@ pub fn match_pascal_token<'a>(
     alt((
         match_tex_string_token,
         match_verbatim_pascal_token,
-        match_reserved_word_token,
+        match_reserved_word_token(overrides),
         match_identifier_token(overrides),
         match_punct_token,
         match_pascal_control_code_token,
