@@ -648,7 +648,10 @@ pub struct SpecialFreeCase<'a> {
 fn parse_special_free_case<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     map(
         tuple((
-            separated_list1(pascal_token(PascalToken::Comma), merged_string_literals),
+            separated_list1(
+                pascal_token(PascalToken::Comma),
+                alt((merged_string_literals, identifier_as_token)),
+            ),
             pascal_token(PascalToken::Colon),
             parse_statement_base,
             opt(pascal_token(PascalToken::Semicolon)),
