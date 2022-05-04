@@ -446,13 +446,16 @@ mod tl_specials {
     pub fn parse_special_comma_exprs<'a>(
         input: ParseInput<'a>,
     ) -> ParseResult<'a, WebToplevel<'a>> {
-        map(
-            tuple((
-                separated_list1(pascal_token(PascalToken::Comma), map(parse_expr, Box::new)),
-                self::define::peek_end_of_define,
-            )),
-            |t| WebToplevel::SpecialCommaExprs(t.0),
-        )(input)
+        let (input, t) = tuple((
+            separated_list1(pascal_token(PascalToken::Comma), map(parse_expr, Box::new)),
+            self::define::peek_end_of_define,
+        ))(input)?;
+
+        if t.0.len() < 2 {
+            new_parse_err(input, WebErrorKind::Eof)
+        } else {
+            Ok((input, WebToplevel::SpecialCommaExprs(t.0)))
+        }
     }
 }
 

@@ -679,7 +679,7 @@ fn parse_mod_match_case_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebCa
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SpecialFreeCase<'a> {
     /// The matched cases.
-    matches: Vec<PascalToken<'a>>,
+    matches: Vec<Box<WebExpr<'a>>>,
 
     /// The associated statement.
     stmt: Box<WebStatement<'a>>,
@@ -690,7 +690,7 @@ fn parse_special_free_case<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStat
         tuple((
             separated_list1(
                 pascal_token(PascalToken::Comma),
-                alt((merged_string_literals, identifier_as_token)),
+                map(parse_case_match_expr, Box::new),
             ),
             pascal_token(PascalToken::Colon),
             parse_statement_base,

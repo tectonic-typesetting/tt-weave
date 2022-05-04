@@ -114,7 +114,8 @@ pub fn parse_lhs_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>>
 
 /// Another specialized expr parser for matches in case statements. These are
 /// really all integers, but due to WEB's macros may look like integer literals,
-/// double-quoted string literals, identifiers, or function calls (WEB macros).
+/// double-quoted string literals, identifiers, function calls (WEB macros), or
+/// simple binary math expressions.
 pub fn parse_case_match_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
     let result = alt((
         map(merged_string_literals, |t| WebExpr::Token(t)),
@@ -128,9 +129,9 @@ pub fn parse_case_match_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebEx
         }
     };
 
-    // Check for call() form.
+    // Check for call() form or binary form.
 
-    let result = call_tail(input);
+    let result = alt((call_tail, binary_tail))(input);
 
     if let Ok((new_input, tail)) = result {
         input = new_input;
