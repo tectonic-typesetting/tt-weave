@@ -198,6 +198,7 @@ fn scan_pascal_only<'a>(
                             end: sv.start.clone(),
                             value: Cow::Owned(t.to_owned()),
                         }));
+                        continue;
                     }
                 }
 
@@ -213,7 +214,22 @@ fn scan_pascal_only<'a>(
                                 value: Cow::Owned(t.to_owned()),
                             },
                         ));
+                        continue;
                     }
+                }
+
+                // XeTeX(2022.0):345, there's a TexString in identifier
+                // position.
+                if text == "max" {
+                    ptoks.push(PascalToken::StringLiteral(
+                        StringLiteralKind::SingleQuote,
+                        StringSpan {
+                            start: sv.start.clone(),
+                            end: sv.start.clone(),
+                            value: Cow::Owned(text.to_owned()),
+                        },
+                    ));
+                    continue;
                 }
             }
 
