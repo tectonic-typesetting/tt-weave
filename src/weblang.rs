@@ -117,8 +117,9 @@ pub enum WebToplevel<'a> {
 
     /// `$begin_like $var_declaration $end_like`, needed for WEAVE:244
     SpecialIfdefVarDeclaration(
+        Option<WebComment<'a>>,
         PascalToken<'a>,
-        var_declaration::WebVarDeclaration<'a>,
+        Vec<var_declaration::WebVarDeclaration<'a>>,
         PascalToken<'a>,
         Option<WebComment<'a>>,
     ),
@@ -359,12 +360,13 @@ mod tl_specials {
     ) -> ParseResult<'a, WebToplevel<'a>> {
         map(
             tuple((
+                opt(comment),
                 formatted_identifier_like(PascalReservedWord::Begin),
-                var_declaration::parse_var_declaration_base,
+                many1(var_declaration::parse_var_declaration_base),
                 formatted_identifier_like(PascalReservedWord::End),
                 opt(comment),
             )),
-            |t| WebToplevel::SpecialIfdefVarDeclaration(t.0, t.1, t.2, t.3),
+            |t| WebToplevel::SpecialIfdefVarDeclaration(t.0, t.1, t.2, t.3, t.4),
         )(input)
     }
 
@@ -466,8 +468,8 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::SpecialIfdefForward(beg, fd, end) => {
                 tl_prettify::special_ifdef_forward(beg, fd, end, dest)
             }
-            WebToplevel::SpecialIfdefVarDeclaration(beg, vd, end, comment) => {
-                tl_prettify::special_ifdef_var_declaration(beg, vd, end, comment, dest)
+            WebToplevel::SpecialIfdefVarDeclaration(c1, beg, vd, end, c2) => {
+                tl_prettify::special_ifdef_var_declaration(c1, beg, vd, end, c2, dest)
             }
             WebToplevel::SpecialCommentedOut(stmt) => {
                 tl_prettify::special_commented_out(stmt, dest)
@@ -584,13 +586,19 @@ mod tl_prettify {
     }
 
     pub fn special_ifdef_var_declaration<'a>(
+        c1: &Option<WebComment<'a>>,
         beg: &PascalToken<'a>,
-        vd: &var_declaration::WebVarDeclaration<'a>,
+        vds: &Vec<var_declaration::WebVarDeclaration<'a>>,
         _end: &PascalToken<'a>,
-        comment: &Option<WebComment<'a>>,
+        c2: &Option<WebComment<'a>>,
         dest: &mut Prettifier,
     ) {
-        if let Some(c) = comment.as_ref() {
+        if let Some(c) = c1.as_ref() {
+            c.render_inline(dest);
+            dest.newline_needed();
+        }
+
+        if let Some(c) = c2.as_ref() {
             c.render_inline(dest);
             dest.newline_needed();
         }
@@ -599,7 +607,12 @@ mod tl_prettify {
         dest.noscope_push("!{");
         dest.indent_block();
         dest.newline_indent();
-        vd.prettify(dest);
+
+        for vd in vds {
+            vd.prettify(dest);
+            dest.newline_needed();
+        }
+
         dest.dedent_block();
         dest.newline_indent();
         dest.noscope_push('}');
