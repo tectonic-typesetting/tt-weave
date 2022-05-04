@@ -483,13 +483,28 @@ pub enum WebCaseItem<'a> {
     /// A standard-looking item encased in an ifdef-like construct, needed for
     /// XeTeX(2022.0):88.
     IfdefStandard(PascalToken<'a>, WebStandardCaseItem<'a>, PascalToken<'a>),
+
+    /// A standard-ish item where the match is a WEB module. Needed for
+    /// XeTeX(2022.0):374.
+    ModMatch(WebModMatchCaseItem<'a>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebStandardCaseItem<'a> {
-    /// The- matched cases. These may be identifiers, string literals,
+    /// The matched cases. These may be identifiers, string literals,
     /// integer literals, or WEB macros that look like function calls.
     matches: Vec<Box<WebExpr<'a>>>,
+
+    /// The associated statement.
+    stmt: Box<WebStatement<'a>>,
+
+    /// Optional comment.
+    comment: Option<WebComment<'a>>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebModMatchCaseItem<'a> {
+    match_: WebModuleReference<'a>,
 
     /// The associated statement.
     stmt: Box<WebStatement<'a>>,
@@ -517,6 +532,7 @@ fn parse_case<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
             map(parse_expr, Box::new),
             reserved_word(PascalReservedWord::Of),
             many1(alt((
+                parse_mod_match_case_item,
                 parse_mod_ref_case_item,
                 parse_other_cases_item,
                 parse_standard_case_item,
@@ -634,6 +650,25 @@ pub fn parse_ifdef_case_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebCa
             formatted_identifier_like(PascalReservedWord::End),
         )),
         |t| WebCaseItem::IfdefStandard(t.0, t.1, t.2),
+    )(input)
+}
+
+fn parse_mod_match_case_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebCaseItem<'a>> {
+    map(
+        tuple((
+            parse_module_reference,
+            pascal_token(PascalToken::Colon),
+            parse_statement_base,
+            opt(pascal_token(PascalToken::Semicolon)),
+            opt(comment),
+        )),
+        |t| {
+            WebCaseItem::ModMatch(WebModMatchCaseItem {
+                match_: t.0,
+                stmt: Box::new(t.2),
+                comment: t.4,
+            })
+        },
     )(input)
 }
 
@@ -1122,6 +1157,8 @@ impl<'a> WebCaseItem<'a> {
                 dest.newline_indent();
                 dest.noscope_push('}');
             }
+
+            WebCaseItem::ModMatch(mmc) => mmc.render_flex(dest),
         }
     }
 }
@@ -1152,6 +1189,24 @@ impl<'a> WebStandardCaseItem<'a> {
             }
         }
 
+        dest.noscope_push(':');
+        dest.indent_small();
+        dest.newline_indent();
+        self.stmt.render_in_block(dest);
+        dest.dedent_small();
+    }
+}
+
+impl<'a> WebModMatchCaseItem<'a> {
+    fn render_flex(&self, dest: &mut Prettifier) {
+        if let Some(c) = self.comment.as_ref() {
+            // align with the full indent
+            dest.noscope_push("  ");
+            c.render_inline(dest);
+            dest.newline_indent();
+        }
+
+        self.match_.render_inline(dest);
         dest.noscope_push(':');
         dest.indent_small();
         dest.newline_indent();
