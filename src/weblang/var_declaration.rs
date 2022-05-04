@@ -40,7 +40,7 @@ pub fn parse_var_declaration_base<'a>(
             separated_list0(pascal_token(PascalToken::Comma), identifier),
             pascal_token(PascalToken::Colon),
             parse_type,
-            pascal_token(PascalToken::Semicolon),
+            opt(pascal_token(PascalToken::Semicolon)),
             opt(comment),
             opt(comment),
         )),
