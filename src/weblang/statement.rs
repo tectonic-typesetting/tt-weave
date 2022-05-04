@@ -346,6 +346,9 @@ pub struct WebFor<'a> {
     /// The end expression.
     end: Box<WebExpr<'a>>,
 
+    /// An optional comment for the loop top.
+    top_comment: Option<WebComment<'a>>,
+
     /// The `do` statement, which may be a block.
     do_: Box<WebStatement<'a>>,
 }
@@ -359,6 +362,7 @@ fn parse_for<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
         parse_for_direction_word,
         parse_expr,
         reserved_word(PascalReservedWord::Do),
+        opt(comment),
         parse_statement_base,
     ))(input)?;
 
@@ -366,7 +370,8 @@ fn parse_for<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     let start = Box::new(items.3);
     let is_down = items.4;
     let end = Box::new(items.5);
-    let do_ = Box::new(items.7);
+    let top_comment = items.7;
+    let do_ = Box::new(items.8);
 
     Ok((
         input,
@@ -375,6 +380,7 @@ fn parse_for<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
             start,
             is_down,
             end,
+            top_comment,
             do_,
         }),
     ))
@@ -955,6 +961,11 @@ impl<'a> WebStatement<'a> {
             }
 
             WebStatement::For(f) => {
+                if let Some(c) = f.top_comment.as_ref() {
+                    c.render_inline(dest);
+                    dest.newline_needed();
+                }
+
                 dest.keyword("for");
                 dest.noscope_push(" (");
                 dest.noscope_push(&f.var);
