@@ -83,6 +83,7 @@ fn parse_range<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebType<'a>> {
 fn parse_range_bound<'a>(input: ParseInput<'a>) -> ParseResult<'a, RangeBound<'a>> {
     alt((
         map(int_literal, |t| RangeBound::Literal(t)),
+        map(merged_string_literals, |t| RangeBound::Literal(t)),
         parse_binary_range_bound,
         map(identifier, |i| RangeBound::Symbolic1(i)),
         parse_unary_range_bound,
