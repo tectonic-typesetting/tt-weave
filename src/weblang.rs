@@ -127,11 +127,11 @@ pub enum WebToplevel<'a> {
     /// `$start_meta_comment $statement $end_meta_comment`, needed for XeTeX(2022.0):31.
     SpecialCommentedOut(WebStatement<'a>),
 
-    /// `$[$int0, $int1a .. $int1b, ...]`, needed for XeTeX(2022.0):49.
-    SpecialIntList(Vec<SpecialIntListTerm<'a>>),
+    /// `$[$term0, $term1a .. $term1b, ...]`, needed for XeTeX(2022.0):49.
+    SpecialListLiteral(Vec<SpecialListLiteralTerm<'a>>),
 
-    /// `$ident in [$int0, $int1a .. $int1b, ...]`, needed for XeTeX(2022.0):49.
-    SpecialIdentInIntList(StringSpan<'a>, Vec<SpecialIntListTerm<'a>>),
+    /// `$ident in [$term0, $term1a .. $term1b, ...]`, needed for XeTeX(2022.0):49.
+    SpecialIdentInListLiteral(StringSpan<'a>, Vec<SpecialListLiteralTerm<'a>>),
 
     /// `$expr == $expr`, needed for XeTeX(2022.0):134.
     SpecialInlineDefine(WebExpr<'a>, WebExpr<'a>),
@@ -145,23 +145,23 @@ pub enum WebToplevel<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum SpecialIntListTerm<'a> {
+pub enum SpecialListLiteralTerm<'a> {
     Single(PascalToken<'a>),
     Range(PascalToken<'a>, PascalToken<'a>),
 }
 
-impl<'a> RenderInline for SpecialIntListTerm<'a> {
+impl<'a> RenderInline for SpecialListLiteralTerm<'a> {
     fn measure_inline(&self) -> usize {
         match self {
-            SpecialIntListTerm::Single(t) => t.measure_inline(),
-            SpecialIntListTerm::Range(t1, t2) => t1.measure_inline() + 4 + t2.measure_inline(),
+            SpecialListLiteralTerm::Single(t) => t.measure_inline(),
+            SpecialListLiteralTerm::Range(t1, t2) => t1.measure_inline() + 4 + t2.measure_inline(),
         }
     }
 
     fn render_inline(&self, dest: &mut Prettifier) {
         match self {
-            SpecialIntListTerm::Single(t) => t.render_inline(dest),
-            SpecialIntListTerm::Range(t1, t2) => {
+            SpecialListLiteralTerm::Single(t) => t.render_inline(dest),
+            SpecialListLiteralTerm::Range(t1, t2) => {
                 t1.render_inline(dest);
                 dest.noscope_push(" .. ");
                 t2.render_inline(dest);
@@ -399,7 +399,7 @@ mod tl_specials {
                 separated_list1(pascal_token(PascalToken::Comma), int_list_term),
                 pascal_token(PascalToken::CloseDelimiter(DelimiterKind::SquareBracket)),
             )),
-            |t| WebToplevel::SpecialIntList(t.1),
+            |t| WebToplevel::SpecialListLiteral(t.1),
         )(input)
     }
 
@@ -414,11 +414,11 @@ mod tl_specials {
                 separated_list1(pascal_token(PascalToken::Comma), int_list_term),
                 pascal_token(PascalToken::CloseDelimiter(DelimiterKind::SquareBracket)),
             )),
-            |t| WebToplevel::SpecialIdentInIntList(t.0, t.3),
+            |t| WebToplevel::SpecialIdentInListLiteral(t.0, t.3),
         )(input)
     }
 
-    fn int_list_term<'a>(input: ParseInput<'a>) -> ParseResult<'a, SpecialIntListTerm<'a>> {
+    fn int_list_term<'a>(input: ParseInput<'a>) -> ParseResult<'a, SpecialListLiteralTerm<'a>> {
         alt((
             map(
                 tuple((
@@ -426,9 +426,11 @@ mod tl_specials {
                     pascal_token(PascalToken::DoubleDot),
                     int_literal,
                 )),
-                |t| SpecialIntListTerm::Range(t.0, t.2),
+                |t| SpecialListLiteralTerm::Range(t.0, t.2),
             ),
-            map(int_literal, |i| SpecialIntListTerm::Single(i)),
+            map(alt((int_literal, identifier_as_token)), |i| {
+                SpecialListLiteralTerm::Single(i)
+            }),
         ))(input)
     }
 
@@ -517,10 +519,10 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::SpecialCommentedOut(stmt) => {
                 tl_prettify::special_commented_out(stmt, dest)
             }
-            WebToplevel::SpecialIdentInIntList(id, vals) => {
+            WebToplevel::SpecialIdentInListLiteral(id, vals) => {
                 tl_prettify::special_ident_in_int_list(id, vals, dest)
             }
-            WebToplevel::SpecialIntList(vals) => tl_prettify::special_int_list(vals, dest),
+            WebToplevel::SpecialListLiteral(vals) => tl_prettify::special_int_list(vals, dest),
             WebToplevel::SpecialInlineDefine(lhs, rhs) => {
                 tl_prettify::special_inline_define(lhs, rhs, dest)
             }
@@ -678,7 +680,7 @@ mod tl_prettify {
         });
     }
 
-    pub fn special_int_list<'a>(vals: &Vec<SpecialIntListTerm<'a>>, dest: &mut Prettifier) {
+    pub fn special_int_list<'a>(vals: &Vec<SpecialListLiteralTerm<'a>>, dest: &mut Prettifier) {
         dest.noscope_push("[");
         prettify::render_inline_seq(vals, ", ", dest);
         dest.noscope_push("]");
@@ -686,7 +688,7 @@ mod tl_prettify {
 
     pub fn special_ident_in_int_list<'a>(
         id: &StringSpan<'a>,
-        vals: &Vec<SpecialIntListTerm<'a>>,
+        vals: &Vec<SpecialListLiteralTerm<'a>>,
         dest: &mut Prettifier,
     ) {
         dest.noscope_push(id);
