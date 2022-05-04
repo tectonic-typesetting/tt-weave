@@ -469,6 +469,9 @@ pub struct WebCase<'a> {
 
     /// Items within the case statement.
     items: Vec<WebCaseItem<'a>>,
+
+    /// Optional final comment.
+    comment: Option<WebComment<'a>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -521,11 +524,13 @@ fn parse_case<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
             ))),
             parse_case_terminator,
             opt(pascal_token(PascalToken::Semicolon)),
+            opt(comment),
         )),
         |t| {
             WebStatement::Case(WebCase {
                 var: t.1,
                 items: t.3,
+                comment: t.6,
             })
         },
     )(input)
@@ -1043,6 +1048,11 @@ impl<'a> WebStatement<'a> {
                 for item in &c.items {
                     dest.newline_needed();
                     item.render_flex(dest);
+                }
+
+                if let Some(c) = c.comment.as_ref() {
+                    c.render_inline(dest);
+                    dest.newline_needed();
                 }
 
                 dest.dedent_small();
