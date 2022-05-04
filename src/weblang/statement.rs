@@ -266,6 +266,9 @@ pub struct WebIf<'a> {
     /// The optional `else` statement, which may be a block, or may be another
     /// `if` statement.
     else_: Option<Box<WebStatement<'a>>>,
+
+    /// Optional comment associated with the else block.
+    else_comment: Option<WebComment<'a>>,
 }
 
 fn parse_if<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
@@ -279,12 +282,14 @@ fn parse_if<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
             reserved_word(PascalReservedWord::Else),
             parse_statement_base,
         ))),
+        opt(comment),
     ))(input)?;
 
     let test = Box::new(items.1);
     let test_comment = items.3;
     let then = Box::new(items.4);
     let else_ = items.5.map(|t| Box::new(t.1));
+    let else_comment = items.6;
 
     Ok((
         input,
@@ -293,6 +298,7 @@ fn parse_if<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
             test_comment,
             then,
             else_,
+            else_comment,
         }),
     ))
 }
@@ -977,6 +983,12 @@ impl<'a> WebStatement<'a> {
                         dest.noscope_push(" {");
                         dest.indent_block();
                         dest.newline_needed();
+
+                        if let Some(c) = i.else_comment.as_ref() {
+                            c.render_inline(dest);
+                            dest.newline_needed();
+                        }
+
                         e.render_in_block(dest);
                         dest.dedent_block();
                         dest.newline_needed();
