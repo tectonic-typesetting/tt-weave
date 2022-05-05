@@ -127,6 +127,14 @@ pub enum WebDefineRhs<'a> {
     /// XeTeX(2022.0):113. The token is the trailing int-literal token that is
     /// really the fractional part of a float literal.
     FloatyStatement(WebStatement<'a>, PascalToken<'a>),
+
+    /// Super-specialized for XeTeX(2022.0):589: there are a variety of forms
+    /// like `$expr [ $expr {$verbatim{(} $ident,$ident,$ident}?`.
+    XetexCharInfoHead(SpecialXetexCharInfoHead<'a>),
+
+    /// Super-specialized for XeTeX(2022.0):589: there are a variety of forms
+    /// like `$expr $verbatim{)}? ] . $expr`.
+    XetexCharInfoTail(SpecialXetexCharInfoTail<'a>),
 }
 
 fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
@@ -143,6 +151,8 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
         parse_comma_exprs,
         map(any_reserved_word, |rw| WebDefineRhs::ReservedWord(rw)),
         parse_synthesized_identifier,
+        parse_xetex_char_info_head,
+        parse_xetex_char_info_tail,
     ))(input)
 }
 
@@ -306,6 +316,134 @@ fn parse_end_and_endif<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRh
     )(input)
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SpecialXetexCharInfoHead<'a> {
+    start: Box<WebExpr<'a>>,
+    middle: Box<WebExpr<'a>>,
+    tail_args: Vec<StringSpan<'a>>,
+}
+
+fn parse_xetex_char_info_head<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    map(
+        tuple((
+            parse_expr,
+            pascal_token(PascalToken::OpenDelimiter(DelimiterKind::SquareBracket)),
+            parse_expr,
+            opt(tuple((
+                verbatim_open_paren,
+                separated_list1(pascal_token(PascalToken::Comma), identifier),
+            ))),
+        )),
+        |t| {
+            WebDefineRhs::XetexCharInfoHead(SpecialXetexCharInfoHead {
+                start: Box::new(t.0),
+                middle: Box::new(t.2),
+                tail_args: t.3.map(|tt| tt.1).unwrap_or_default(),
+            })
+        },
+    )(input)
+}
+
+fn verbatim_open_paren<'a>(input: ParseInput<'a>) -> ParseResult<'a, ()> {
+    let (input, tok) = verbatim_pascal(input)?;
+
+    if let PascalToken::VerbatimPascal(ss) = tok {
+        if ss.value.as_ref() == "(" {
+            return Ok((input, ()));
+        }
+    }
+
+    new_parse_err(input, WebErrorKind::Eof)
+}
+
+impl<'a> RenderInline for SpecialXetexCharInfoHead<'a> {
+    fn measure_inline(&self) -> usize {
+        let wp = if self.tail_args.is_empty() {
+            0
+        } else {
+            // measure "item, item, item, ", then lose two chars for the
+            // excessive final element, then gain one for the verbatim
+            // parenthesis.
+            self.tail_args.iter().map(|ss| ss.len() + 2).sum::<usize>() - 1
+        };
+
+        self.start.measure_inline() + 1 + self.middle.measure_inline() + wp
+    }
+
+    fn render_inline(&self, dest: &mut Prettifier) {
+        self.start.render_inline(dest);
+        dest.noscope_push("[");
+        self.middle.render_inline(dest);
+
+        if !self.tail_args.is_empty() {
+            dest.noscope_push('(');
+
+            let mut first = true;
+
+            for arg in &self.tail_args {
+                if first {
+                    first = false;
+                } else {
+                    dest.noscope_push(", ");
+                }
+
+                dest.noscope_push(arg);
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SpecialXetexCharInfoTail<'a> {
+    start: Box<WebExpr<'a>>,
+    has_right_paren: bool,
+    end: Box<WebExpr<'a>>,
+}
+
+fn parse_xetex_char_info_tail<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    let (input, t) = tuple((
+        parse_expr,
+        opt(verbatim_pascal),
+        pascal_token(PascalToken::CloseDelimiter(DelimiterKind::SquareBracket)),
+        pascal_token(PascalToken::Period),
+        parse_expr,
+        peek_end_of_define,
+    ))(input)?;
+
+    if let Some(PascalToken::VerbatimPascal(ss)) = t.1.as_ref() {
+        if ss.value.as_ref() != ")" {
+            return new_parse_err(input, WebErrorKind::Eof);
+        }
+    }
+
+    Ok((
+        input,
+        WebDefineRhs::XetexCharInfoTail(SpecialXetexCharInfoTail {
+            start: Box::new(t.0),
+            has_right_paren: t.1.is_some(),
+            end: Box::new(t.4),
+        }),
+    ))
+}
+
+impl<'a> RenderInline for SpecialXetexCharInfoTail<'a> {
+    fn measure_inline(&self) -> usize {
+        let wp = if self.has_right_paren { 1 } else { 0 };
+        self.start.measure_inline() + wp + 2 + self.end.measure_inline()
+    }
+
+    fn render_inline(&self, dest: &mut Prettifier) {
+        self.start.render_inline(dest);
+
+        if self.has_right_paren {
+            dest.noscope_push(')');
+        }
+
+        dest.noscope_push("].");
+        self.end.render_inline(dest);
+    }
+}
+
 // Prettification
 
 impl<'a> WebDefine<'a> {
@@ -402,6 +540,8 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
             WebDefineRhs::FloatyStatement(stmt, n) => {
                 stmt.measure_inline() + 1 + n.measure_inline()
             }
+            WebDefineRhs::XetexCharInfoHead(cih) => cih.measure_inline(),
+            WebDefineRhs::XetexCharInfoTail(cit) => cit.measure_inline(),
         }
     }
 
@@ -458,6 +598,9 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
                 dest.noscope_push(".");
                 n.render_inline(dest);
             }
+
+            WebDefineRhs::XetexCharInfoHead(cih) => cih.render_inline(dest),
+            WebDefineRhs::XetexCharInfoTail(cit) => cit.render_inline(dest),
         }
     }
 }
@@ -470,7 +613,9 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
         | WebDefineRhs::EmptyDefinition
         | WebDefineRhs::OthercasesDefinition(_)
         | WebDefineRhs::SynthesizedIdentifier(_)
-        | WebDefineRhs::FloatyStatement(..) => {
+        | WebDefineRhs::FloatyStatement(..)
+        | WebDefineRhs::XetexCharInfoHead(_)
+        | WebDefineRhs::XetexCharInfoTail(_) => {
             rhs.render_inline(dest);
         }
 
