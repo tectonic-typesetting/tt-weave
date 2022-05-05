@@ -200,7 +200,19 @@ pub fn parse_function_definition_base<'a>(
             reserved_word(PascalReservedWord::Var),
             many1(parse_var_block_item),
         ))),
-        parse_statement_base,
+        alt((
+            parse_statement_base,
+            // XeTex(2022.0):638 has a procedure definition with an outer
+            // `begin` that is missing its `end`. It contains just one statement
+            // so we can handle it as follows:
+            map(
+                tuple((
+                    reserved_word(PascalReservedWord::Begin),
+                    parse_statement_base,
+                )),
+                |t| t.1,
+            ),
+        )),
         opt(comment),
     ))(input)?;
 

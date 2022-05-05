@@ -65,7 +65,7 @@ pub enum WebStatement<'a> {
 pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     alt((
         parse_mod_ref_statement,
-        parse_block,
+        debug("BB", parse_block),
         map(
             preprocessor_directive::parse_preprocessor_directive_base,
             |d| WebStatement::PreprocessorDirective(d),
