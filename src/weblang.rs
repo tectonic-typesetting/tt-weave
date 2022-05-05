@@ -137,6 +137,13 @@ pub enum WebToplevel<'a> {
     /// `$ident in [$term0, $term1a .. $term1b, ...]`, needed for XeTeX(2022.0):49.
     SpecialIdentInListLiteral(StringSpan<'a>, Vec<SpecialListLiteralTerm<'a>>),
 
+    /// `($ident1, $ident2, ...) := ($term1, $term2, ...)`, needed for
+    /// XeTeX(2022.0):621.
+    SpecialListLiteralAssignment {
+        lhs: Vec<SpecialListLiteralTerm<'a>>,
+        rhs: Vec<SpecialListLiteralTerm<'a>>,
+    },
+
     /// `$expr == $expr`, needed for XeTeX(2022.0):134.
     SpecialInlineDefine(WebExpr<'a>, WebExpr<'a>),
 
@@ -250,6 +257,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
             tl_specials::parse_special_range,
             tl_specials::parse_special_commented_out,
             tl_specials::parse_special_array_macro,
+            tl_specials::parse_special_list_assignment,
             tl_specials::parse_special_int_list,
             tl_specials::parse_special_ident_in_int_list,
             tl_specials::parse_special_inline_define,
@@ -403,6 +411,23 @@ mod tl_specials {
                 pascal_token(PascalToken::CloseDelimiter(DelimiterKind::MetaComment)),
             )),
             |t| WebToplevel::SpecialCommentedOut(t.1),
+        )(input)
+    }
+
+    pub fn parse_special_list_assignment<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                pascal_token(PascalToken::OpenDelimiter(DelimiterKind::Paren)),
+                separated_list1(pascal_token(PascalToken::Comma), int_list_term),
+                pascal_token(PascalToken::CloseDelimiter(DelimiterKind::Paren)),
+                pascal_token(PascalToken::Gets),
+                pascal_token(PascalToken::OpenDelimiter(DelimiterKind::Paren)),
+                separated_list1(pascal_token(PascalToken::Comma), int_list_term),
+                pascal_token(PascalToken::CloseDelimiter(DelimiterKind::Paren)),
+            )),
+            |t| WebToplevel::SpecialListLiteralAssignment { lhs: t.1, rhs: t.5 },
         )(input)
     }
 
@@ -577,6 +602,9 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::SpecialListLiteral { is_square, terms } => {
                 tl_prettify::special_int_list(*is_square, terms, dest)
             }
+            WebToplevel::SpecialListLiteralAssignment { lhs, rhs } => {
+                tl_prettify::special_list_literal_assignment(lhs, rhs, dest)
+            }
             WebToplevel::SpecialInlineDefine(lhs, rhs) => {
                 tl_prettify::special_inline_define(lhs, rhs, dest)
             }
@@ -747,6 +775,18 @@ mod tl_prettify {
         dest.noscope_push(open);
         prettify::render_inline_seq(vals, ", ", dest);
         dest.noscope_push(close);
+    }
+
+    pub fn special_list_literal_assignment<'a>(
+        lhs: &Vec<SpecialListLiteralTerm<'a>>,
+        rhs: &Vec<SpecialListLiteralTerm<'a>>,
+        dest: &mut Prettifier,
+    ) {
+        dest.noscope_push('(');
+        prettify::render_inline_seq(lhs, ", ", dest);
+        dest.noscope_push(") = (");
+        prettify::render_inline_seq(rhs, ", ", dest);
+        dest.noscope_push(')');
     }
 
     pub fn special_ident_in_int_list<'a>(
