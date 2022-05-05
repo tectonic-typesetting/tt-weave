@@ -141,7 +141,7 @@ fn parse_argument_group<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVariabl
 /// its own associated comment.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebLabel<'a> {
-    name: StringSpan<'a>,
+    name: PascalToken<'a>,
     comment: Option<WebComment<'a>>,
 }
 
@@ -155,7 +155,7 @@ fn parse_label_section<'a>(input: ParseInput<'a>) -> ParseResult<'a, Vec<WebLabe
     loop {
         let item;
         (input, item) = tuple((
-            identifier,
+            alt((identifier_as_token, int_literal)),
             alt((
                 pascal_token(PascalToken::Comma),
                 pascal_token(PascalToken::Semicolon),
@@ -329,7 +329,7 @@ impl<'a> WebFunctionDefinition<'a> {
                         comment = label.comment.as_ref();
                     }
 
-                    wl += label.name.len() + 2;
+                    wl += label.name.measure_inline() + 2;
                 }
 
                 // 5 = len("label ;") - len(", ")
@@ -353,7 +353,7 @@ impl<'a> WebFunctionDefinition<'a> {
                             dest.noscope_push(", ");
                         }
 
-                        dest.noscope_push(&label.name);
+                        label.name.render_inline(dest);
                     }
 
                     dest.noscope_push(";");
@@ -568,7 +568,7 @@ impl<'a> RenderInline for Vec<WebLabel<'a>> {
                 }
             }
 
-            n += label.name.len() + 2;
+            n += label.name.measure_inline() + 2;
         }
 
         // We accounted for an excessive ", " before, but need to add a trailing
@@ -591,7 +591,7 @@ impl<'a> RenderInline for Vec<WebLabel<'a>> {
                 comment = label.comment.as_ref();
             }
 
-            dest.noscope_push(&label.name);
+            label.name.render_inline(dest);
         }
 
         dest.noscope_push(";");
