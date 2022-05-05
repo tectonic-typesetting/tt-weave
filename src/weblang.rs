@@ -163,6 +163,11 @@ pub enum WebToplevel<'a> {
         coeff: PascalToken<'a>,
         base: PascalToken<'a>,
     },
+
+    /// `end ; <end-of-tokens>`, neede for XeTeX(2022.0):639.
+    /// Module 638 has an imbalanced `begin` and ends by including
+    /// this module, which has an imbalanced end.
+    SpecialImbalancedEnd,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -271,6 +276,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
             tl_specials::parse_special_comma_exprs,
             tl_specials::parse_special_float_equality,
             tl_specials::parse_special_coeff_array,
+            tl_specials::parse_special_imbalanced_end,
         )),
         statement::parse_statement,
         standalone::parse_standalone,
@@ -584,6 +590,19 @@ mod tl_specials {
             },
         )(input)
     }
+
+    pub fn parse_special_imbalanced_end<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                reserved_word(PascalReservedWord::End),
+                pascal_token(PascalToken::Semicolon),
+                define::peek_end_of_define,
+            )),
+            |_| WebToplevel::SpecialImbalancedEnd,
+        )(input)
+    }
 }
 
 impl<'a> WebToplevel<'a> {
@@ -645,6 +664,7 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::SpecialCoeffArray { name, coeff, base } => {
                 tl_prettify::special_coeff_array(name, coeff, base, dest)
             }
+            WebToplevel::SpecialImbalancedEnd => {}
         }
     }
 }
