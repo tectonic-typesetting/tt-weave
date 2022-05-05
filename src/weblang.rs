@@ -156,6 +156,13 @@ pub enum WebToplevel<'a> {
 
     /// `$ident=.25`, needed for XeTeX(2022.0):582.
     SpecialFloatEquality(StringSpan<'a>, PascalToken<'a>),
+
+    /// `$ident [ $int $ident ]`, needed for XeTeX(2022.0):621.
+    SpecialCoeffArray {
+        name: StringSpan<'a>,
+        coeff: PascalToken<'a>,
+        base: PascalToken<'a>,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -263,6 +270,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
             tl_specials::parse_special_inline_define,
             tl_specials::parse_special_comma_exprs,
             tl_specials::parse_special_float_equality,
+            tl_specials::parse_special_coeff_array,
         )),
         statement::parse_statement,
         standalone::parse_standalone,
@@ -557,6 +565,25 @@ mod tl_specials {
             |t| WebToplevel::SpecialFloatEquality(t.0, t.3),
         )(input)
     }
+
+    pub fn parse_special_coeff_array<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                identifier,
+                pascal_token(PascalToken::OpenDelimiter(DelimiterKind::SquareBracket)),
+                int_literal,
+                identifier_as_token,
+                pascal_token(PascalToken::CloseDelimiter(DelimiterKind::SquareBracket)),
+            )),
+            |t| WebToplevel::SpecialCoeffArray {
+                name: t.0,
+                coeff: t.2,
+                base: t.3,
+            },
+        )(input)
+    }
 }
 
 impl<'a> WebToplevel<'a> {
@@ -614,6 +641,9 @@ impl<'a> WebToplevel<'a> {
             }
             WebToplevel::SpecialFloatEquality(id, frac) => {
                 tl_prettify::special_float_equality(id, frac, dest)
+            }
+            WebToplevel::SpecialCoeffArray { name, coeff, base } => {
+                tl_prettify::special_coeff_array(name, coeff, base, dest)
             }
         }
     }
@@ -855,5 +885,18 @@ mod tl_prettify {
         dest.noscope_push(id.value.as_ref());
         dest.noscope_push(" = 0.");
         frac.render_inline(dest);
+    }
+
+    pub fn special_coeff_array<'a>(
+        name: &StringSpan<'a>,
+        coeff: &PascalToken<'a>,
+        base: &PascalToken<'a>,
+        dest: &mut Prettifier,
+    ) {
+        dest.noscope_push(name.value.as_ref());
+        dest.noscope_push('[');
+        coeff.render_inline(dest);
+        base.render_inline(dest);
+        dest.noscope_push(']');
     }
 }
