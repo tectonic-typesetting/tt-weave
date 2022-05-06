@@ -152,6 +152,10 @@ fn parse_token_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
             | PascalToken::FormattedIdentifier(_, PascalReservedWord::Nil)
             | PascalToken::Hash(..)
             | PascalToken::IntLiteral(..)
+            | PascalToken::ReservedWord(SpanValue {
+                value: PascalReservedWord::Nil,
+                ..
+            })
             | PascalToken::StringPoolChecksum => return Ok((input, WebExpr::Token(pt))),
 
             _ => {}

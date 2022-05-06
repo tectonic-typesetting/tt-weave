@@ -218,20 +218,36 @@ pub fn identifier<'a>(input: ParseInput<'a>) -> ParseResult<'a, StringSpan<'a>> 
     let (input, wt) = next_token(input)?;
 
     if let WebToken::Pascal(PascalToken::Identifier(s)) = wt {
-        Ok((input, s))
-    } else if let WebToken::Pascal(PascalToken::Hash(p)) = wt {
+        return Ok((input, s));
+    }
+
+    if let WebToken::Pascal(PascalToken::Hash(p)) = wt {
         // For our purposes, hash marks act like identifiers
-        Ok((
+        return Ok((
             input,
             StringSpan {
                 start: p.clone(),
                 end: p.clone(),
                 value: "#".into(),
             },
-        ))
-    } else {
-        return new_parse_err(input, WebErrorKind::ExpectedIdentifier);
+        ));
     }
+
+    if let WebToken::Pascal(PascalToken::ReservedWord(rw)) = wt {
+        // `nil` does as well
+        if rw.value == PascalReservedWord::Nil {
+            return Ok((
+                input,
+                StringSpan {
+                    start: rw.start.clone(),
+                    end: rw.end.clone(),
+                    value: "nil".into(),
+                },
+            ));
+        }
+    }
+
+    new_parse_err(input, WebErrorKind::ExpectedIdentifier)
 }
 
 /// Expect a Pascal identifier, returning it as a Pascal token.
@@ -241,6 +257,12 @@ pub fn identifier_as_token<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalT
     match wt {
         WebToken::Pascal(tok @ PascalToken::Identifier(_)) => Ok((input, tok)),
         WebToken::Pascal(tok @ PascalToken::Hash(_)) => Ok((input, tok)),
+        WebToken::Pascal(
+            tok @ PascalToken::ReservedWord(SpanValue {
+                value: PascalReservedWord::Nil,
+                ..
+            }),
+        ) => Ok((input, tok)),
         _ => new_parse_err(input, WebErrorKind::ExpectedIdentifier),
     }
 }
