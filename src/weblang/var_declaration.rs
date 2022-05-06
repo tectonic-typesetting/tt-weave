@@ -68,6 +68,7 @@ fn peek_toplevel_boundary<'a>(input: ParseInput<'a>) -> ParseResult<'a, ()> {
         }
 
         Ok((next_input, WebToken::Pascal(PascalToken::Semicolon))) => {
+            // Here we intentionally eat the semicolon
             return Ok((next_input, ()));
         }
 

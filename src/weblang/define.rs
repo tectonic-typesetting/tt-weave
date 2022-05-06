@@ -12,12 +12,13 @@ use nom::{
     InputLength,
 };
 
-use crate::prettify::{self, Prettifier, RenderInline};
+use crate::prettify::{self, Prettifier, RenderInline, COMMENT_SCOPE};
 
 use super::{
     base::*,
     expr::{parse_expr, WebExpr},
     statement::{self, WebStatement},
+    webtype::{parse_type, WebType},
     WebToplevel,
 };
 
@@ -135,6 +136,14 @@ pub enum WebDefineRhs<'a> {
     /// Super-specialized for XeTeX(2022.0):589: there are a variety of forms
     /// like `$expr $verbatim{)}? ] . $expr`.
     XetexCharInfoTail(SpecialXetexCharInfoTail<'a>),
+
+    /// Super-specialized for XeTeX(2022.0):742: the head portion of a math
+    /// font accessor macro.
+    XetexMathAccessorHead(SpecialXetexMathAccessorHead<'a>),
+
+    /// Super-specialized for XeTeX(2022.0):742: the "body" portion of a math
+    /// font accessor macro.
+    XetexMathAccessorBody(SpecialXetexMathAccessorBody<'a>),
 }
 
 fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
@@ -149,10 +158,12 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
         parse_end_and_endif,
         parse_begin_then_statements,
         parse_comma_exprs,
-        map(any_reserved_word, |rw| WebDefineRhs::ReservedWord(rw)),
         parse_synthesized_identifier,
         parse_xetex_char_info_head,
         parse_xetex_char_info_tail,
+        parse_xetex_math_accessor_head,
+        parse_xetex_math_accessor_body,
+        map(any_reserved_word, |rw| WebDefineRhs::ReservedWord(rw)),
     ))(input)
 }
 
@@ -444,6 +455,125 @@ impl<'a> RenderInline for SpecialXetexCharInfoTail<'a> {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SpecialXetexMathAccessorHead<'a> {
+    arg: Option<(StringSpan<'a>, StringSpan<'a>)>,
+    ret_type: WebType<'a>,
+    body: StringSpan<'a>,
+}
+
+fn parse_xetex_math_accessor_head<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    map(
+        tuple((
+            reserved_word(PascalReservedWord::Function),
+            hash_token,
+            opt(map(
+                tuple((
+                    pascal_token(PascalToken::OpenDelimiter(DelimiterKind::Paren)),
+                    identifier,
+                    pascal_token(PascalToken::Colon),
+                    identifier,
+                    pascal_token(PascalToken::CloseDelimiter(DelimiterKind::Paren)),
+                )),
+                |t| (t.1, t.3),
+            )),
+            pascal_token(PascalToken::Colon),
+            parse_type,
+            pascal_token(PascalToken::Semicolon),
+            identifier,
+            peek_end_of_define,
+        )),
+        |t| {
+            WebDefineRhs::XetexMathAccessorHead(SpecialXetexMathAccessorHead {
+                arg: t.2,
+                ret_type: t.4,
+                body: t.6,
+            })
+        },
+    )(input)
+}
+
+fn hash_token<'a>(input: ParseInput<'a>) -> ParseResult<'a, ()> {
+    let (input, tok) = next_token(input)?;
+
+    if let WebToken::Pascal(PascalToken::Hash(_)) = tok {
+        Ok((input, ()))
+    } else {
+        new_parse_err(input, WebErrorKind::Eof)
+    }
+}
+
+impl<'a> SpecialXetexMathAccessorHead<'a> {
+    fn prettify(&self, dest: &mut Prettifier) {
+        dest.keyword("function");
+        dest.space();
+        dest.noscope_push("#(");
+
+        if let Some((name, ty)) = self.arg.as_ref() {
+            dest.noscope_push(name);
+            dest.noscope_push(": ");
+            dest.noscope_push(ty);
+        }
+
+        dest.noscope_push("): ");
+        self.ret_type.render_inline(dest);
+        dest.noscope_push(" {");
+        dest.indent_block();
+        dest.newline_needed();
+        dest.noscope_push(&self.body);
+        dest.dedent_block();
+        dest.newline_needed();
+        dest.scope_push(*COMMENT_SCOPE, "/* ... continued later ... */");
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SpecialXetexMathAccessorBody<'a> {
+    args: Vec<super::var_declaration::WebVarDeclaration<'a>>,
+    body: Vec<WebStatement<'a>>,
+}
+
+fn parse_xetex_math_accessor_body<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    map(
+        tuple((
+            reserved_word(PascalReservedWord::Var),
+            many1(debug(
+                "MAB",
+                super::var_declaration::parse_var_declaration_base,
+            )),
+            reserved_word(PascalReservedWord::Begin),
+            many1(statement::parse_statement_base),
+            peek_end_of_define,
+        )),
+        |t| {
+            WebDefineRhs::XetexMathAccessorBody(SpecialXetexMathAccessorBody {
+                args: t.1,
+                body: t.3,
+            })
+        },
+    )(input)
+}
+
+impl<'a> SpecialXetexMathAccessorBody<'a> {
+    fn prettify(&self, dest: &mut Prettifier) {
+        dest.keyword("var");
+        dest.indent_small();
+
+        for vd in &self.args {
+            dest.newline_needed();
+            vd.prettify(dest);
+        }
+
+        dest.newline_indent();
+
+        for stmt in &self.body {
+            dest.newline_needed();
+            stmt.render_flex(dest);
+            stmt.maybe_semicolon(dest);
+        }
+    }
+}
+
 // Prettification
 
 impl<'a> WebDefine<'a> {
@@ -513,6 +643,13 @@ impl<'a> WebDefine<'a> {
 impl<'a> RenderInline for WebDefineRhs<'a> {
     fn measure_inline(&self) -> usize {
         match self {
+            WebDefineRhs::StatementsThenEnd(_)
+            | WebDefineRhs::BeginThenStatements(_)
+            | WebDefineRhs::IfdefAndIf(..)
+            | WebDefineRhs::EndAndEndif(_)
+            | WebDefineRhs::XetexMathAccessorHead(_)
+            | WebDefineRhs::XetexMathAccessorBody(_) => prettify::NOT_INLINE,
+
             WebDefineRhs::ReservedWord(s) => s.value.to_string().len(),
 
             WebDefineRhs::IfdefLike(_) => 13,
@@ -530,13 +667,9 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
             }
 
             WebDefineRhs::CommaExprs(exprs) => prettify::measure_inline_seq(exprs, 2),
-            WebDefineRhs::StatementsThenEnd(_stmts) => prettify::NOT_INLINE,
-            WebDefineRhs::BeginThenStatements(_stmts) => prettify::NOT_INLINE,
             WebDefineRhs::SynthesizedIdentifier(pieces) => {
                 pieces.iter().map(|p| p.len()).sum::<usize>() + 20
             }
-            WebDefineRhs::IfdefAndIf(..) => prettify::NOT_INLINE,
-            WebDefineRhs::EndAndEndif(_) => prettify::NOT_INLINE,
             WebDefineRhs::FloatyStatement(stmt, n) => {
                 stmt.measure_inline() + 1 + n.measure_inline()
             }
@@ -547,6 +680,13 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
 
     fn render_inline(&self, dest: &mut Prettifier) {
         match self {
+            WebDefineRhs::StatementsThenEnd(_)
+            | WebDefineRhs::BeginThenStatements(_)
+            | WebDefineRhs::IfdefAndIf(..)
+            | WebDefineRhs::EndAndEndif(_)
+            | WebDefineRhs::XetexMathAccessorHead(_)
+            | WebDefineRhs::XetexMathAccessorBody(_) => dest.noscope_push("XXXrhs"),
+
             WebDefineRhs::ReservedWord(s) => dest.noscope_push(s),
 
             WebDefineRhs::IfdefLike(is_opener) => dest.noscope_push(if *is_opener {
@@ -578,10 +718,6 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
 
             WebDefineRhs::CommaExprs(exprs) => prettify::render_inline_seq(exprs, ", ", dest),
 
-            // Should not be rendered inline:
-            WebDefineRhs::StatementsThenEnd(_stmts) => dest.noscope_push("XXXstmts-end"),
-            WebDefineRhs::BeginThenStatements(_stmts) => dest.noscope_push("XXXbegin-stmts"),
-
             WebDefineRhs::SynthesizedIdentifier(pieces) => {
                 dest.noscope_push("synthesized_ident!(");
                 for p in pieces {
@@ -589,9 +725,6 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
                 }
                 dest.noscope_push(")")
             }
-
-            WebDefineRhs::IfdefAndIf(..) => dest.noscope_push("XXXifdef-and-if"),
-            WebDefineRhs::EndAndEndif(..) => dest.noscope_push("XXXend-and-endif"),
 
             WebDefineRhs::FloatyStatement(stmt, n) => {
                 stmt.render_inline(dest);
@@ -699,5 +832,8 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
             dest.newline_indent();
             end.render_inline(dest);
         }
+
+        WebDefineRhs::XetexMathAccessorHead(mah) => mah.prettify(dest),
+        WebDefineRhs::XetexMathAccessorBody(mab) => mab.prettify(dest),
     }
 }
