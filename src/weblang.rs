@@ -164,10 +164,13 @@ pub enum WebToplevel<'a> {
         base: PascalToken<'a>,
     },
 
-    /// `end ; <end-of-tokens>`, neede for XeTeX(2022.0):639.
+    /// `end ; <end-of-tokens>`, needed for XeTeX(2022.0):639.
     /// Module 638 has an imbalanced `begin` and ends by including
     /// this module, which has an imbalanced end.
     SpecialImbalancedEnd,
+
+    /// `$expr .`, needed for XeTeX(2022.0):684.
+    SpecialExprPeriod(WebExpr<'a>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -277,6 +280,7 @@ fn parse_toplevel<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebToplevel<'a>>
             tl_specials::parse_special_float_equality,
             tl_specials::parse_special_coeff_array,
             tl_specials::parse_special_imbalanced_end,
+            tl_specials::parse_special_expr_period,
         )),
         statement::parse_statement,
         standalone::parse_standalone,
@@ -603,6 +607,19 @@ mod tl_specials {
             |_| WebToplevel::SpecialImbalancedEnd,
         )(input)
     }
+
+    pub fn parse_special_expr_period<'a>(
+        input: ParseInput<'a>,
+    ) -> ParseResult<'a, WebToplevel<'a>> {
+        map(
+            tuple((
+                parse_expr,
+                pascal_token(PascalToken::Period),
+                define::peek_end_of_define,
+            )),
+            |t| WebToplevel::SpecialExprPeriod(t.0),
+        )(input)
+    }
 }
 
 impl<'a> WebToplevel<'a> {
@@ -665,6 +682,7 @@ impl<'a> WebToplevel<'a> {
                 tl_prettify::special_coeff_array(name, coeff, base, dest)
             }
             WebToplevel::SpecialImbalancedEnd => {}
+            WebToplevel::SpecialExprPeriod(expr) => tl_prettify::special_expr_period(expr, dest),
         }
     }
 }
@@ -918,5 +936,10 @@ mod tl_prettify {
         coeff.render_inline(dest);
         base.render_inline(dest);
         dest.noscope_push(']');
+    }
+
+    pub fn special_expr_period<'a>(expr: &WebExpr<'a>, dest: &mut Prettifier) {
+        expr.render_inline(dest);
+        dest.noscope_push('.');
     }
 }
