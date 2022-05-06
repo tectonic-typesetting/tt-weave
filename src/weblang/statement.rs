@@ -50,7 +50,7 @@ pub enum WebStatement<'a> {
     Loop(WebLoop<'a>),
 
     /// A label.
-    Label(StringSpan<'a>),
+    Label(PascalToken<'a>),
 
     /// A case statement.
     Case(WebCase<'a>),
@@ -236,7 +236,7 @@ fn parse_assignment<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebGoto<'a> {
     /// The label.
-    label: StringSpan<'a>,
+    label: PascalToken<'a>,
 
     /// Optional comment.
     comment: Option<WebComment<'a>>,
@@ -245,7 +245,7 @@ pub struct WebGoto<'a> {
 fn parse_goto<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     let (input, items) = tuple((
         reserved_word(PascalReservedWord::Goto),
-        identifier,
+        alt((identifier_as_token, int_literal)),
         opt(pascal_token(PascalToken::Semicolon)),
         opt(comment),
     ))(input)?;
@@ -473,9 +473,13 @@ pub fn loop_like_identifier<'a>(input: ParseInput<'a>) -> ParseResult<'a, String
 }
 
 fn parse_label<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
-    map(tuple((identifier, pascal_token(PascalToken::Colon))), |t| {
-        WebStatement::Label(t.0)
-    })(input)
+    map(
+        tuple((
+            alt((identifier_as_token, int_literal)),
+            pascal_token(PascalToken::Colon),
+        )),
+        |t| WebStatement::Label(t.0),
+    )(input)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -765,14 +769,14 @@ impl<'a> RenderInline for WebStatement<'a> {
             }
 
             WebStatement::Goto(g) => {
-                g.label.len() + 5 + // "goto "
+                g.label.measure_inline() + 5 + // "goto "
                      g.comment
                         .as_ref()
                         .map(|c| c.measure_inline() + 1)
                         .unwrap_or(0)
             }
 
-            WebStatement::Label(l) => l.len() + 1,
+            WebStatement::Label(l) => l.measure_inline() + 1,
         }
     }
 
