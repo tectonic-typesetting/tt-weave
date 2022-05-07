@@ -123,6 +123,9 @@ pub enum WebDefineRhs<'a> {
     /// The closing dual for IfdefAndIf — an `end` and a closing ifdef-like.
     EndAndEndif(PascalToken<'a>),
 
+    /// An `if` and `begin` with statements, but no `end`
+    IncompleteIf(Box<WebExpr<'a>>, Vec<WebStatement<'a>>),
+
     /// A statement ending with `.0` because it involves floating point
     /// literals. Big old hack for a couple of forms appearing in
     /// XeTeX(2022.0):113. The token is the trailing int-literal token that is
@@ -156,6 +159,7 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
         parse_statement_series,
         parse_ifdef_and_if,
         parse_end_and_endif,
+        parse_incomplete_if,
         parse_begin_then_statements,
         parse_comma_exprs,
         parse_synthesized_identifier,
@@ -324,6 +328,19 @@ fn parse_end_and_endif<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRh
             formatted_identifier_like(PascalReservedWord::End),
         )),
         |t| WebDefineRhs::EndAndEndif(t.1),
+    )(input)
+}
+
+fn parse_incomplete_if<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    map(
+        tuple((
+            reserved_word(PascalReservedWord::If),
+            parse_expr,
+            reserved_word(PascalReservedWord::Then),
+            reserved_word(PascalReservedWord::Begin),
+            many1(statement::parse_statement_base),
+        )),
+        |t| WebDefineRhs::IncompleteIf(Box::new(t.1), t.4),
     )(input)
 }
 
@@ -648,7 +665,8 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
             | WebDefineRhs::IfdefAndIf(..)
             | WebDefineRhs::EndAndEndif(_)
             | WebDefineRhs::XetexMathAccessorHead(_)
-            | WebDefineRhs::XetexMathAccessorBody(_) => prettify::NOT_INLINE,
+            | WebDefineRhs::XetexMathAccessorBody(_)
+            | WebDefineRhs::IncompleteIf(..) => prettify::NOT_INLINE,
 
             WebDefineRhs::ReservedWord(s) => s.value.to_string().len(),
 
@@ -685,7 +703,8 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
             | WebDefineRhs::IfdefAndIf(..)
             | WebDefineRhs::EndAndEndif(_)
             | WebDefineRhs::XetexMathAccessorHead(_)
-            | WebDefineRhs::XetexMathAccessorBody(_) => dest.noscope_push("XXXrhs"),
+            | WebDefineRhs::XetexMathAccessorBody(_)
+            | WebDefineRhs::IncompleteIf(..) => dest.noscope_push("XXXrhs"),
 
             WebDefineRhs::ReservedWord(s) => dest.noscope_push(s),
 
@@ -795,6 +814,29 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
 
         WebDefineRhs::BeginThenStatements(stmts) => {
             dest.noscope_push("{");
+            dest.indent_block();
+
+            let i_last = stmts.len() - 1;
+
+            for (i, s) in stmts.iter().enumerate() {
+                dest.newline_indent();
+                s.render_flex(dest);
+
+                if i != i_last {
+                    s.maybe_semicolon(dest);
+                }
+            }
+
+            dest.dedent_block();
+            dest.newline_indent();
+            dest.noscope_push("/* ... closed later ... */");
+        }
+
+        WebDefineRhs::IncompleteIf(expr, stmts) => {
+            dest.keyword("if");
+            dest.noscope_push(" (");
+            expr.render_flex(dest);
+            dest.noscope_push(") {");
             dest.indent_block();
 
             let i_last = stmts.len() - 1;
