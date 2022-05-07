@@ -35,42 +35,58 @@ impl<'a> RenderInline for WebComment<'a> {
         n
     }
 
+    // Here we cheat and word-wrap even though we should stay all one one line,
+    // since we use this function for convenience even when a comment doesn't
+    // need to be inline, and we won't need to wrap in contexts where we need to
+    // stay inline.
     fn render_inline(&self, dest: &mut Prettifier) {
-        dest.scope_push(*COMMENT_SCOPE, "//");
+        dest.with_scope(*COMMENT_SCOPE, |d| {
+            d.noscope_push("//");
 
-        for piece in &self.0[..] {
-            dest.scope_push(*COMMENT_SCOPE, ' ');
+            for piece in &self.0[..] {
+                d.noscope_push(' ');
 
-            match piece {
-                TypesetComment::Tex(s) => {
-                    // TODO be mindful of TeX escaping here ... maybe
-                    let mut first = true;
+                match piece {
+                    TypesetComment::Tex(s) => {
+                        // TODO be mindful of TeX escaping here ... maybe
+                        let mut first = true;
 
-                    for word in s.split_whitespace() {
-                        if first {
-                            first = false;
-                        } else {
-                            dest.space();
+                        for word in s.split_whitespace() {
+                            if first {
+                                first = false;
+                            } else {
+                                d.space();
+                            }
+
+                            if !d.fits(word.len()) {
+                                d.newline_needed();
+                                d.noscope_push("// ");
+                            }
+
+                            d.noscope_push(word);
                         }
-
-                        dest.scope_push(*COMMENT_SCOPE, word);
                     }
-                }
 
-                TypesetComment::Pascal(toks) => {
-                    let mut first = true;
+                    TypesetComment::Pascal(toks) => {
+                        let mut first = true;
 
-                    for tok in &toks[..] {
-                        if first {
-                            first = false;
-                        } else {
-                            dest.scope_push(*COMMENT_SCOPE, ' ');
+                        for tok in &toks[..] {
+                            if first {
+                                first = false;
+                            } else {
+                                d.noscope_push(' ');
+                            }
+
+                            if !d.fits(tok.measure_inline()) {
+                                d.newline_needed();
+                                d.noscope_push("// ");
+                            }
+
+                            d.noscope_push(tok);
                         }
-
-                        dest.scope_push(*COMMENT_SCOPE, tok);
                     }
                 }
             }
-        }
+        });
     }
 }
