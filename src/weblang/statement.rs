@@ -284,8 +284,11 @@ pub struct WebIf<'a> {
     /// `if` statement.
     else_: Option<Box<WebStatement<'a>>>,
 
-    /// Optional comment associated with the else block.
-    else_comment: Option<WebComment<'a>>,
+    /// Optional comment associated with the start of the else block.
+    else_head_comment: Option<WebComment<'a>>,
+
+    /// Optional comment associated with the end of the else block.
+    else_tail_comment: Option<WebComment<'a>>,
 }
 
 fn parse_if<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
@@ -298,6 +301,7 @@ fn parse_if<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
         parse_statement_base,
         opt(tuple((
             reserved_word(PascalReservedWord::Else),
+            opt(comment),
             parse_statement_base,
         ))),
         opt(comment),
@@ -307,8 +311,11 @@ fn parse_if<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
     let test = Box::new(items.2);
     let test_comment = items.4;
     let then = Box::new(items.5);
-    let else_ = items.6.map(|t| Box::new(t.1));
-    let else_comment = items.7;
+    let (else_head_comment, else_) = items
+        .6
+        .map(|t| (t.1, Some(Box::new(t.2))))
+        .unwrap_or((None, None));
+    let else_tail_comment = items.7;
 
     Ok((
         input,
@@ -318,7 +325,8 @@ fn parse_if<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
             test_comment,
             then,
             else_,
-            else_comment,
+            else_head_comment,
+            else_tail_comment,
         }),
     ))
 }
@@ -1055,7 +1063,12 @@ impl<'a> WebStatement<'a> {
                         dest.indent_block();
                         dest.newline_needed();
 
-                        if let Some(c) = i.else_comment.as_ref() {
+                        if let Some(c) = i.else_head_comment.as_ref() {
+                            c.render_inline(dest);
+                            dest.newline_needed();
+                        }
+
+                        if let Some(c) = i.else_tail_comment.as_ref() {
                             c.render_inline(dest);
                             dest.newline_needed();
                         }
