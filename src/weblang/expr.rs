@@ -1,6 +1,11 @@
 //! A WEB expression.
 
-use nom::{branch::alt, combinator::map, multi::separated_list0, sequence::tuple};
+use nom::{
+    branch::alt,
+    combinator::{map, opt},
+    multi::separated_list0,
+    sequence::tuple,
+};
 
 use crate::prettify::{self, Prettifier, RenderInline};
 
@@ -32,8 +37,9 @@ pub enum WebExpr<'a> {
     /// A width specifier in a call like `write_ln`
     Format(WebFormatExpr<'a>),
 
-    /// A parenthesized subexpression.
-    Paren(Box<WebExpr<'a>>),
+    /// A parenthesized subexpression. The comment is needed
+    /// for XeTeX(2022.0):877.
+    Paren(Box<WebExpr<'a>>, Option<WebComment<'a>>),
 
     /// A module reference as an expression, needed for XeTeX(2022.0):59.
     ModuleReference(WebModuleReference<'a>),
@@ -174,8 +180,9 @@ fn parse_paren_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
             pascal_token(PascalToken::OpenDelimiter(DelimiterKind::Paren)),
             parse_expr,
             pascal_token(PascalToken::CloseDelimiter(DelimiterKind::Paren)),
+            opt(comment),
         )),
-        |t| WebExpr::Paren(Box::new(t.1)),
+        |t| WebExpr::Paren(Box::new(t.1), t.3),
     )(input)
 }
 
@@ -442,7 +449,9 @@ impl<'a> RenderInline for WebExpr<'a> {
 
             WebExpr::Format(f) => f.inner.measure_inline() + 1 + f.width.measure_inline(),
 
-            WebExpr::Paren(p) => p.measure_inline() + 2,
+            WebExpr::Paren(p, c) => {
+                p.measure_inline() + 2 + c.as_ref().map(|c| c.measure_inline() + 1).unwrap_or(0)
+            }
 
             WebExpr::ModuleReference(mr) => mr.measure_inline(),
         }
@@ -496,10 +505,15 @@ impl<'a> RenderInline for WebExpr<'a> {
                 f.width.render_inline(dest);
             }
 
-            WebExpr::Paren(p) => {
+            WebExpr::Paren(p, c) => {
                 dest.noscope_push('(');
                 p.render_inline(dest);
                 dest.noscope_push(')');
+
+                if let Some(c) = c {
+                    dest.space();
+                    c.render_inline(dest);
+                }
             }
 
             WebExpr::ModuleReference(mr) => mr.render_inline(dest),
@@ -646,8 +660,10 @@ impl<'a> WebExpr<'a> {
                 }
             }
 
-            WebExpr::Paren(p) => {
-                let w = p.measure_inline() + 2;
+            WebExpr::Paren(p, c) => {
+                let w = p.measure_inline()
+                    + 2
+                    + c.as_ref().map(|c| c.measure_inline() + 1).unwrap_or(0);
 
                 if dest.fits(w) {
                     dest.noscope_push('(');
@@ -657,6 +673,11 @@ impl<'a> WebExpr<'a> {
                     dest.noscope_push('(');
                     p.render_flex(dest);
                     dest.noscope_push(')');
+                }
+
+                if let Some(c) = c {
+                    dest.space();
+                    c.render_inline(dest);
                 }
             }
 
