@@ -563,10 +563,7 @@ fn parse_xetex_math_accessor_body<'a>(input: ParseInput<'a>) -> ParseResult<'a, 
     map(
         tuple((
             reserved_word(PascalReservedWord::Var),
-            many1(debug(
-                "MAB",
-                super::var_declaration::parse_var_declaration_base,
-            )),
+            many1(super::var_declaration::parse_var_declaration_base),
             reserved_word(PascalReservedWord::Begin),
             many1(statement::parse_statement_base),
             peek_end_of_define,
