@@ -169,6 +169,7 @@ fn parse_token_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
             | PascalToken::FormattedIdentifier(_, PascalReservedWord::Nil)
             | PascalToken::Hash(..)
             | PascalToken::IntLiteral(..)
+            | PascalToken::FloatLiteral(..)
             | PascalToken::ReservedWord(SpanValue {
                 value: PascalReservedWord::Nil,
                 ..

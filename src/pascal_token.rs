@@ -7,7 +7,7 @@ use nom::{
     combinator::{map_res, recognize},
     error::ErrorKind,
     multi::{many0_count, many1},
-    sequence::pair,
+    sequence::{pair, tuple},
     InputTakeAtPosition,
 };
 use nom_locate::position;
@@ -18,7 +18,8 @@ use crate::{
     index::IndexEntryKind,
     parse_base::{new_parse_error, ParseError, ParseResult, Span, SpanValue, StringSpan},
     prettify::{
-        Prettifier, RenderInline, DECIMAL_LITERAL_SCOPE, HEX_LITERAL_SCOPE, STRING_LITERAL_SCOPE,
+        Prettifier, RenderInline, DECIMAL_LITERAL_SCOPE, FLOAT_LITERAL_SCOPE, HEX_LITERAL_SCOPE,
+        STRING_LITERAL_SCOPE,
     },
     reserved::PascalReservedWord,
     token::{expect_token, next_token, take_until_terminator, Token},
@@ -131,6 +132,10 @@ pub enum PascalToken<'a> {
 
     StringLiteral(StringLiteralKind, StringSpan<'a>),
 
+    /// We store the value in text form as a span so that we can preserve
+    /// eq-ness for this and all deriving types.
+    FloatLiteral(Span<'a>),
+
     IndexEntry(IndexEntryKind, StringSpan<'a>),
 
     VerbatimPascal(StringSpan<'a>),
@@ -175,6 +180,8 @@ impl<'a> fmt::Display for PascalToken<'a> {
                 IntLiteralKind::Hex => write!(f, "0x{:X}", v),
                 IntLiteralKind::Decimal => write!(f, "{}", v),
             },
+
+            PascalToken::FloatLiteral(t) => write!(f, "{}", t),
 
             PascalToken::TexString(s) => write!(f, "TexString({:?})", s.value),
             PascalToken::OpenDelimiter(DelimiterKind::MetaComment) => write!(f, "/* "),
@@ -480,6 +487,21 @@ fn match_hex_literal_token(span: Span) -> ParseResult<PascalToken> {
     ))
 }
 
+/// This is weak, but sufficient for our needs.
+fn match_float_literal_token(span: Span) -> ParseResult<PascalToken> {
+    let (span, text) = recognize(tuple((
+        many1(one_of("0123456789")),
+        tag("."),
+        many1(one_of("0123456789")),
+    )))(span)?;
+
+    if text.parse::<f64>().is_ok() {
+        Ok((span, PascalToken::FloatLiteral(text)))
+    } else {
+        new_parse_error(span, ErrorKind::Float)
+    }
+}
+
 /// See WEAVE:99
 ///
 /// In WEB, string literals escape their delimiters by repeating them: `""""` is
@@ -589,6 +611,7 @@ pub fn match_pascal_token<'a>(
         match_identifier_token(overrides),
         match_punct_token,
         match_pascal_control_code_token,
+        match_float_literal_token,
         match_decimal_literal_token,
         match_octal_literal_token,
         match_hex_literal_token,
@@ -663,6 +686,8 @@ impl<'a> RenderInline for PascalToken<'a> {
                     }
                 }
             },
+
+            PascalToken::FloatLiteral(text) => text.len(),
 
             PascalToken::IndexEntry(..) => 0,
             PascalToken::VerbatimPascal(ss) => ss.value.len() + 11,
@@ -820,6 +845,10 @@ impl<'a> RenderInline for PascalToken<'a> {
                     }
                 }
             },
+
+            PascalToken::FloatLiteral(text) => {
+                dest.scope_push(*FLOAT_LITERAL_SCOPE, text);
+            }
 
             PascalToken::IndexEntry(..) => {}
 

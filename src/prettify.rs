@@ -25,6 +25,7 @@ lazy_static! {
         Scope::new("constant.numeric.integer.hexadecimal").unwrap();
     pub static ref DECIMAL_LITERAL_SCOPE: Scope =
         Scope::new("constant.numeric.integer.decimal").unwrap();
+    pub static ref FLOAT_LITERAL_SCOPE: Scope = Scope::new("constant.numeric.float").unwrap();
     pub static ref LABEL_NAME_SCOPE: Scope = Scope::new("entity.name.label").unwrap();
 }
 
