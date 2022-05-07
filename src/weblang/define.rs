@@ -147,6 +147,12 @@ pub enum WebDefineRhs<'a> {
     /// Super-specialized for XeTeX(2022.0):742: the "body" portion of a math
     /// font accessor macro.
     XetexMathAccessorBody(SpecialXetexMathAccessorBody<'a>),
+
+    /// `begin $stmt if $expr`, needed for XeTeX(2022.0):1360.
+    XetexUndumpHead(SpecialXetexUndumpHead<'a>),
+
+    /// `$expr then $stmt else $stmt`, needed for XeTeX(2022.0):1360.
+    XetexUndumpMiddle(SpecialXetexUndumpMiddle<'a>),
 }
 
 fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
@@ -167,6 +173,8 @@ fn parse_define_rhs<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'
         parse_xetex_char_info_tail,
         parse_xetex_math_accessor_head,
         parse_xetex_math_accessor_body,
+        parse_xetex_undump_head,
+        parse_xetex_undump_middle,
         map(any_reserved_word, |rw| WebDefineRhs::ReservedWord(rw)),
     ))(input)
 }
@@ -223,6 +231,7 @@ fn parse_statement_series<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefin
     let (input, tup) = tuple((
         many1(statement::parse_statement_base),
         opt(reserved_word(PascalReservedWord::End)),
+        opt(pascal_token(PascalToken::Semicolon)),
         peek_end_of_define,
     ))(input)?;
 
@@ -591,6 +600,56 @@ impl<'a> SpecialXetexMathAccessorBody<'a> {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SpecialXetexUndumpHead<'a> {
+    stmt: WebStatement<'a>,
+    test: Box<WebExpr<'a>>,
+}
+
+fn parse_xetex_undump_head<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    map(
+        tuple((
+            reserved_word(PascalReservedWord::Begin),
+            statement::parse_statement_base,
+            reserved_word(PascalReservedWord::If),
+            parse_expr,
+        )),
+        |t| {
+            WebDefineRhs::XetexUndumpHead(SpecialXetexUndumpHead {
+                stmt: t.1,
+                test: Box::new(t.3),
+            })
+        },
+    )(input)
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SpecialXetexUndumpMiddle<'a> {
+    test: Box<WebExpr<'a>>,
+    then: WebStatement<'a>,
+    else_: WebStatement<'a>,
+}
+
+fn parse_xetex_undump_middle<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebDefineRhs<'a>> {
+    map(
+        tuple((
+            parse_expr,
+            reserved_word(PascalReservedWord::Then),
+            statement::parse_statement_base,
+            reserved_word(PascalReservedWord::Else),
+            statement::parse_statement_base,
+            peek_end_of_define,
+        )),
+        |t| {
+            WebDefineRhs::XetexUndumpMiddle(SpecialXetexUndumpMiddle {
+                test: Box::new(t.0),
+                then: t.2,
+                else_: t.4,
+            })
+        },
+    )(input)
+}
+
 // Prettification
 
 impl<'a> WebDefine<'a> {
@@ -666,7 +725,9 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
             | WebDefineRhs::EndAndEndif(_)
             | WebDefineRhs::XetexMathAccessorHead(_)
             | WebDefineRhs::XetexMathAccessorBody(_)
-            | WebDefineRhs::IncompleteIf(..) => prettify::NOT_INLINE,
+            | WebDefineRhs::IncompleteIf(..)
+            | WebDefineRhs::XetexUndumpHead(_)
+            | WebDefineRhs::XetexUndumpMiddle(_) => prettify::NOT_INLINE,
 
             WebDefineRhs::ReservedWord(s) => s.value.to_string().len(),
 
@@ -704,7 +765,9 @@ impl<'a> RenderInline for WebDefineRhs<'a> {
             | WebDefineRhs::EndAndEndif(_)
             | WebDefineRhs::XetexMathAccessorHead(_)
             | WebDefineRhs::XetexMathAccessorBody(_)
-            | WebDefineRhs::IncompleteIf(..) => dest.noscope_push("XXXrhs"),
+            | WebDefineRhs::IncompleteIf(..)
+            | WebDefineRhs::XetexUndumpHead(_)
+            | WebDefineRhs::XetexUndumpMiddle(_) => dest.noscope_push("XXXrhs"),
 
             WebDefineRhs::ReservedWord(s) => dest.noscope_push(s),
 
@@ -798,7 +861,7 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
         }
 
         WebDefineRhs::StatementsThenEnd(stmts) => {
-            dest.noscope_push("/*... opened earlier ...*/");
+            dest.scope_push(*COMMENT_SCOPE, "/*... opened earlier ...*/");
             dest.indent_block();
 
             for s in stmts {
@@ -829,7 +892,7 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
 
             dest.dedent_block();
             dest.newline_indent();
-            dest.noscope_push("/* ... closed later ... */");
+            dest.scope_push(*COMMENT_SCOPE, "/* ... closed later ... */");
         }
 
         WebDefineRhs::IncompleteIf(expr, stmts) => {
@@ -852,7 +915,7 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
 
             dest.dedent_block();
             dest.newline_indent();
-            dest.noscope_push("/* ... closed later ... */");
+            dest.scope_push(*COMMENT_SCOPE, "/* ... closed later ... */");
         }
 
         WebDefineRhs::IfdefAndIf(beg, ident) => {
@@ -877,5 +940,43 @@ fn render_rhs_flex<'a>(rhs: &WebDefineRhs<'a>, dest: &mut Prettifier) {
 
         WebDefineRhs::XetexMathAccessorHead(mah) => mah.prettify(dest),
         WebDefineRhs::XetexMathAccessorBody(mab) => mab.prettify(dest),
+
+        WebDefineRhs::XetexUndumpHead(uh) => {
+            dest.noscope_push("{");
+            dest.indent_block();
+            dest.newline_needed();
+
+            uh.stmt.render_flex(dest);
+            uh.stmt.maybe_semicolon(dest);
+            dest.newline_needed();
+
+            dest.keyword("if");
+            dest.noscope_push(" (");
+            uh.test.render_inline(dest);
+            dest.space();
+
+            dest.scope_push(*COMMENT_SCOPE, "/* ) { ... continued ... */");
+        }
+
+        WebDefineRhs::XetexUndumpMiddle(um) => {
+            dest.scope_push(*COMMENT_SCOPE, "/* `if` opened earlier (*/");
+            um.test.render_inline(dest);
+            dest.noscope_push(") {");
+            dest.indent_block();
+            dest.newline_needed();
+            um.then.render_flex(dest);
+            um.then.maybe_semicolon(dest);
+            dest.dedent_block();
+            dest.newline_needed();
+            dest.noscope_push("} ");
+            dest.keyword("else");
+            dest.noscope_push(" {");
+            dest.indent_block();
+            dest.newline_needed();
+            um.else_.render_flex(dest);
+            dest.dedent_block();
+            dest.newline_needed();
+            dest.scope_push(*COMMENT_SCOPE, "/* ... closed later ... */");
+        }
     }
 }
