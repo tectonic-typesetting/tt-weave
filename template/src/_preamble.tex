@@ -19,10 +19,15 @@
 \catcode`\^^Z=\active
 \def^^Z{\^\^Z}
 
+\let\G=\ge
+
 \makeatletter
 \def\eqalign#1{\null\,\vcenter{\openup\jot\m@th
   \ialign{\strut\hfil$\displaystyle{##}$&$\displaystyle{{}##}$\hfil
       \crcr#1\crcr}}\,}
+
+\def\cases#1{\left\{\,\vcenter{\normalbaselines\m@th
+  \ialign{$##\hfil$&\quad##\hfil\crcr#1\crcr}}\right.}
 \makeatother
 
 \let\justTeX=\TeX
