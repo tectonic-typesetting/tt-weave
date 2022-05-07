@@ -544,7 +544,8 @@ mod tl_specials {
             self::define::peek_end_of_define,
         ))(input)?;
 
-        if t.0.len() < 2 {
+        if t.0.len() < 2 && !t.1.is_some() {
+            // Don't eat single expressions -- we want those to be expr statements.
             new_parse_err(input, WebErrorKind::Eof)
         } else {
             Ok((
