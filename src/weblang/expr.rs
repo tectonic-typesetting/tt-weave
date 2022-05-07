@@ -282,6 +282,8 @@ fn binary_tail<'a>(s: ParseInput<'a>) -> ParseResult<'a, LeftRecursiveTail<'a>> 
     })(s)
 }
 
+/// In XeTeX(2022.0):1386, the `@&` "paste" command is used like a binary
+/// operator, and it's convenient to treat it as such here.
 fn binary_expr_op<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>> {
     let (input, wt) = next_token(input)?;
 
@@ -297,6 +299,7 @@ fn binary_expr_op<'a>(input: ParseInput<'a>) -> ParseResult<'a, PascalToken<'a>>
             | PascalToken::LessEquals
             | PascalToken::Equals
             | PascalToken::NotEquals
+            | PascalToken::PasteText
             | PascalToken::ReservedWord(SpanValue {
                 value: PascalReservedWord::And,
                 ..
@@ -454,7 +457,14 @@ impl<'a> RenderInline for WebExpr<'a> {
             WebExpr::Token(tok) => tok.measure_inline(),
 
             WebExpr::Binary(bin) => {
-                bin.lhs.measure_inline() + bin.rhs.measure_inline() + bin.op.measure_inline() + 2
+                if bin.op == PascalToken::PasteText {
+                    bin.lhs.measure_inline() + bin.rhs.measure_inline() + 10 // "paste!(, )"
+                } else {
+                    bin.lhs.measure_inline()
+                        + bin.rhs.measure_inline()
+                        + bin.op.measure_inline()
+                        + 2
+                }
             }
 
             WebExpr::PrefixUnary(pu) => pu.op.measure_inline() + pu.inner.measure_inline(),
@@ -490,11 +500,19 @@ impl<'a> RenderInline for WebExpr<'a> {
             WebExpr::Token(tok) => tok.render_inline(dest),
 
             WebExpr::Binary(bin) => {
-                bin.lhs.render_inline(dest);
-                dest.space();
-                bin.op.render_inline(dest);
-                dest.space();
-                bin.rhs.render_inline(dest);
+                if bin.op == PascalToken::PasteText {
+                    dest.noscope_push("paste!(");
+                    bin.lhs.render_inline(dest);
+                    dest.noscope_push(", ");
+                    bin.rhs.render_inline(dest);
+                    dest.noscope_push(")");
+                } else {
+                    bin.lhs.render_inline(dest);
+                    dest.space();
+                    bin.op.render_inline(dest);
+                    dest.space();
+                    bin.rhs.render_inline(dest);
+                }
             }
 
             WebExpr::PrefixUnary(pu) => {
@@ -596,24 +614,42 @@ impl<'a> WebExpr<'a> {
             WebExpr::Binary(be) => {
                 let wl = be.lhs.measure_inline();
                 let wr = be.rhs.measure_inline();
-                let wo = be.op.measure_inline();
 
-                if dest.fits(wl + wr + wo + 2) {
-                    be.lhs.render_inline(dest);
-                    dest.space();
-                    be.op.render_inline(dest);
-                    dest.space();
-                    be.rhs.render_inline(dest);
+                if be.op == PascalToken::PasteText {
+                    if dest.fits(self.measure_inline()) {
+                        self.render_inline(dest);
+                    } else {
+                        dest.noscope_push("paste!(");
+                        dest.indent_small();
+                        dest.newline_needed();
+                        be.lhs.render_flex(dest);
+                        dest.noscope_push(", ");
+                        dest.newline_needed();
+                        be.rhs.render_inline(dest);
+                        dest.dedent_small();
+                        dest.newline_needed();
+                        dest.noscope_push(")");
+                    }
                 } else {
-                    dest.indent_block();
-                    dest.newline_indent();
-                    be.lhs.render_flex(dest);
-                    dest.newline_indent();
-                    be.op.render_inline(dest);
-                    dest.space();
-                    be.rhs.render_flex_maybe_continue_binop(dest);
-                    dest.dedent_block();
-                    dest.newline_needed();
+                    let wo = be.op.measure_inline();
+
+                    if dest.fits(wl + wr + wo + 2) {
+                        be.lhs.render_inline(dest);
+                        dest.space();
+                        be.op.render_inline(dest);
+                        dest.space();
+                        be.rhs.render_inline(dest);
+                    } else {
+                        dest.indent_block();
+                        dest.newline_indent();
+                        be.lhs.render_flex(dest);
+                        dest.newline_indent();
+                        be.op.render_inline(dest);
+                        dest.space();
+                        be.rhs.render_flex_maybe_continue_binop(dest);
+                        dest.dedent_block();
+                        dest.newline_needed();
+                    }
                 }
             }
 

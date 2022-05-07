@@ -258,6 +258,7 @@ pub fn parse_function_definition_base<'a>(
             ),
         )),
         opt(comment),
+        opt(pascal_token(PascalToken::Semicolon)), // needed for XeTeX(2022.0):1386 = `main_body`
     ))(input)?;
 
     let name = items.1;
