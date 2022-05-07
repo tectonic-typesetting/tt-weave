@@ -55,6 +55,9 @@ pub enum WebStatement<'a> {
     /// A case statement.
     Case(WebCase<'a>),
 
+    /// A freestanding comment.
+    Comment(WebComment<'a>),
+
     /// A statement that's just an expression.
     Expr(WebExpr<'a>, Option<WebComment<'a>>),
 
@@ -68,7 +71,7 @@ pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebSta
         parse_block,
         map(
             preprocessor_directive::parse_preprocessor_directive_base,
-            |d| WebStatement::PreprocessorDirective(d),
+            WebStatement::PreprocessorDirective,
         ),
         parse_goto,
         parse_if,
@@ -80,6 +83,7 @@ pub fn parse_statement_base<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebSta
         parse_label,
         parse_loop,
         parse_special_free_case,
+        map(comment, WebStatement::Comment),
         parse_expr_statement,
     ))(input)
 }
@@ -799,6 +803,8 @@ impl<'a> RenderInline for WebStatement<'a> {
             }
 
             WebStatement::Label(l) => l.measure_inline() + 1,
+
+            WebStatement::Comment(c) => c.measure_inline(),
         }
     }
 
@@ -858,6 +864,10 @@ impl<'a> RenderInline for WebStatement<'a> {
                 dest.scope_push(*prettify::LABEL_NAME_SCOPE, l);
                 dest.noscope_push(':');
             }
+
+            WebStatement::Comment(c) => {
+                c.render_inline(dest);
+            }
         }
     }
 }
@@ -873,7 +883,8 @@ impl<'a> WebStatement<'a> {
             | WebStatement::SpecialFreeCase(_)
             | WebStatement::While(_)
             | WebStatement::For(_)
-            | WebStatement::Loop(_) => false,
+            | WebStatement::Loop(_)
+            | WebStatement::Comment(_) => false,
 
             WebStatement::PreprocessorDirective(_)
             | WebStatement::Expr(..)
@@ -1215,6 +1226,10 @@ impl<'a> WebStatement<'a> {
                 sfc.stmt.render_in_block(dest);
                 sfc.stmt.maybe_semicolon(dest);
                 dest.dedent_small();
+            }
+
+            WebStatement::Comment(c) => {
+                c.render_inline(dest);
             }
         }
     }
