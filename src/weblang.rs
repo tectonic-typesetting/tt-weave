@@ -147,8 +147,12 @@ pub enum WebToplevel<'a> {
     /// `$expr == $expr`, needed for XeTeX(2022.0):134.
     SpecialInlineDefine(WebExpr<'a>, WebExpr<'a>),
 
-    /// `$expr, $expr, $expr`, needed for XeTeX(2022.0):375.
-    SpecialCommaExprs(Vec<Box<WebExpr<'a>>>),
+    /// `$expr, $expr, $expr {,}?`, needed for XeTeX(2022.0):375, with optional
+    /// trailing comma, needed for XeTeX(2022.0):1102 and friends.
+    SpecialCommaExprs {
+        exprs: Vec<Box<WebExpr<'a>>>,
+        trailing_comma: bool,
+    },
 
     /// `[$expr..$expr]$ident`, needed for XeTeX(2022.0):576, which uses some
     /// macros to create a specialized array table.
@@ -536,13 +540,20 @@ mod tl_specials {
     ) -> ParseResult<'a, WebToplevel<'a>> {
         let (input, t) = tuple((
             separated_list1(pascal_token(PascalToken::Comma), map(parse_expr, Box::new)),
+            opt(pascal_token(PascalToken::Comma)),
             self::define::peek_end_of_define,
         ))(input)?;
 
         if t.0.len() < 2 {
             new_parse_err(input, WebErrorKind::Eof)
         } else {
-            Ok((input, WebToplevel::SpecialCommaExprs(t.0)))
+            Ok((
+                input,
+                WebToplevel::SpecialCommaExprs {
+                    exprs: t.0,
+                    trailing_comma: t.1.is_some(),
+                },
+            ))
         }
     }
 
@@ -671,7 +682,10 @@ impl<'a> WebToplevel<'a> {
             WebToplevel::SpecialInlineDefine(lhs, rhs) => {
                 tl_prettify::special_inline_define(lhs, rhs, dest)
             }
-            WebToplevel::SpecialCommaExprs(exprs) => tl_prettify::special_comma_exprs(exprs, dest),
+            WebToplevel::SpecialCommaExprs {
+                exprs,
+                trailing_comma,
+            } => tl_prettify::special_comma_exprs(exprs, *trailing_comma, dest),
             WebToplevel::SpecialArrayMacro(e1, e2, id) => {
                 tl_prettify::special_array_macro(e1, e2, id, dest)
             }
@@ -877,7 +891,11 @@ mod tl_prettify {
         rhs.render_inline(dest);
     }
 
-    pub fn special_comma_exprs<'a>(exprs: &Vec<Box<WebExpr<'a>>>, dest: &mut Prettifier) {
+    pub fn special_comma_exprs<'a>(
+        exprs: &Vec<Box<WebExpr<'a>>>,
+        trailing_comma: bool,
+        dest: &mut Prettifier,
+    ) {
         if dest.fits(prettify::measure_inline_seq(exprs, 2)) {
             prettify::render_inline_seq(exprs, ", ", dest);
         } else {
@@ -887,11 +905,15 @@ mod tl_prettify {
                 if first {
                     first = false;
                 } else {
-                    dest.noscope_push(",");
+                    dest.noscope_push(',');
                 }
 
                 dest.newline_needed();
                 expr.render_flex(dest);
+            }
+
+            if trailing_comma {
+                dest.noscope_push(',');
             }
         }
     }
