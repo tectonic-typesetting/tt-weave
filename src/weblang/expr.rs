@@ -43,6 +43,17 @@ pub enum WebExpr<'a> {
 
     /// A module reference as an expression, needed for XeTeX(2022.0):59.
     ModuleReference(WebModuleReference<'a>),
+
+    /// A `goto label` appearing in expression position, needed for
+    /// XeTeX(2022.0):1134. We don't allow this as a top-level expression form,
+    /// in the interest of reducing combinatoric possibilities, but allow it as
+    /// the argument to a call.
+    SpecialGotoForm(StringSpan<'a>),
+
+    /// A `return` appearing in expression position, needed for
+    /// XeTeX(2022.0):1159. Recall that `return` is not actually a Pascal
+    /// reserved word, but a WEB define that is formatted like `Nil`, which is.
+    SpecialReturnForm(PascalToken<'a>),
 }
 
 pub fn parse_expr<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
@@ -349,12 +360,25 @@ fn call_tail<'a>(s: ParseInput<'a>) -> ParseResult<'a, LeftRecursiveTail<'a>> {
             open_delimiter(DelimiterKind::Paren),
             separated_list0(
                 pascal_token(PascalToken::Comma),
-                map(parse_expr, |e| Box::new(e)),
+                map(parse_expr_with_call_specials, |e| Box::new(e)),
             ),
             close_delimiter(DelimiterKind::Paren),
         )),
         |t| LeftRecursiveTail::Call(t.1),
     )(s)
+}
+
+fn parse_expr_with_call_specials<'a>(s: ParseInput<'a>) -> ParseResult<'a, WebExpr<'a>> {
+    alt((
+        map(
+            tuple((reserved_word(PascalReservedWord::Goto), identifier)),
+            |t| WebExpr::SpecialGotoForm(t.1),
+        ),
+        map(formatted_identifier_like(PascalReservedWord::Nil), |tok| {
+            WebExpr::SpecialReturnForm(tok)
+        }),
+        parse_expr,
+    ))(s)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -454,6 +478,10 @@ impl<'a> RenderInline for WebExpr<'a> {
             }
 
             WebExpr::ModuleReference(mr) => mr.measure_inline(),
+
+            WebExpr::SpecialGotoForm(id) => id.len() + 5,
+
+            WebExpr::SpecialReturnForm(tok) => tok.measure_inline(),
         }
     }
 
@@ -517,6 +545,16 @@ impl<'a> RenderInline for WebExpr<'a> {
             }
 
             WebExpr::ModuleReference(mr) => mr.render_inline(dest),
+
+            WebExpr::SpecialGotoForm(id) => {
+                dest.keyword("goto");
+                dest.space();
+                dest.noscope_push(&id);
+            }
+
+            WebExpr::SpecialReturnForm(tok) => {
+                tok.render_inline(dest);
+            }
         }
     }
 }
@@ -524,6 +562,8 @@ impl<'a> RenderInline for WebExpr<'a> {
 impl<'a> WebExpr<'a> {
     pub fn render_flex(&self, dest: &mut Prettifier) {
         match self {
+            WebExpr::SpecialGotoForm(_) | WebExpr::SpecialReturnForm(_) => self.render_inline(dest),
+
             WebExpr::Token(tok) => {
                 let w = tok.measure_inline();
 
