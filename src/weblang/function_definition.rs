@@ -41,6 +41,9 @@ pub struct WebFunctionDefinition<'a> {
     /// Labels
     labels: Vec<WebLabel<'a>>,
 
+    /// Constants (needed for XeTeX(2022.0):744)
+    consts: Vec<WebConstant<'a>>,
+
     /// Records in the function's `var` block.
     vars: Vec<WebVarBlockItem<'a>>,
 
@@ -176,6 +179,40 @@ fn parse_label_section<'a>(input: ParseInput<'a>) -> ParseResult<'a, Vec<WebLabe
     Ok((input, items))
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebConstant<'a> {
+    name: StringSpan<'a>,
+    value: PascalToken<'a>,
+}
+
+fn parse_const_item<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebConstant<'a>> {
+    map(
+        tuple((
+            identifier,
+            pascal_token(PascalToken::Equals),
+            int_literal,
+            pascal_token(PascalToken::Semicolon),
+        )),
+        |t| WebConstant {
+            name: t.0,
+            value: t.2,
+        },
+    )(input)
+}
+
+impl<'a> RenderInline for WebConstant<'a> {
+    fn measure_inline(&self) -> usize {
+        self.name.len() + 4 + self.value.measure_inline()
+    }
+
+    fn render_inline(&self, dest: &mut Prettifier) {
+        dest.noscope_push(&self.name);
+        dest.noscope_push(" = ");
+        self.value.render_inline(dest);
+        dest.noscope_push(';');
+    }
+}
+
 // Tying it all together
 
 pub fn parse_function_definition_base<'a>(
@@ -196,6 +233,10 @@ pub fn parse_function_definition_base<'a>(
         pascal_token(PascalToken::Semicolon),
         opt(comment),
         opt(parse_label_section),
+        opt(tuple((
+            reserved_word(PascalReservedWord::Const),
+            many1(parse_const_item),
+        ))),
         opt(tuple((
             reserved_word(PascalReservedWord::Var),
             many1(parse_var_block_item),
@@ -221,9 +262,10 @@ pub fn parse_function_definition_base<'a>(
     let return_type = items.3.map(|t| t.1);
     let opening_comment = items.5;
     let labels = items.6.unwrap_or_default();
-    let vars = items.7.map(|t| t.1).unwrap_or_default();
-    let stmt = items.8;
-    let closing_comment = items.9;
+    let consts = items.7.map(|t| t.1).unwrap_or_default();
+    let vars = items.8.map(|t| t.1).unwrap_or_default();
+    let stmt = items.9;
+    let closing_comment = items.10;
 
     Ok((
         input,
@@ -233,6 +275,7 @@ pub fn parse_function_definition_base<'a>(
             return_type,
             opening_comment,
             labels,
+            consts,
             vars,
             stmt,
             closing_comment,
@@ -383,6 +426,32 @@ impl<'a> WebFunctionDefinition<'a> {
                     dest.newline_needed();
                 }
             }
+        }
+
+        // Consts
+
+        if !self.consts.is_empty() {
+            let wc: usize = self.consts.iter().map(|s| s.measure_inline()).sum();
+
+            if self.consts.len() == 1 && dest.fits(wc + 6) {
+                // "const "
+                dest.keyword("const");
+                dest.space();
+                self.consts[0].render_inline(dest);
+            } else {
+                // Multi-line form
+                dest.keyword("const");
+                dest.indent_small();
+
+                for c in &self.consts {
+                    dest.newline_needed();
+                    c.render_inline(dest);
+                }
+
+                dest.dedent_small();
+            }
+
+            dest.newline_needed();
         }
 
         // Vars

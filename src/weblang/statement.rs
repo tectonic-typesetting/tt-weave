@@ -212,6 +212,9 @@ pub struct WebAssignment<'a> {
 
     /// Optional comment.
     comment: Option<WebComment<'a>>,
+
+    /// Optional second comment.
+    second_comment: Option<WebComment<'a>>,
 }
 
 fn parse_assignment<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'a>> {
@@ -221,15 +224,22 @@ fn parse_assignment<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebStatement<'
         parse_expr,
         opt(pascal_token(PascalToken::Semicolon)),
         opt(comment),
+        opt(comment),
     ))(input)?;
 
     let lhs = Box::new(items.0);
     let rhs = Box::new(items.2);
     let comment = items.4;
+    let second_comment = items.5;
 
     Ok((
         input,
-        WebStatement::Assignment(WebAssignment { lhs, rhs, comment }),
+        WebStatement::Assignment(WebAssignment {
+            lhs,
+            rhs,
+            comment,
+            second_comment,
+        }),
     ))
 }
 
@@ -766,6 +776,10 @@ impl<'a> RenderInline for WebStatement<'a> {
                         .as_ref()
                         .map(|c| c.measure_inline() + 1)
                         .unwrap_or(0)
+                    + a.second_comment
+                        .as_ref()
+                        .map(|_| prettify::NOT_INLINE)
+                        .unwrap_or(0)
             }
 
             WebStatement::Goto(g) => {
@@ -956,6 +970,11 @@ impl<'a> WebStatement<'a> {
 
             WebStatement::Assignment(a) => {
                 if let Some(c) = a.comment.as_ref() {
+                    c.render_inline(dest);
+                    dest.newline_needed();
+                }
+
+                if let Some(c) = a.second_comment.as_ref() {
                     c.render_inline(dest);
                     dest.newline_needed();
                 }
