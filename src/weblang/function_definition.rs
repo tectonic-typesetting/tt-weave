@@ -14,6 +14,7 @@ use crate::prettify::{self, Prettifier, RenderInline};
 
 use super::{
     base::*,
+    expr::{parse_expr, WebExpr},
     module_reference::parse_module_reference,
     statement::{parse_statement_base, WebStatement},
     webtype::{parse_type, WebType},
@@ -141,10 +142,12 @@ fn parse_argument_group<'a>(input: ParseInput<'a>) -> ParseResult<'a, WebVariabl
 }
 
 /// This machinery is mainly needed for XeTeX(2022.0):371, where each label gets
-/// its own associated comment.
+/// its own associated comment. The "name" can be a binary expression, as in
+/// XeTeX(2022.0):1084, since WEB preprocesses basic arithmetic on numerical
+/// constants.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WebLabel<'a> {
-    name: PascalToken<'a>,
+    name: Box<WebExpr<'a>>,
     comment: Option<WebComment<'a>>,
 }
 
@@ -158,7 +161,7 @@ fn parse_label_section<'a>(input: ParseInput<'a>) -> ParseResult<'a, Vec<WebLabe
     loop {
         let item;
         (input, item) = tuple((
-            alt((identifier_as_token, int_literal)),
+            map(parse_expr, Box::new),
             alt((
                 pascal_token(PascalToken::Comma),
                 pascal_token(PascalToken::Semicolon),
@@ -413,7 +416,7 @@ impl<'a> WebFunctionDefinition<'a> {
 
                         let sep = if i == i_last { ';' } else { ',' };
 
-                        dest.noscope_push(&label.name);
+                        label.name.render_inline(dest);
                         dest.noscope_push(sep);
 
                         if let Some(c) = label.comment.as_ref() {
