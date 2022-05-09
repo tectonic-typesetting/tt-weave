@@ -96,8 +96,9 @@ Sbackground-color #2^^J%
 \let\ =\WebSp
 
 % Newline for <pre> sections -- need to insert an actual newline into the HTML
-% content, which we can do with `dt` (Direct Text).
-\newcommand{\WebNL}{\special{tdux:dt ^^J}}
+% content, which we can do with `dt` (Direct Text). Also insert a \par to
+% allow TeX to think it's linebreaking.
+\newcommand{\WebNL}{\special{tdux:dt ^^J}\par}
 
 % Ready to go!
 
