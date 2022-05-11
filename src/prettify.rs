@@ -39,6 +39,13 @@ pub struct Prettifier {
     newline_needed: bool,
     text: String,
     ops: Vec<(usize, ScopeStackOp)>,
+
+    /// Along with the "scope ops" used by syntect to prettify, we maintain a
+    /// list of "inserts" of TeX text used to mark up the code with features
+    /// that go beyond colorizing. We handle inserts this way so that the
+    /// prettifier can look at the length of `text` to properly understand the
+    /// alignment of the underlying code.
+    inserts: Vec<(usize, TexInsert)>,
 }
 
 impl Prettifier {
@@ -50,6 +57,7 @@ impl Prettifier {
             newline_needed: false,
             text: String::default(),
             ops: Vec::default(),
+            inserts: Vec::default(),
         }
     }
 
@@ -168,11 +176,20 @@ impl Prettifier {
         self.newline_indent();
     }
 
+    pub fn insert(&mut self, ins: TexInsert) {
+        self.inserts.push((self.text.len(), ins));
+    }
+
     pub fn emit(self, theme: &Theme, inline: bool) {
         let highlighter = Highlighter::new(theme);
         let initial_stack = ScopeStack::from_str(INITIAL_SCOPES).unwrap();
         let mut hs = HighlightState::new(&highlighter, initial_stack);
         let hi = HighlightIterator::new(&mut hs, &self.ops[..], &self.text[..], &highlighter);
+        let mut insert_idx = 0;
+        let mut i_text = 0;
+
+        let xetex_array_macro_hack =
+            !self.inserts.is_empty() && self.inserts[0].1.is_xetex_array_macro_hack_marker();
 
         let (env, terminator) = if inline {
             ("WebPrettifiedInline", "")
@@ -180,9 +197,41 @@ impl Prettifier {
             ("WebPrettifiedDisplay", "%\n")
         };
 
-        println!("\\begin{{{}}}%", env);
+        if xetex_array_macro_hack {
+            insert_idx += 1;
+            println!("$[\\WebBeginXetexArrayMacro{{}}%");
+        } else {
+            println!("\\begin{{{}}}%", env);
+        }
+
+        let mut i_next_insert = self
+            .inserts
+            .get(insert_idx)
+            .map(|t| t.0)
+            .unwrap_or(usize::MAX);
 
         for (style, span) in hi {
+            // Handle inserts that should happen outside of the colorization commands.
+            while i_text == i_next_insert {
+                // Handle this insert.
+                match self.inserts[insert_idx].1 {
+                    // Macro hack marker specially handled above.
+                    TexInsert::XetexArrayMacroHackMarker => {}
+
+                    TexInsert::XetexArrayMacroHackBracket => {
+                        print!("]");
+                    }
+                }
+
+                // Prep for the next insert.
+                insert_idx += 1;
+                i_next_insert = self
+                    .inserts
+                    .get(insert_idx)
+                    .map(|t| t.0)
+                    .unwrap_or(usize::MAX);
+            }
+
             print!(
                 "\\S{{{}}}{{{}}}{{",
                 ColorHexConvert(style.foreground),
@@ -204,6 +253,8 @@ impl Prettifier {
             print!("}}{{");
 
             for c in span.chars() {
+                // TODO???: handle different inserts here???
+
                 match c {
                     '$' => print!("\\$"),
                     '%' => print!("\\%"),
@@ -216,16 +267,23 @@ impl Prettifier {
                     '&' => print!("\\&"),
                     '~' => print!("{{\\textasciitilde}}"),
                     ' ' => print!("\\ "),
-                    '\n' => print!("\\WebNL\n"), // XXXXXXXXXXXXx
+                    '\n' => print!("\\WebNL\n"),
                     other => print!("{}", other),
                 }
+
+                i_text += 1;
             }
 
             print!("}}");
         }
 
         println!("%");
-        print!("\\end{{{}}}{}", env, terminator);
+
+        if xetex_array_macro_hack {
+            println!("\\WebEndXetexArrayMacro$%");
+        } else {
+            print!("\\end{{{}}}{}", env, terminator);
+        }
     }
 }
 
@@ -309,6 +367,29 @@ pub fn render_inline_seq<I: IntoIterator<Item = T>, T: RenderInline>(
         }
 
         item.render_inline(dest);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum TexInsert {
+    /// Should be inserted at offset zero. Indicates that the hack for
+    /// XeTeX(2022.0):576 is active, and we need to emit special delimiters to
+    /// make the output compatible with the \arr macro used in the \halign
+    /// there.
+    XetexArrayMacroHackMarker,
+
+    /// The other component of the XeTeX array macro hack: inserts an unescaped `]`
+    /// at the specified position.
+    XetexArrayMacroHackBracket,
+}
+
+impl TexInsert {
+    pub fn is_xetex_array_macro_hack_marker(&self) -> bool {
+        if let TexInsert::XetexArrayMacroHackMarker = self {
+            true
+        } else {
+            false
+        }
     }
 }
 

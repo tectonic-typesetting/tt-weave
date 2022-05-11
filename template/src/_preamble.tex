@@ -75,6 +75,11 @@ NAS}%
   \ifmmode\else\rmfamily\fi
 }
 
+% Special definitions for XeTeX(2022.0):576, which needs custom macros to work
+% with its specialized \arr command that is invoked inside an \halign.
+\def\WebBeginXetexArrayMacro{\special{tdux:mfs code^^JNAT^^JNAS}}
+\def\WebEndXetexArrayMacro{\special{tdux:me code}}
+
 % I find octal literals super annoying to read, so
 % let's just display them all as hex
 \newcommand{\WebOctalLiteralHexed}[1]{0x#1}
@@ -111,3 +116,11 @@ Sbackground-color #2^^J%
 \def\~{\texttildelow}
 \def\\{\textbackslash}
 \def\^{\char94\relax}
+
+% Register main-body font relations.
+\special{tdux:startDefineFontRelations}
+upright
+\textbf{bold}
+\textit{italic \textbf{bold-italic}}
+\special{tdux:endDefineFontRelations}
+\par

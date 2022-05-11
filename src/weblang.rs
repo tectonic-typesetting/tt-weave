@@ -30,7 +30,7 @@ mod type_declaration;
 mod var_declaration;
 mod webtype;
 
-use crate::prettify::{self, Prettifier, RenderInline, COMMENT_SCOPE};
+use crate::prettify::{self, Prettifier, RenderInline, TexInsert, COMMENT_SCOPE};
 
 use self::{
     base::*,
@@ -927,15 +927,18 @@ mod tl_prettify {
         id: &StringSpan<'a>,
         dest: &mut Prettifier,
     ) {
-        dest.noscope_push('[');
+        dest.insert(TexInsert::XetexArrayMacroHackMarker);
         e1.render_inline(dest);
         dest.noscope_push(" .. ");
         e2.render_inline(dest);
-        dest.noscope_push(']');
-        dest.space();
-        dest.keyword("of");
-        dest.space();
-        dest.noscope_push(id.value.as_ref());
+        dest.insert(TexInsert::XetexArrayMacroHackBracket);
+
+        // Push this with a different scope so that the syntect highlighting
+        // will cause a span break between the previous piece of text and this
+        // one, so that the bracket above can occur outside of wrapping braces,
+        // which is necessary for it to be picked up by the \arr macro
+        // expansion.
+        dest.scope_push(*super::prettify::KEYWORD_SCOPE, id.value.as_ref());
     }
 
     pub fn special_float_equality<'a>(
