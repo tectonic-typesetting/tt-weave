@@ -30,8 +30,10 @@ impl<'a> RenderInline for WebModuleReference<'a> {
     }
 
     fn render_inline(&self, dest: &mut Prettifier) {
+        dest.insert(TexInsert::StartModuleReference(self.id), true);
         dest.noscope_push(format!("⟦{} ", self.id));
         dest.noscope_push(self.name.value.as_ref());
         dest.noscope_push("⟧");
+        dest.insert(TexInsert::EndMacro, false);
     }
 }

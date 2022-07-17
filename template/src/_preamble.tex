@@ -43,11 +43,13 @@
   \iffirstmodule
     \firstmodulefalse
     \special{tdux:mfs section^^J%
-Cttweave-first}
+Cttweave-first^^J%
+Did m#1}
   \else
     \special{tdux:me section}
     \special{tdux:mfs section^^J%
-Cttweave-nonfirst}
+Cttweave-nonfirst^^J%
+Did m#1}
   \fi
   \textbf{#1.}
 }
@@ -74,6 +76,24 @@ NAS}%
   \special{tdux:me code}%
   \ifmmode\else\rmfamily\fi
 }
+
+% This macro is inserted around every module reference:
+%
+% #1 - the module number
+% #2 - the text of the reference
+%
+% I'm sure there is a less gross way to do this, but to get the pound sign into
+% the the \special, we do this catcode hack. `\#` emerges as `\#`.
+\bgroup
+  \catcode`\#=11
+  \catcode`\~=6
+  \global\def\WebModuleReference~1~2{%
+      \special{tdux:mfs a^^J%
+Dhref #m~1}%
+      ~2%
+      \special{tdux:me a}%
+  }
+\egroup
 
 % Special definitions for XeTeX(2022.0):576, which needs custom macros to work
 % with its specialized \arr command that is invoked inside an \halign.

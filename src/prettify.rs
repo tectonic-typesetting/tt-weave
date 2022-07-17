@@ -11,7 +11,7 @@ use syntect::{
     parsing::{Scope, ScopeStack, ScopeStackOp},
 };
 
-use crate::weblang::base::SpanValue;
+use crate::weblang::base::{ModuleId, SpanValue};
 
 // See https://www.sublimetext.com/docs/scope_naming.html for some scope hints.
 
@@ -45,6 +45,10 @@ pub struct Prettifier {
     /// that go beyond colorizing. We handle inserts this way so that the
     /// prettifier can look at the length of `text` to properly understand the
     /// alignment of the underlying code.
+    ///
+    /// The offset here is measured in bytes so that we can determine the right
+    /// offset during prettification by looking at `text.len()`, which is
+    /// measured in bytes.
     inserts: Vec<(usize, TexInsert)>,
 }
 
@@ -176,8 +180,88 @@ impl Prettifier {
         self.newline_indent();
     }
 
-    pub fn insert(&mut self, ins: TexInsert) {
+    /// Add a "TeX insert".
+    ///
+    /// Set `text_next` to true if text will be insert immediately after this
+    /// insert. This makes sure to apply a newline and indent if needed, so that
+    /// there is no space between the insert and the following text.
+    pub fn insert(&mut self, ins: TexInsert, text_next: bool) {
+        if text_next {
+            self.maybe_newline();
+        }
+
         self.inserts.push((self.text.len(), ins));
+    }
+
+    /// Handle inserts outside of the colorized styling.
+    ///
+    /// This is needed to deal with the XeTeX array macro hack. And maybe other
+    /// things in the future?
+    fn handle_outer_inserts(
+        &self,
+        i_text: usize,
+        mut insert_idx: usize,
+        mut i_next_insert: usize,
+    ) -> (usize, usize) {
+        while i_text == i_next_insert {
+            match self.inserts[insert_idx].1 {
+                // Macro hack marker specially handled at top of emit()
+                TexInsert::XetexArrayMacroHackMarker => {}
+
+                TexInsert::XetexArrayMacroHackBracket => {
+                    print!("]");
+                }
+
+                _ => break,
+            }
+
+            // Prep for the next insert.
+            insert_idx += 1;
+            i_next_insert = self
+                .inserts
+                .get(insert_idx)
+                .map(|t| t.0)
+                .unwrap_or(usize::MAX);
+        }
+
+        (insert_idx, i_next_insert)
+    }
+
+    /// Handle the inserts at the given text position.
+    ///
+    /// There may be 0, 1, or many to handle.
+    fn handle_inserts(
+        &self,
+        i_text: usize,
+        mut insert_idx: usize,
+        mut i_next_insert: usize,
+    ) -> (usize, usize) {
+        while i_text == i_next_insert {
+            match self.inserts[insert_idx].1 {
+                TexInsert::StartModuleReference(id) => {
+                    print!("\\WebModuleReference{{{}}}{{", id);
+                }
+
+                TexInsert::EndMacro => {
+                    print!("}}");
+                }
+
+                // Break on "outer" inserts so as not to eat them.
+                TexInsert::XetexArrayMacroHackMarker | TexInsert::XetexArrayMacroHackBracket => {
+                    break
+                }
+            }
+
+            // Prep for the next insert.
+            insert_idx += 1;
+            i_next_insert = self
+                .inserts
+                .get(insert_idx)
+                .map(|t| t.0)
+                .unwrap_or(usize::MAX);
+        }
+
+        (insert_idx, i_next_insert)
     }
 
     pub fn emit(self, theme: &Theme, inline: bool) {
@@ -211,26 +295,8 @@ impl Prettifier {
             .unwrap_or(usize::MAX);
 
         for (style, span) in hi {
-            // Handle inserts that should happen outside of the colorization commands.
-            while i_text == i_next_insert {
-                // Handle this insert.
-                match self.inserts[insert_idx].1 {
-                    // Macro hack marker specially handled above.
-                    TexInsert::XetexArrayMacroHackMarker => {}
-
-                    TexInsert::XetexArrayMacroHackBracket => {
-                        print!("]");
-                    }
-                }
-
-                // Prep for the next insert.
-                insert_idx += 1;
-                i_next_insert = self
-                    .inserts
-                    .get(insert_idx)
-                    .map(|t| t.0)
-                    .unwrap_or(usize::MAX);
-            }
+            (insert_idx, i_next_insert) =
+                self.handle_outer_inserts(i_text, insert_idx, i_next_insert);
 
             print!(
                 "\\S{{{}}}{{{}}}{{",
@@ -253,7 +319,8 @@ impl Prettifier {
             print!("}}{{");
 
             for c in span.chars() {
-                // TODO???: handle different inserts here???
+                (insert_idx, i_next_insert) =
+                    self.handle_inserts(i_text, insert_idx, i_next_insert);
 
                 match c {
                     '$' => print!("\\$"),
@@ -271,12 +338,14 @@ impl Prettifier {
                     other => print!("{}", other),
                 }
 
-                i_text += 1;
+                i_text += c.len_utf8();
             }
 
+            (insert_idx, i_next_insert) = self.handle_inserts(i_text, insert_idx, i_next_insert);
             print!("}}");
         }
 
+        self.handle_outer_inserts(i_text, insert_idx, i_next_insert);
         println!("%");
 
         if xetex_array_macro_hack {
@@ -372,6 +441,13 @@ pub fn render_inline_seq<I: IntoIterator<Item = T>, T: RenderInline>(
 
 #[derive(Clone, Debug)]
 pub enum TexInsert {
+    /// Insert the beginning of a macro that wraps a reference to a WEB module.
+    /// This should be followed by an EndMacro.
+    StartModuleReference(ModuleId),
+
+    /// Insert the ending of a macro -- i.e., a closing brace.
+    EndMacro,
+
     /// Should be inserted at offset zero. Indicates that the hack for
     /// XeTeX(2022.0):576 is active, and we need to emit special delimiters to
     /// make the output compatible with the \arr macro used in the \halign

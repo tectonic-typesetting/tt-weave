@@ -927,11 +927,11 @@ mod tl_prettify {
         id: &StringSpan<'a>,
         dest: &mut Prettifier,
     ) {
-        dest.insert(TexInsert::XetexArrayMacroHackMarker);
+        dest.insert(TexInsert::XetexArrayMacroHackMarker, false);
         e1.render_inline(dest);
         dest.noscope_push(" .. ");
         e2.render_inline(dest);
-        dest.insert(TexInsert::XetexArrayMacroHackBracket);
+        dest.insert(TexInsert::XetexArrayMacroHackBracket, false);
 
         // Push this with a different scope so that the syntect highlighting
         // will cause a span break between the previous piece of text and this

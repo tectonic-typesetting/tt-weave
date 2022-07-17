@@ -21,7 +21,7 @@ pub use crate::{
     state::ModuleId,
 };
 
-pub use super::{comment::WebComment, module_reference::WebModuleReference};
+pub use super::{comment::WebComment, module_reference::WebModuleReference, prettify::TexInsert};
 
 /// Information about a typeset comment.
 ///
