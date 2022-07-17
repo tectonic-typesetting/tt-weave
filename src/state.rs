@@ -249,6 +249,63 @@ impl State {
         }
     }
 
+    /// Emit the index of named modules.
+    ///
+    /// The structure of the emitted TeX is:
+    ///
+    /// ```
+    /// \begin{WebModuleIndex}
+    ///   \WebModuleIndexEntry{$id}{$name}{
+    ///     % Modules contributing to the definition of the code:
+    ///     \mref{$id1}
+    ///     \mref{$id2}
+    ///     % etc.
+    ///   }{
+    ///     % Modules referencing the named module:
+    ///     \mref{$id3}
+    ///     \mref{$id4}
+    ///     % etc
+    ///   }
+    ///   \WebModuleIndexEntry{$id2}{$name2}{...etc...}
+    /// \end{WebModuleIndex}
+    /// ```
+    ///
+    /// So, you should define an environment for the index, and 4-parameter
+    /// command for dealing with each index entry. The command should define a
+    /// `\mref` helper macro to do whatever makes sense for your implementation.
+    ///
+    /// Note that the index will be sorted by module name, not module id!
+    pub fn emit_module_index(&self) {
+        println!();
+        println!("\\begin{{WebModuleIndex}}");
+
+        for (name, id) in self.named_modules.iter() {
+            println!("  \\WebModuleIndexEntry{{{}}}{{{}}}{{%", id, name);
+
+            if let Some(ixstate) = self.index_entries.get(&**name) {
+                for r in &ixstate.refs {
+                    if r.is_definition {
+                        println!("    \\mref{{{}}}%", r.module);
+                    }
+                }
+            }
+
+            println!("  }}{{%");
+
+            if let Some(ixstate) = self.index_entries.get(&**name) {
+                for r in &ixstate.refs {
+                    if !r.is_definition {
+                        println!("    \\mref{{{}}}%", r.module);
+                    }
+                }
+            }
+
+            println!("  }}%");
+        }
+
+        println!("\\end{{WebModuleIndex}}");
+    }
+
     #[allow(dead_code)]
     pub fn dump_pass1(&self) {
         for name in self.named_modules.iter() {

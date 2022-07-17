@@ -95,6 +95,39 @@ Dhref #m~1}%
   }
 \egroup
 
+% Processing the module index:
+
+\newwrite\moduleindexfile
+
+\makeatletter
+\newenvironment{WebModuleIndex}{%
+  % Main file is done
+  \tduxEmit
+
+  \openout\moduleindexfile=web-module-index.js
+  \write\moduleindexfile{window.moduleIndex=\@charlb}
+}{
+  \write\moduleindexfile{\@charrb;}
+  \closeout\moduleindexfile
+}
+
+% An entry in the module index:
+%
+% #1 - module ID
+% #2 - module name
+% #3 - modules contributing to the definition; series of `\mref{moduleid}` cseqs
+% #4 - modules referencing this module; series of `\mref{moduleid}` cseqs
+\newcommand{\WebModuleIndexEntry}[4]{%
+  \write\moduleindexfile{#1: \@charlb d: [}
+  \def\mref##1{\write\moduleindexfile{##1,}}
+  #3
+  \write\moduleindexfile{], r: [}
+  #4
+  \write\moduleindexfile{] \@charrb,}
+}
+
+\makeatother
+
 % Special definitions for XeTeX(2022.0):576, which needs custom macros to work
 % with its specialized \arr command that is invoked inside an \halign.
 \def\WebBeginXetexArrayMacro{\special{tdux:mfs code^^JNAT^^JNAS}}

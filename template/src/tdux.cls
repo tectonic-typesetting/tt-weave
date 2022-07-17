@@ -36,7 +36,7 @@
 %
 % \tduxSetupOutput{TMPL-FILENAME}{OUTPUT-PATH}
 %   Set up the next output, by specifying the path of the file to create and the
-%   name of the template to use. The template will be reread for reach output
+%   name of the template to use. The template will be reread for each output
 %   file that is created.
 \newcommand\tduxSetupOutput[2]{%
   \special{tdux:setTemplate #1}
