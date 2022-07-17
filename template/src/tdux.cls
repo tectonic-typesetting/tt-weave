@@ -69,6 +69,16 @@
 %
 \AtBeginDocument{%
   \pagestyle{empty}
+
+  % Register main-body font family. Needs to happen before we exit the
+  % "initialization" stage of the spx2html processing.
+  \special{tdux:startDefineFontFamily}
+  upright
+  \textbf{bold}
+  \textit{italic \textbf{bold-italic}}
+  \special{tdux:endDefineFontFamily}
+  \par
+
   \tduxProvideFile{tdux-chrome.js}{tdux-chrome.js}
   \tduxSetupOutput{tdux-page.html}{index.html}
 }
