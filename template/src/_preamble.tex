@@ -106,8 +106,10 @@ Dhref #m~1}%
   \write\majormoduleindexfile{window.ttWeaveMajorModuleIndex=[}
 
   % Hack(s) to get marked-up content to appear as plain text
-  \gdef\TeX{TeX}
   \gdef\ { }
+  \gdef\TeX{TeX}
+  \gdef\eTeX{eTeX}
+  \gdef\pdfTeX{pdfTeX}
 }{
   \write\majormoduleindexfile{];}
   \closeout\majormoduleindexfile
