@@ -123,3 +123,28 @@ window.onunload = function () { };
     activeSection.scrollIntoView({ block: 'center' });
   }
 })();
+
+// Keyboard shortcuts
+
+(function keyboard() {
+  var modalOverlay = document.getElementById("modal-overlay");
+  var contentsModal = document.getElementById("contents-modal");
+
+  function toggleContents() {
+    if (getComputedStyle(contentsModal).display === "none") {
+      modalOverlay.classList.add("modal-overlay-visible");
+      contentsModal.classList.add("modal-container-visible");
+      document.querySelector("body").style.overflow = "hidden";
+    } else {
+      modalOverlay.classList.remove("modal-overlay-visible");
+      contentsModal.classList.remove("modal-container-visible");
+      document.querySelector("body").style.overflow = "visible";
+    }
+  }
+
+  document.addEventListener("keypress", function onEvent(event) {
+    if (event.key === "c") {
+      toggleContents();
+    }
+  });
+})();
