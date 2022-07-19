@@ -95,32 +95,57 @@ Dhref #m~1}%
   }
 \egroup
 
-% Processing the module index:
+% Processing the major module index:
 
-\newwrite\moduleindexfile
+\newwrite\majormoduleindexfile
 
 \makeatletter
-\newenvironment{WebModuleIndex}{%
-  \openout\moduleindexfile=web-module-index.js
-  \write\moduleindexfile{window.ttWeaveModuleIndex=\@charlb}
+
+\newenvironment{WebMajorModuleIndex}{%
+  \openout\majormoduleindexfile=web-major-module-index.js
+  \write\majormoduleindexfile{window.ttWeaveMajorModuleIndex=\@charlb}
 }{
-  \write\moduleindexfile{\@charrb;}
-  \closeout\moduleindexfile
+  \write\majormoduleindexfile{\@charrb;}
+  \closeout\majormoduleindexfile
 }
 
-% An entry in the module index:
+% An entry in the major module index:
+%
+% #1 - module ID
+% #2 - module description, as TeX
+\newcommand{\WebMajorModuleIndexEntry}[2]{%
+  \write\majormoduleindexfile{#1: \@charlb d: "#2" \@charrb,}
+}
+
+\makeatother
+
+% Processing the named module index:
+
+\newwrite\namedmoduleindexfile
+
+\makeatletter
+
+\newenvironment{WebNamedModuleIndex}{%
+  \openout\namedmoduleindexfile=web-named-module-index.js
+  \write\namedmoduleindexfile{window.ttWeaveNamedModuleIndex=\@charlb}
+}{
+  \write\namedmoduleindexfile{\@charrb;}
+  \closeout\namedmoduleindexfile
+}
+
+% An entry in the named module index:
 %
 % #1 - module ID
 % #2 - module name
 % #3 - modules contributing to the definition; series of `\mref{moduleid}` cseqs
 % #4 - modules referencing this module; series of `\mref{moduleid}` cseqs
-\newcommand{\WebModuleIndexEntry}[4]{%
-  \write\moduleindexfile{#1: \@charlb d: [}
-  \def\mref##1{\write\moduleindexfile{##1,}}
+\newcommand{\WebNamedModuleIndexEntry}[4]{%
+  \write\namedmoduleindexfile{#1: \@charlb d: [}
+  \def\mref##1{\write\namedmoduleindexfile{##1,}}
   #3
-  \write\moduleindexfile{], r: [}
+  \write\namedmoduleindexfile{], r: [}
   #4
-  \write\moduleindexfile{] \@charrb,}
+  \write\namedmoduleindexfile{] \@charrb,}
 }
 
 \makeatother

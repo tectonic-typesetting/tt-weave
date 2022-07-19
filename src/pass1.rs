@@ -232,12 +232,48 @@ fn first_pass_scan_pascal<'a>(
 
 /// See WEAVE:90, WEAVE:113. We basically skip over TeX, but parse Pascal spans
 /// (delimited by `|`) and index entries.
+///
+/// Different than stock WEAVE, we have special processing to pull out the
+/// descriptions of major modules by scanning up to the first period, which
+/// never contains Pascal `|` delimiters.
 fn first_pass_handle_tex<'a>(
     cur_module: ModuleId,
+    is_major: bool,
     state: &mut State,
     mut span: Span<'a>,
 ) -> ParseResult<'a, Token> {
     let mut tok;
+
+    if is_major {
+        let mut lead_in = true;
+        let mut summary = String::new();
+
+        loop {
+            (span, tok) = next_token(span)?;
+
+            match tok {
+                Token::Char('.') => break,
+
+                Token::Char(' ') => {
+                    if !lead_in {
+                        summary.push(' ');
+                    }
+                }
+
+                Token::Char(c) => {
+                    lead_in = false;
+                    summary.push(c);
+                }
+
+                _ => {
+                    eprintln!("unexpected token in major-module summary: {:?}", tok);
+                    return new_parse_error(span, ErrorKind::Complete);
+                }
+            }
+        }
+
+        state.register_major_module(cur_module, summary);
+    }
 
     (span, tok) = first_pass_skip_tex(span)?;
 
@@ -411,26 +447,26 @@ fn first_pass_inner<'a>(state: &mut State, span: Span<'a>) -> ParseResult<'a, ()
 
     loop {
         // At the top of this loop, we've just read a new-module boundary token.
-        // At the moment we don't really care about major vs minor.
 
         cur_module += 1;
 
-        match tok {
+        let is_major = match tok {
             Token::Control(ControlKind::NewMajorModule) => {
                 eprintln!("- Major module #{}", cur_module);
+                true
             }
 
-            Token::Control(ControlKind::NewMinorModule) => {}
+            Token::Control(ControlKind::NewMinorModule) => false,
 
             _ => {
                 eprintln!("unexpected module end {:?}", tok);
                 return new_parse_error(span, ErrorKind::Complete);
             }
-        }
+        };
 
         // Handle the TeX chunk (which can be empty), and find out what ended it.
 
-        (span, tok) = first_pass_handle_tex(cur_module, state, span)?;
+        (span, tok) = first_pass_handle_tex(cur_module, is_major, state, span)?;
 
         // If there are macro/format definitions, handle those
 

@@ -42,7 +42,8 @@ fn main() -> Result<()> {
     //state.dump_pass1();
     pass2::execute(basename, &state, input)?;
 
-    state.emit_module_index();
+    state.emit_major_module_index();
+    state.emit_named_module_index();
     state.emit_symbol_index();
 
     Ok(())

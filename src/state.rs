@@ -54,6 +54,10 @@ pub struct State {
     /// the pass.
     named_modules: BTreeMap<String, ModuleId>,
 
+    /// Descriptions of "major" modules. These are different than "named"
+    /// modules. The descriptive text is TeX.
+    major_modules: Vec<(ModuleId, String)>,
+
     index_entries: HashMap<String, IndexState>,
 
     formatted_identifiers: FormatOverrides,
@@ -204,6 +208,10 @@ impl State {
         ))
     }
 
+    pub fn register_major_module<S: ToString>(&mut self, module: ModuleId, desc: S) {
+        self.major_modules.push((module, desc.to_string()));
+    }
+
     pub fn scan_module_name_and_register<'a>(
         &mut self,
         module: ModuleId,
@@ -248,13 +256,39 @@ impl State {
         }
     }
 
+    /// Emit the index of major modules.
+    ///
+    /// The structure of the emitted TeX is:
+    ///
+    /// ```
+    /// \begin{WebMajorModuleIndex}
+    ///   \WebMajorModuleIndexEntry{$id}{$desc}
+    /// \end{WebMajorModuleIndex}
+    /// ```
+    ///
+    /// So, you should define an environment for the index, and 4-parameter
+    /// command for dealing with each index entry. The command should define a
+    /// `\mref` helper macro to do whatever makes sense for your implementation.
+    ///
+    /// Note that the index will be sorted by module name, not module id!
+    pub fn emit_major_module_index(&self) {
+        println!();
+        println!("\\begin{{WebMajorModuleIndex}}");
+
+        for (id, desc) in &self.major_modules {
+            println!("  \\WebMajorModuleIndexEntry{{{}}}{{{}}}", id, desc);
+        }
+
+        println!("\\end{{WebMajorModuleIndex}}");
+    }
+
     /// Emit the index of named modules.
     ///
     /// The structure of the emitted TeX is:
     ///
     /// ```
-    /// \begin{WebModuleIndex}
-    ///   \WebModuleIndexEntry{$id}{$name}{
+    /// \begin{WebNamedModuleIndex}
+    ///   \WebNamedModuleIndexEntry{$id}{$name}{
     ///     % Modules contributing to the definition of the code:
     ///     \mref{$id1}
     ///     \mref{$id2}
@@ -265,8 +299,8 @@ impl State {
     ///     \mref{$id4}
     ///     % etc
     ///   }
-    ///   \WebModuleIndexEntry{$id2}{$name2}{...etc...}
-    /// \end{WebModuleIndex}
+    ///   \WebNamedModuleIndexEntry{$id2}{$name2}{...etc...}
+    /// \end{WebNamedModuleIndex}
     /// ```
     ///
     /// So, you should define an environment for the index, and 4-parameter
@@ -274,12 +308,12 @@ impl State {
     /// `\mref` helper macro to do whatever makes sense for your implementation.
     ///
     /// Note that the index will be sorted by module name, not module id!
-    pub fn emit_module_index(&self) {
+    pub fn emit_named_module_index(&self) {
         println!();
-        println!("\\begin{{WebModuleIndex}}");
+        println!("\\begin{{WebNamedModuleIndex}}");
 
         for (name, id) in self.named_modules.iter() {
-            println!("  \\WebModuleIndexEntry{{{}}}{{{}}}{{%", id, name);
+            println!("  \\WebNamedModuleIndexEntry{{{}}}{{{}}}{{%", id, name);
 
             if let Some(ixstate) = self.index_entries.get(&**name) {
                 for r in &ixstate.refs {
@@ -302,7 +336,7 @@ impl State {
             println!("  }}%");
         }
 
-        println!("\\end{{WebModuleIndex}}");
+        println!("\\end{{WebNamedModuleIndex}}");
     }
 
     /// Emit the index of non-module symbols.
