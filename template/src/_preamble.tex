@@ -101,9 +101,6 @@ Dhref #m~1}%
 
 \makeatletter
 \newenvironment{WebModuleIndex}{%
-  % Main file is done
-  \tduxEmit
-
   \openout\moduleindexfile=web-module-index.js
   \write\moduleindexfile{window.ttWeaveModuleIndex=\@charlb}
 }{
@@ -132,10 +129,19 @@ Dhref #m~1}%
 
 \newwrite\symbolindexfile
 
+% We should come up with a less gross way to do this, which is currently needed
+% to escape our TeX inputs when they'll be emitted inside JS string literals.
+\begingroup
+\catcode`"=\active
+\gdef\changedoublequote{\gdef"{\string\"}}
+\endgroup
+
 \makeatletter
 \newenvironment{WebSymbolIndex}{%
   \openout\symbolindexfile=web-symbol-index.js
   \write\symbolindexfile{window.ttWeaveSymbolIndex=\@charlb}
+  \catcode`"=\active
+  \changedoublequote
 }{
   \write\symbolindexfile{\@charrb;}
   \closeout\symbolindexfile

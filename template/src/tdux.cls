@@ -91,4 +91,4 @@
 }
 %
 \tduxAddTemplate{tdux-page.html}
-\tduxSetTemplateVariable{tduxDocumentTitle}{Demo Title}
+\tduxSetTemplateVariable{tduxDocumentTitle}{Set tduxDocumentTitle}

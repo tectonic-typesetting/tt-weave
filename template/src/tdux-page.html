@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta http-equiv="content-type" content="text/html; charset=utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-  <title>{% block title %}{% endblock title %}</title>
+  <title>{{ tduxDocumentTitle }}</title>
   <link rel="stylesheet" href="{{ tduxRelTop ~ 'tdux-style.css' | safe }}">
 </head>
 
@@ -72,6 +72,8 @@
   </div>
 
   <script src="{{ tduxRelTop ~ 'tdux-chrome.js' }}" type="text/javascript" charset="utf-8"></script>
+  <script async src="{{ tduxRelTop ~ 'web-module-index.js' }}" type="text/javascript" charset="utf-8"></script>
+  <script async src="{{ tduxRelTop ~ 'web-symbol-index.js' }}" type="text/javascript" charset="utf-8"></script>
 </body>
 
 </html>
