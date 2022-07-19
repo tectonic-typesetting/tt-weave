@@ -89,7 +89,21 @@
         <h1>Go To Section</h1>
 
         <div id="goto-modal-contents">
-          <p>Blah blah.</p>
+          <form id="goto-modal-form">
+            <!-- This is a numeric entry, but UX-wise I think it's better to code it as text -->
+            <div>
+              <label for="goto-modal-entry">Enter a section number:</label>
+            </div>
+            <div>
+              <input type="text" id="goto-modal-entry" name="goto-modal-entry">
+            </div>
+            <div>
+              <p id="goto-modal-error" class="goto-modal-error"></p>
+            </div>
+            <div>
+              <button>Go</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

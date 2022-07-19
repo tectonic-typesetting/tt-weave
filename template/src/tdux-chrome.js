@@ -137,6 +137,9 @@ var modals = (function modals() {
       visible: false
     };
 
+    // Lame extensibility hook:
+    state.onOpen = function() {};
+
     state.open = function() {
       if (state.visible) {
         return;
@@ -152,7 +155,8 @@ var modals = (function modals() {
       el.classList.add("modal-container-visible");
       document.body.style.overflow = "hidden";
       state.visible = true;
-    }
+      state.onOpen();
+    };
 
     state.close = function() {
       if (!state.visible) {
@@ -163,7 +167,7 @@ var modals = (function modals() {
       el.classList.remove("modal-container-visible");
       document.querySelector("body").style.overflow = "visible";
       state.visible = false;
-    }
+    };
 
     state.toggle = function() {
       if (state.visible) {
@@ -171,13 +175,43 @@ var modals = (function modals() {
       } else {
         state.open();
       }
-    }
+    };
 
     return state;
   }
 
   modals.contents = makeModal("contents-modal");
   modals.goto = makeModal("goto-modal");
+
+  var gotoForm = document.getElementById("goto-modal-form");
+  var gotoEntry = document.getElementById("goto-modal-entry");
+  var gotoError = document.getElementById("goto-modal-error");
+
+  modals.goto.onOpen = function() {
+    gotoEntry.value = "";
+    gotoEntry.focus();
+    gotoError.classList.remove("goto-modal-error-visible");
+    gotoError.innerText = "";
+  };
+
+  gotoForm.addEventListener("submit", function(event) {
+    event.preventDefault();
+
+    const sid = gotoEntry.value;
+    const section = document.getElementById("m" + sid);
+
+    if (section !== null) {
+      gotoEntry.blur();
+      gotoEntry.value = "";
+      modals.goto.close();
+      section.scrollIntoView({ behavior: "auto" });
+    } else {
+      gotoError.innerText = `Didn’t find the section “${sid}”.`;
+      gotoError.classList.add("goto-modal-error-visible");
+      gotoEntry.value = "";
+    }
+  });
+
   return modals;
 })();
 

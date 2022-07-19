@@ -629,3 +629,24 @@ section.ttweave-nonfirst {
   margin-right: auto;
   max-width: var(--content-max-width);
 }
+
+/* Go To modal */
+
+#goto-modal-contents input {
+  font-size: larger;
+  margin-top: 1rem;
+}
+
+#goto-modal-contents button {
+  margin-top: 1rem;
+}
+
+.goto-modal-error {
+  display: none;
+  color: #BD2020;
+}
+
+.goto-modal-error.goto-modal-error-visible {
+  margin: 1rem 0 0 0;
+  display: block;
+}
