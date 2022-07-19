@@ -126,23 +126,59 @@ window.onunload = function () { };
 
 // Modals
 
-var toggleContents = (function keyboard() {
-  var modalOverlay = document.getElementById("modal-overlay");
-  var contentsModal = document.getElementById("contents-modal");
+var modals = (function modals() {
+  var modals = {};
 
-  function toggleContents() {
-    if (getComputedStyle(contentsModal).display === "none") {
+  var modalOverlay = document.getElementById("modal-overlay");
+
+  function makeModal(elid) {
+    var el = document.getElementById(elid);
+    var state = {
+      visible: false
+    };
+
+    state.open = function() {
+      if (state.visible) {
+        return;
+      }
+
+      for (const [_mname, mstate] of Object.entries(modals)) {
+        if (mstate.visible) {
+          mstate.close();
+        }
+      }
+
       modalOverlay.classList.add("modal-overlay-visible");
-      contentsModal.classList.add("modal-container-visible");
-      document.querySelector("body").style.overflow = "hidden";
-    } else {
-      modalOverlay.classList.remove("modal-overlay-visible");
-      contentsModal.classList.remove("modal-container-visible");
-      document.querySelector("body").style.overflow = "visible";
+      el.classList.add("modal-container-visible");
+      document.body.style.overflow = "hidden";
+      state.visible = true;
     }
+
+    state.close = function() {
+      if (!state.visible) {
+        return;
+      }
+
+      modalOverlay.classList.remove("modal-overlay-visible");
+      el.classList.remove("modal-container-visible");
+      document.querySelector("body").style.overflow = "visible";
+      state.visible = false;
+    }
+
+    state.toggle = function() {
+      if (state.visible) {
+        state.close();
+      } else {
+        state.open();
+      }
+    }
+
+    return state;
   }
 
-  return toggleContents;
+  modals.contents = makeModal("contents-modal");
+  modals.goto = makeModal("goto-modal");
+  return modals;
 })();
 
 // Keyboard shortcuts
@@ -150,7 +186,9 @@ var toggleContents = (function keyboard() {
 (function keyboard() {
   document.addEventListener("keypress", function onEvent(event) {
     if (event.key === "c") {
-      toggleContents();
+      modals.contents.toggle();
+    } else if (event.key === "g") {
+      modals.goto.toggle();
     }
   });
 })();
@@ -176,7 +214,7 @@ var toggleContents = (function keyboard() {
       li.appendChild(a);
       a.href = `#m${id}`;
       a.innerText = `${id}. ${desc}`;
-      a.addEventListener("click", toggleContents);
+      a.addEventListener("click", function () { modals.contents.toggle(); });
     });
   }
 
