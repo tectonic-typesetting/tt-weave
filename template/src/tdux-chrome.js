@@ -146,9 +146,7 @@ var modals = (function modals() {
       }
 
       for (const [_mname, mstate] of Object.entries(modals)) {
-        if (mstate.visible) {
-          mstate.close();
-        }
+        mstate.close();
       }
 
       modalOverlay.classList.add("modal-overlay-visible");
@@ -223,6 +221,14 @@ var modals = (function modals() {
       modals.contents.toggle();
     } else if (event.key === "g") {
       modals.goto.toggle();
+    }
+  });
+
+  document.addEventListener("keydown", function onEvent(event) {
+    if (event.key == "Escape") {
+      for (const [_mname, mstate] of Object.entries(modals)) {
+        mstate.close();
+      }
     }
   });
 })();
