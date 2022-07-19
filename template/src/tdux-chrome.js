@@ -124,9 +124,9 @@ window.onunload = function () { };
   }
 })();
 
-// Keyboard shortcuts
+// Modals
 
-(function keyboard() {
+var toggleContents = (function keyboard() {
   var modalOverlay = document.getElementById("modal-overlay");
   var contentsModal = document.getElementById("contents-modal");
 
@@ -142,9 +142,45 @@ window.onunload = function () { };
     }
   }
 
+  return toggleContents;
+})();
+
+// Keyboard shortcuts
+
+(function keyboard() {
   document.addEventListener("keypress", function onEvent(event) {
     if (event.key === "c") {
       toggleContents();
     }
   });
+})();
+
+// Populating the contents: the index of major modules. This is called as an `onload()`
+// for the major module index JS file.
+
+(function majorModuleIndex() {
+  function loaded() {
+    var container = document.getElementById("contents-modal-contents");
+
+    // Clear "loading" default contents, replace with list
+    container.innerHTML = "<ul></ul>";
+    var ul = container.firstChild;
+
+    Array.from(ttWeaveMajorModuleIndex).forEach(function (info) {
+      var id = info.id;
+      var desc = info.d;
+
+      var li = document.createElement('li');
+      ul.appendChild(li);
+
+      var a = document.createElement('a');
+      li.appendChild(a);
+      a.href = `#m${id}`;
+      a.innerText = `${id}. ${desc}`;
+      a.addEventListener("click", toggleContents);
+    });
+  }
+
+  var script = document.getElementById("major-module-index-script");
+  script.addEventListener("load", loaded);
 })();
