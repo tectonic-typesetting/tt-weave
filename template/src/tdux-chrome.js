@@ -155,8 +155,7 @@ var toggleContents = (function keyboard() {
   });
 })();
 
-// Populating the contents: the index of major modules. This is called as an `onload()`
-// for the major module index JS file.
+// Populating the contents: the index of major modules.
 
 (function majorModuleIndex() {
   function loaded() {
@@ -181,6 +180,11 @@ var toggleContents = (function keyboard() {
     });
   }
 
-  var script = document.getElementById("major-module-index-script");
+  // Synthesize the script element here so that we can be sure that our `load`
+  // handler is installed in time.
+  var script = document.createElement("script")
+  script.async = true;
   script.addEventListener("load", loaded);
+  script.src = "web-major-module-index.js";
+  document.body.appendChild(script);
 })();

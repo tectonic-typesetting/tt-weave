@@ -104,6 +104,10 @@ Dhref #m~1}%
 \newenvironment{WebMajorModuleIndex}{%
   \openout\majormoduleindexfile=web-major-module-index.js
   \write\majormoduleindexfile{window.ttWeaveMajorModuleIndex=[}
+
+  % Hack(s) to get marked-up content to appear as plain text
+  \gdef\TeX{TeX}
+  \gdef\ { }
 }{
   \write\majormoduleindexfile{];}
   \closeout\majormoduleindexfile
