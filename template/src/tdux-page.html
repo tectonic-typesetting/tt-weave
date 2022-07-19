@@ -86,13 +86,13 @@
 
     <div class="modal-container page-wrapper" id="goto-modal">
       <div class="content-aligned">
-        <h1>Go To Section</h1>
+        <h1>Go To Module</h1>
 
         <div id="goto-modal-contents">
           <form id="goto-modal-form">
             <!-- This is a numeric entry, but UX-wise I think it's better to code it as text -->
             <div>
-              <label for="goto-modal-entry">Enter a section number:</label>
+              <label for="goto-modal-entry">Enter a module number:</label>
             </div>
             <div>
               <input type="text" id="goto-modal-entry" name="goto-modal-entry">
@@ -104,6 +104,19 @@
               <button>Go</button>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-container page-wrapper" id="modinfo-modal">
+      <div class="content-aligned">
+        <h1 id="modinfo-modal-title">Module Information</h1>
+
+        <div id="modinfo-modal-contents">
+          <p id="modinfo-modal-def-desc">This module is defined in...</p>
+          <ul id="modinfo-modal-def-list"></ul>
+          <p id="modinfo-modal-ref-desc">This module is referenced in...</p>
+          <ul id="modinfo-modal-ref-list"></ul>
         </div>
       </div>
     </div>

@@ -588,6 +588,16 @@ section.ttweave-nonfirst {
   margin-top: 10em;
 }
 
+a.modref {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+a.modref:hover {
+  color: #1c4280;
+  text-decoration: none;
+}
+
 /* Modals
  *
  * Derived from https://rapaccinim.medium.com/how-to-create-a-custom-resizable-modal-with-scrollable-and-fixed-content-21adb2adda28

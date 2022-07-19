@@ -81,19 +81,14 @@ NAS}%
 %
 % #1 - the module number
 % #2 - the text of the reference
-%
-% I'm sure there is a less gross way to do this, but to get the pound sign into
-% the the \special, we do this catcode hack. `\#` emerges as `\#`.
-\bgroup
-  \catcode`\#=11
-  \catcode`\~=6
-  \global\def\WebModuleReference~1~2{%
-      \special{tdux:mfs a^^J%
-Dhref #m~1}%
-      ~2%
-      \special{tdux:me a}%
-  }
-\egroup
+\def\WebModuleReference#1#2{%
+  \special{tdux:mfs a^^J%
+Cmodref^^J%
+Donclick modals.modinfo.openFor(#1)}%
+  #2%
+  \special{tdux:me a}%
+}
+
 
 % Processing the major module index:
 
@@ -125,6 +120,13 @@ Dhref #m~1}%
 
 \makeatother
 
+% We should come up with a less gross way to do this, which is currently needed
+% to escape our TeX inputs when they'll be emitted inside JS string literals.
+\begingroup
+\catcode`"=\active
+\gdef\changedoublequote{\gdef"{\string\"}}
+\endgroup
+
 % Processing the named module index:
 
 \newwrite\namedmoduleindexfile
@@ -134,6 +136,8 @@ Dhref #m~1}%
 \newenvironment{WebNamedModuleIndex}{%
   \openout\namedmoduleindexfile=web-named-module-index.js
   \write\namedmoduleindexfile{window.ttWeaveNamedModuleIndex=\@charlb}
+  \catcode`"=\active
+  \changedoublequote
 }{
   \write\namedmoduleindexfile{\@charrb;}
   \closeout\namedmoduleindexfile
@@ -146,7 +150,7 @@ Dhref #m~1}%
 % #3 - modules contributing to the definition; series of `\mref{moduleid}` cseqs
 % #4 - modules referencing this module; series of `\mref{moduleid}` cseqs
 \newcommand{\WebNamedModuleIndexEntry}[4]{%
-  \write\namedmoduleindexfile{#1: \@charlb d: [}
+  \write\namedmoduleindexfile{#1: \@charlb n: "#2", d: [}
   \def\mref##1{\write\namedmoduleindexfile{##1,}}
   #3
   \write\namedmoduleindexfile{], r: [}
@@ -160,14 +164,8 @@ Dhref #m~1}%
 
 \newwrite\symbolindexfile
 
-% We should come up with a less gross way to do this, which is currently needed
-% to escape our TeX inputs when they'll be emitted inside JS string literals.
-\begingroup
-\catcode`"=\active
-\gdef\changedoublequote{\gdef"{\string\"}}
-\endgroup
-
 \makeatletter
+
 \newenvironment{WebSymbolIndex}{%
   \openout\symbolindexfile=web-symbol-index.js
   \write\symbolindexfile{window.ttWeaveSymbolIndex=\@charlb}

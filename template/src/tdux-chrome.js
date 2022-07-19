@@ -124,6 +124,27 @@ window.onunload = function () { };
   }
 })();
 
+// Module navigation
+
+function scrollToModule(mid) {
+  // Returns true if `mid` was valid and we were able to
+  // scroll to it; false otherwise.
+  //
+  // Closes any open modals.
+  const section = document.getElementById("m" + mid);
+
+  if (section === null) {
+    return false;
+  }
+
+  for (const [_mname, mstate] of Object.entries(modals)) {
+    mstate.close();
+  }
+
+  section.scrollIntoView({ behavior: "auto" });
+  return true;
+}
+
 // Modals
 
 var modals = (function modals() {
@@ -179,6 +200,9 @@ var modals = (function modals() {
   }
 
   modals.contents = makeModal("contents-modal");
+
+  // Go To modal customization.
+
   modals.goto = makeModal("goto-modal");
 
   var gotoForm = document.getElementById("goto-modal-form");
@@ -195,20 +219,92 @@ var modals = (function modals() {
   gotoForm.addEventListener("submit", function(event) {
     event.preventDefault();
 
-    const sid = gotoEntry.value;
-    const section = document.getElementById("m" + sid);
+    const mid = gotoEntry.value;
 
-    if (section !== null) {
+    if (scrollToModule(mid)) {
       gotoEntry.blur();
       gotoEntry.value = "";
       modals.goto.close();
-      section.scrollIntoView({ behavior: "auto" });
     } else {
-      gotoError.innerText = `Didn’t find the section “${sid}”.`;
+      gotoError.innerText = `Didn’t find the module “${mid}”.`;
       gotoError.classList.add("goto-modal-error-visible");
       gotoEntry.value = "";
     }
   });
+
+  // Module Info modal customization
+
+  modals.modinfo = makeModal("modinfo-modal");
+
+  const modinfoTitle = document.getElementById("modinfo-modal-title");
+  const modinfoDefDesc = document.getElementById("modinfo-modal-def-desc");
+  const modinfoDefList = document.getElementById("modinfo-modal-def-list");
+  const modinfoRefDesc = document.getElementById("modinfo-modal-ref-desc");
+  const modinfoRefList = document.getElementById("modinfo-modal-ref-list");
+
+  modals.modinfo.openFor = function(mid) {
+    var rec = undefined;
+
+    if (ttWeaveNamedModuleIndex !== undefined) {
+      rec = ttWeaveNamedModuleIndex[mid];
+    }
+
+    if (rec === undefined) {
+      // It's an anonymous module, or we haven't yet loaded the index. The only
+      // thing we can really do here is go to it. Invalid `mid` is a
+      // can't-happen; silently noop if it somehow does.
+      scrollToModule(mid);
+      return;
+    }
+
+    // OK, we have something we can work with!
+
+    modinfoTitle.innerText = `§${mid}: ${rec.n}`;
+
+    if (rec.d.length == 1) {
+      modinfoDefDesc.innerText = "This named module is defined in one place:";
+    } else {
+      modinfoDefDesc.innerText = `This named module is defined in ${rec.d.length} places:`;
+    }
+
+    modinfoDefList.innerHTML = "";
+
+    for (const rmid of rec.d) {
+      const a = document.createElement("a");
+      a.className = "modref";
+      a.innerText = "" + rmid;
+      a.addEventListener("click", function() { scrollToModule(rmid); });
+
+      const li = document.createElement("li");
+      li.appendChild(a);
+
+      modinfoDefList.appendChild(li);
+    }
+
+    if (rec.r.length == 1) {
+      modinfoRefDesc.innerText = "It is referenced in one place:";
+    } else {
+      modinfoRefDesc.innerText = `It is referenced in ${rec.d.length} places:`;
+    }
+
+    modinfoRefList.innerHTML = "";
+
+    for (const rmid of rec.r) {
+      const a = document.createElement("a");
+      a.className = "modref";
+      a.innerText = "" + rmid;
+      a.addEventListener("click", function() { scrollToModule(rmid); });
+
+      const li = document.createElement("li");
+      li.appendChild(a);
+
+      modinfoRefList.appendChild(li);
+    }
+
+    modals.modinfo.open();
+  };
+
+  // All done!
 
   return modals;
 })();
