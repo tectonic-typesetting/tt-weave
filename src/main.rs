@@ -43,6 +43,7 @@ fn main() -> Result<()> {
     pass2::execute(basename, &state, input)?;
 
     state.emit_module_index();
+    state.emit_symbol_index();
 
     Ok(())
 }

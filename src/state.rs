@@ -6,7 +6,6 @@ use nom_locate::position;
 use std::{
     collections::{btree_map::Entry, BTreeMap, HashMap},
     convert::TryFrom,
-    fmt::Write,
 };
 
 use crate::{
@@ -306,38 +305,63 @@ impl State {
         println!("\\end{{WebModuleIndex}}");
     }
 
-    #[allow(dead_code)]
-    pub fn dump_pass1(&self) {
-        for name in self.named_modules.iter() {
-            eprintln!("{:?}", name);
-        }
-
-        eprintln!();
+    /// Emit the index of non-module symbols.
+    ///
+    /// This has the same structure as the module index, but with `Symbol`
+    /// instead of `Module` for various control-sequence names. The form of the
+    /// index entry command is:
+    ///
+    /// ```tex
+    /// \WebSymbolIndexEntry{$text}{$kind}{$definers}{$references}
+    /// ```
+    ///
+    /// where $text is the index entry text and $kind is one of the four
+    /// following control sequences: `\code`, `\prose`, `\output`, or `\custom`.
+    /// $defines and $references are sequences of `\mref` strings as in the
+    /// named module index. *Most* symbols have one definition, but some have
+    /// zero (including `\output` strings) and some have multiple (especially
+    /// variables with single-character names).
+    pub fn emit_symbol_index(&self) {
+        println!();
+        println!("\\begin{{WebSymbolIndex}}");
 
         let mut index: Vec<_> = self.index_entries.keys().collect();
         index.string_sort_unstable(natural_lexical_cmp);
 
         for name in &index {
+            // Named modules are dealt with separately.
             if self.named_modules.contains_key(&**name) {
                 continue;
             }
 
             let info = self.index_entries.get(&**name).unwrap();
 
-            let mut refs = String::new();
+            let kind = match info.kind {
+                IndexEntryKind::Normal => "code",
+                IndexEntryKind::Roman => "prose",
+                IndexEntryKind::Typewriter => "output",
+                IndexEntryKind::Wildcard => "custom",
+            };
+
+            println!("  \\WebSymbolIndexEntry{{{}}}{{\\{}}}{{%", name, kind);
+
             for r in &info.refs {
-                if !refs.is_empty() {
-                    refs.push(' ');
-                }
-
-                write!(refs, "{}", r.module).unwrap();
-
                 if r.is_definition {
-                    refs.push('*');
+                    println!("    \\mref{{{}}}%", r.module);
                 }
             }
 
-            eprintln!("{} ({:?}) => {}", name, info.kind, refs);
+            println!("  }}{{%");
+
+            for r in &info.refs {
+                if !r.is_definition {
+                    println!("    \\mref{{{}}}%", r.module);
+                }
+            }
+
+            println!("  }}");
         }
+
+        println!("\\end{{WebSymbolIndex}}");
     }
 }

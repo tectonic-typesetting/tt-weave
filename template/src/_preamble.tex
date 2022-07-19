@@ -105,7 +105,7 @@ Dhref #m~1}%
   \tduxEmit
 
   \openout\moduleindexfile=web-module-index.js
-  \write\moduleindexfile{window.moduleIndex=\@charlb}
+  \write\moduleindexfile{window.ttWeaveModuleIndex=\@charlb}
 }{
   \write\moduleindexfile{\@charrb;}
   \closeout\moduleindexfile
@@ -124,6 +124,40 @@ Dhref #m~1}%
   \write\moduleindexfile{], r: [}
   #4
   \write\moduleindexfile{] \@charrb,}
+}
+
+\makeatother
+
+% Processing the symbol index:
+
+\newwrite\symbolindexfile
+
+\makeatletter
+\newenvironment{WebSymbolIndex}{%
+  \openout\symbolindexfile=web-symbol-index.js
+  \write\symbolindexfile{window.ttWeaveSymbolIndex=\@charlb}
+}{
+  \write\symbolindexfile{\@charrb;}
+  \closeout\symbolindexfile
+}
+
+% An entry in the symbol index:
+%
+% #1 - symbol text
+% #2 - one of \code, \output, \prose, or \custom
+% #3 - the module number where this symbol is defined
+% #4 - modules referencing this symbol, excepting the define-er; series of `\mref{moduleid}` cseqs
+\newcommand{\WebSymbolIndexEntry}[4]{%
+  \def\code{}
+  \def\output{}
+  \def\prose{}
+  \def\custom{}
+  \def\mref##1{\write\symbolindexfile{##1,}}
+  \write\symbolindexfile{"#1": \@charlb d: [}
+  #3
+  \write\symbolindexfile{], r: [}
+  #4
+  \write\symbolindexfile{] \@charrb,}
 }
 
 \makeatother
