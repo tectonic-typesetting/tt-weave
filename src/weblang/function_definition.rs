@@ -427,9 +427,10 @@ impl<'a> WebFunctionDefinition<'a> {
                     }
 
                     dest.dedent_block();
-                    dest.newline_needed();
                 }
             }
+
+            dest.newline_needed();
         }
 
         // Consts
