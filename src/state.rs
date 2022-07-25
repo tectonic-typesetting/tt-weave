@@ -377,7 +377,16 @@ impl State {
                 IndexEntryKind::Wildcard => "custom",
             };
 
-            println!("  \\WebSymbolIndexEntry{{{}}}{{\\{}}}{{%", name, kind);
+            let (custom_l, custom_r) = if let IndexEntryKind::Wildcard = info.kind {
+                ("\\WebWildcardPrefix{", "}")
+            } else {
+                ("", "")
+            };
+
+            println!(
+                "  \\WebSymbolIndexEntry{{{}{}{}}}{{\\{}}}{{%",
+                custom_l, name, custom_r, kind
+            );
 
             for r in &info.refs {
                 if r.is_definition {

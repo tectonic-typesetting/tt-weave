@@ -166,11 +166,14 @@ Donclick modals.modinfo.openFor(#1)}%
 
 \makeatletter
 
+\def\WebWildcardPrefix#1#2{#2}
+
 \newenvironment{WebSymbolIndex}{%
   \openout\symbolindexfile=web-symbol-index.js
   \write\symbolindexfile{window.ttWeaveSymbolIndex=\@charlb}
   \catcode`"=\active
   \changedoublequote
+  \def\mref##1{\write\symbolindexfile{##1,}}
 }{
   \write\symbolindexfile{\@charrb;}
   \closeout\symbolindexfile
@@ -178,16 +181,11 @@ Donclick modals.modinfo.openFor(#1)}%
 
 % An entry in the symbol index:
 %
-% #1 - symbol text
+% #1 - symbol text; possibly `\WebWildcardPrefix{sort}{TeX}`
 % #2 - one of \code, \output, \prose, or \custom
-% #3 - the module number where this symbol is defined
-% #4 - modules referencing this symbol, excepting the define-er; series of `\mref{moduleid}` cseqs
+% #3 - modules defining this symbol; series of `\mref{moduleid}` cseqs
+% #4 - modules referencing this symbol, excepting the define-ers; series of `\mref{moduleid}` cseqs
 \newcommand{\WebSymbolIndexEntry}[4]{%
-  \def\code{}
-  \def\output{}
-  \def\prose{}
-  \def\custom{}
-  \def\mref##1{\write\symbolindexfile{##1,}}
   \write\symbolindexfile{"#1": \@charlb d: [}
   #3
   \write\symbolindexfile{], r: [}
