@@ -40,6 +40,9 @@
 \newif\iffirstmodule
 \firstmoduletrue
 
+\newwrite\modulehtmllisting
+\openout\modulehtmllisting=_modules.html
+
 \newcommand{\WebMajorModule}[1]{%
   \newpage\par
   \iffirstmodule
@@ -48,6 +51,7 @@
     \tduxEmit
   \fi
   \tduxSetupOutput{tdux-standalone.html}{module#1.html}
+  \write\modulehtmllisting{<a href="module#1.html"></a>}
   \textbf{#1.}
 }
 \let\WebMinorModule=\WebMajorModule
