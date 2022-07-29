@@ -7,9 +7,9 @@
   },
   "license": "MIT",
   "scripts": {
-    "build": "parcel build parcel-src/index.html parcel-src/_modules.html",
+    "build": "parcel build src/index.html src/_modules.html",
     "check": "tsc --noEmit",
-    "serve": "parcel serve parcel-src/index.html parcel-src/_modules.html"
+    "serve": "parcel serve src/index.html src/_modules.html"
   },
   "dependencies": {
     "vue": "^3.2.37"

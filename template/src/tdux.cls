@@ -1,4 +1,4 @@
-% Copyright 2021 the Tectonic Project
+% Copyright 2021-2022 the Tectonic Project
 % Licensed under the MIT License
 %
 % Tectonic Default (HTML) User Experience document class
@@ -78,17 +78,13 @@
   \textit{italic \textbf{bold-italic}}
   \special{tdux:endDefineFontFamily}
   \par
-
-  \tduxProvideFile{tdux-chrome.js}{tdux-chrome.js}
-  \tduxSetupOutput{tdux-page.html}{index.html}
 }
 %
 \AtEndDocument{%
-  \tduxEmit
   \special{tdux:contentFinished}
-  \tduxSetupOutput{tdux-style.css}{tdux-style.css}
+  \tduxSetupOutput{tdux-fonts.css}{tdux-fonts.css}
   \tduxEmit
 }
 %
-\tduxAddTemplate{tdux-page.html}
+\tduxAddTemplate{tdux-standalone.html}
 \tduxSetTemplateVariable{tduxDocumentTitle}{Set tduxDocumentTitle}

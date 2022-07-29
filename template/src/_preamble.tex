@@ -42,7 +42,11 @@
 
 \newcommand{\WebMajorModule}[1]{%
   \newpage\par
-  \tduxEmit
+  \iffirstmodule
+    \firstmodulefalse
+  \else
+    \tduxEmit
+  \fi
   \tduxSetupOutput{tdux-standalone.html}{module#1.html}
   \textbf{#1.}
 }
