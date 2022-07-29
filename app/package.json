@@ -1,0 +1,17 @@
+{
+  "browserslist": "> 0.5%, last 2 versions, not dead",
+  "devDependencies": {
+    "@parcel/transformer-sass": "2.6.2",
+    "parcel": "^2.6.2",
+    "typescript": "^4.7.4"
+  },
+  "license": "MIT",
+  "scripts": {
+    "build": "parcel build parcel-src/index.html parcel-src/_modules.html",
+    "check": "tsc --noEmit",
+    "serve": "parcel serve parcel-src/index.html parcel-src/_modules.html"
+  },
+  "dependencies": {
+    "vue": "^3.2.37"
+  }
+}

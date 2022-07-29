@@ -1,5 +1,7 @@
 \documentclass{tdux}
 
+\tduxAddTemplate{tdux-standalone.html}
+
 % plain/webmac compatibility
 
 \countdef\pageno=0
@@ -40,17 +42,8 @@
 
 \newcommand{\WebMajorModule}[1]{%
   \newpage\par
-  \iffirstmodule
-    \firstmodulefalse
-    \special{tdux:mfs section^^J%
-Cttweave-first^^J%
-Did m#1}
-  \else
-    \special{tdux:me section}
-    \special{tdux:mfs section^^J%
-Cttweave-nonfirst^^J%
-Did m#1}
-  \fi
+  \tduxEmit
+  \tduxSetupOutput{tdux-standalone.html}{module#1.html}
   \textbf{#1.}
 }
 \let\WebMinorModule=\WebMajorModule
@@ -84,7 +77,7 @@ NAS}%
 \def\WebModuleReference#1#2{%
   \special{tdux:mfs a^^J%
 Cmodref^^J%
-Donclick modals.modinfo.openFor(#1)}%
+Donclick ttWeaveModRefOnClick(#1)}%
   #2%
   \special{tdux:me a}%
 }
@@ -97,7 +90,7 @@ Donclick modals.modinfo.openFor(#1)}%
 \makeatletter
 
 \newenvironment{WebMajorModuleIndex}{%
-  \openout\majormoduleindexfile=web-major-module-index.js
+  \openout\majormoduleindexfile=ttw-major-module-index.js
   \write\majormoduleindexfile{window.ttWeaveMajorModuleIndex=[}
 
   % Hack(s) to get marked-up content to appear as plain text
@@ -134,7 +127,7 @@ Donclick modals.modinfo.openFor(#1)}%
 \makeatletter
 
 \newenvironment{WebNamedModuleIndex}{%
-  \openout\namedmoduleindexfile=web-named-module-index.js
+  \openout\namedmoduleindexfile=ttw-named-module-index.js
   \write\namedmoduleindexfile{window.ttWeaveNamedModuleIndex=\@charlb}
   \catcode`"=\active
   \changedoublequote
@@ -169,7 +162,7 @@ Donclick modals.modinfo.openFor(#1)}%
 \def\WebWildcardPrefix#1#2{#2}
 
 \newenvironment{WebSymbolIndex}{%
-  \openout\symbolindexfile=web-symbol-index.js
+  \openout\symbolindexfile=ttw-symbol-index.js
   \write\symbolindexfile{window.ttWeaveSymbolIndex=\@charlb}
   \catcode`"=\active
   \changedoublequote
