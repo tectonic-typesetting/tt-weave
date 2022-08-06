@@ -63,6 +63,8 @@ body {
   overflow-x: hidden;
 }
 
+/* Code styling */
+
 code {
   font-family: "Source Code Pro", Consolas, "Ubuntu Mono", Menlo, "DejaVu Sans Mono", monospace, monospace !important;
   font-size: 0.875em;
@@ -77,6 +79,8 @@ h5 code,
 h6 code {
   font-size: unset;
 }
+
+/* Utility */
 
 .left {
   float: left;
@@ -97,6 +101,8 @@ h6 code {
 .hidden {
   display: none !important;
 }
+
+/* Headers */
 
 h2,
 h3 {
@@ -134,6 +140,8 @@ h6:target::before {
   scroll-margin-top: calc(var(--menu-bar-height) + 0.5em);
 }
 
+/* Page layout */
+
 .page {
   outline: 0;
   padding: 0 var(--page-padding);
@@ -154,81 +162,84 @@ h6:target::before {
   overflow-y: auto;
   padding: 0 15px;
   padding-bottom: 50px;
+
+  main {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: var(--content-max-width);
+  }
+
+  p {
+    line-height: 1.45em;
+  }
+
+  ol {
+    line-height: 1.45em;
+  }
+
+  ul {
+    line-height: 1.45em;
+  }
+
+  a {
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  img,
+  video {
+    max-width: 100%;
+  }
+
+  .header:link,
+  .header:visited {
+    color: var(--fg);
+  }
+
+  .header:link,
+  .header:visited:hover {
+    text-decoration: none;
+  }
 }
 
-.content main {
-  margin-left: auto;
-  margin-right: auto;
-  max-width: var(--content-max-width);
-}
-
-.content p {
-  line-height: 1.45em;
-}
-
-.content ol {
-  line-height: 1.45em;
-}
-
-.content ul {
-  line-height: 1.45em;
-}
-
-.content a {
-  text-decoration: none;
-}
-
-.content a:hover {
-  text-decoration: underline;
-}
-
-.content img,
-.content video {
-  max-width: 100%;
-}
-
-.content .header:link,
-.content .header:visited {
-  color: var(--fg);
-}
-
-.content .header:link,
-.content .header:visited:hover {
-  text-decoration: none;
-}
+/* Tables */
 
 table {
   margin: 0 auto;
   border-collapse: collapse;
+
+  td {
+    padding: 3px 20px;
+    border: 1px var(--table-border-color) solid;
+  }
+
+  thead {
+    background: var(--table-header-bg);
+
+    td {
+      font-weight: 700;
+      border: none;
+    }
+
+    th {
+      padding: 3px 20px;
+    }
+
+    tr {
+      border: 1px var(--table-header-bg) solid;
+    }
+  }
+
+  /* Alternate background colors for rows */
+  tbody tr:nth-child(2n) {
+    background: var(--table-alternate-bg);
+  }
 }
 
-table td {
-  padding: 3px 20px;
-  border: 1px var(--table-border-color) solid;
-}
-
-table thead {
-  background: var(--table-header-bg);
-}
-
-table thead td {
-  font-weight: 700;
-  border: none;
-}
-
-table thead th {
-  padding: 3px 20px;
-}
-
-table thead tr {
-  border: 1px var(--table-header-bg) solid;
-}
-
-/* Alternate background colors for rows */
-table tbody tr:nth-child(2n) {
-  background: var(--table-alternate-bg);
-}
-
+/* misc */
 
 blockquote {
   margin: 20px 0;
@@ -413,7 +424,8 @@ a:visited {
   position: fixed;
   bottom: 0;
   right: 0;
-  width: calc(100% - var(--sidebar-width)); /* bad hack */
+  width: calc(100% - var(--sidebar-width));
+  /* bad hack */
   display: flex;
   flex-wrap: wrap;
   background-color: var(--bg);
@@ -446,6 +458,37 @@ a:visited {
   overscroll-behavior-y: contain;
   background-color: var(--sidebar-bg);
   color: var(--sidebar-fg);
+
+  code {
+    line-height: 2em;
+  }
+
+  .sidebar-scrollbox {
+    overflow-y: auto;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px 10px;
+  }
+
+  .sidebar-resize-handle {
+    position: absolute;
+    cursor: col-resize;
+    width: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+  }
+
+  &::-webkit-scrollbar {
+    background: var(--sidebar-bg);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--scrollbar);
+  }
 }
 
 .sidebar-resizing {
@@ -460,29 +503,6 @@ a:visited {
   /* Animation: slide away */
 }
 
-.sidebar code {
-  line-height: 2em;
-}
-
-.sidebar .sidebar-scrollbox {
-  overflow-y: auto;
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 10px 10px;
-}
-
-.sidebar .sidebar-resize-handle {
-  position: absolute;
-  cursor: col-resize;
-  width: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-}
-
 .js .sidebar .sidebar-resize-handle {
   cursor: col-resize;
   width: 5px;
@@ -490,14 +510,6 @@ a:visited {
 
 .sidebar-hidden .sidebar {
   transform: translateX(calc(0px - var(--sidebar-width)));
-}
-
-.sidebar::-webkit-scrollbar {
-  background: var(--sidebar-bg);
-}
-
-.sidebar::-webkit-scrollbar-thumb {
-  background: var(--scrollbar);
 }
 
 .sidebar-visible .page-wrapper {
@@ -522,6 +534,10 @@ a:visited {
 .canvas {
   position: relative;
   line-height: 1;
+
+  .ci {
+    position: absolute;
+  }
 }
 
 .canvas-inline {
@@ -534,10 +550,6 @@ a:visited {
   margin-right: auto;
 }
 
-.canvas .ci {
-  position: absolute;
-}
-
 /* tt-weave customization */
 
 section.ttweave-nonfirst {
@@ -547,11 +559,11 @@ section.ttweave-nonfirst {
 a.modref {
   cursor: pointer;
   text-decoration: none;
-}
 
-a.modref:hover {
-  color: #1c4280;
-  text-decoration: none;
+  &:hover {
+    color: #1c4280;
+    text-decoration: none;
+  }
 }
 
 /* Modals
@@ -568,10 +580,10 @@ a.modref:hover {
   width: 100%;
   height: 100%;
   background-color: rgba(255, 255, 255, 0.95);
-}
 
-.modal-overlay.modal-overlay-visible {
-  display: block;
+  &.modal-overlay-visible {
+    display: block;
+  }
 }
 
 .modal-wrapper {
@@ -584,37 +596,39 @@ a.modref:hover {
 .modal-container {
   display: none;
   background-color: #FFF;
-}
 
-.modal-container.modal-container-visible {
-  display: block;
-}
+  &.modal-container-visible {
+    display: block;
+  }
 
-.modal-container .content-aligned {
-  margin-left: auto;
-  margin-right: auto;
-  max-width: var(--content-max-width);
+  .content-aligned {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: var(--content-max-width);
+  }
 }
 
 /* Go To modal */
 
-#goto-modal-contents input {
-  font-size: larger;
-  margin-top: 1rem;
-}
+#goto-modal-contents {
+  input {
+    font-size: larger;
+    margin-top: 1rem;
+  }
 
-#goto-modal-contents button {
-  margin-top: 1rem;
+  button {
+    margin-top: 1rem;
+  }
 }
 
 .goto-modal-error {
   display: none;
   color: #BD2020;
-}
 
-.goto-modal-error.goto-modal-error-visible {
-  margin: 1rem 0 0 0;
-  display: block;
+  &.goto-modal-error-visible {
+    margin: 1rem 0 0 0;
+    display: block;
+  }
 }
 
 /* Module info modal */
