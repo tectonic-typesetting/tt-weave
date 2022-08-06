@@ -205,12 +205,31 @@ class ModuleInfoModal extends Modal {
 
     this.defList.innerHTML = "";
 
+    const pagerSeq: ModuleId[] = [];
+
     for (const rmid of rec.d) {
+      pagerSeq.push(rmid);
+
       const a = document.createElement("a");
       a.className = "modref";
       a.innerText = "" + rmid;
       a.addEventListener("click", () => {
         this.mgr.app.showSingleModule(rmid);
+        this.mgr.closeAll();
+      });
+
+      const li = document.createElement("li");
+      li.appendChild(a);
+
+      this.defList.appendChild(li);
+    }
+
+    if (pagerSeq.length > 1) {
+      const a = document.createElement("a");
+      a.className = "modref";
+      a.innerText = "page";
+      a.addEventListener("click", () => {
+        this.mgr.app.setPagingSequence(pagerSeq);
         this.mgr.closeAll();
       });
 
@@ -252,14 +271,36 @@ class App {
   modals: ModalManager;
   main: HTMLElement;
   curModule: ModuleId;
+  pagerBar: HTMLElement;
   curPagingSequence: ModuleId[];
+  curPagingIndex: number;
 
   constructor() {
     this.cache = new ModuleCache();
     this.modals = new ModalManager(this);
     this.main = document.getElementById("main")!;
     this.curModule = 1;
+
+    this.pagerBar = document.getElementById("pager-bar")!;
     this.curPagingSequence = [];
+    this.curPagingIndex = 0;
+  }
+
+  async setPagingSequence(seq: ModuleId[]) {
+    this.curPagingSequence = seq;
+    this.curPagingIndex = 0;
+
+    if (seq.length > 0) {
+      this.pagerBar.classList.add("visible");
+      await this.showSingleModule(seq[0]);
+    } else {
+      this.pagerBar.classList.remove("visible");
+    }
+  }
+
+  clearPagingSequence() {
+    // No need for async since we won't be fetching anything:
+    this.setPagingSequence([]);
   }
 
   async getModule(mid: ModuleId): Promise<HTMLElement> {
@@ -286,6 +327,46 @@ class App {
   async showPreviousModule() {
     const mid = (this.curModule > 1) ? this.curModule - 1 : 1;
     return this.showSingleModule(mid);
+  }
+
+  async showNextInSequence() {
+    // If not paging, treat as standard prev/next
+    if (this.curPagingSequence.length == 0) {
+      return this.showNextModule();
+    }
+
+    // Note that unlike prev/next module, we're counting 0-based, not 1-based.
+    const n = this.curPagingSequence.length - 1;
+    this.curPagingIndex = (this.curPagingIndex < n) ? this.curPagingIndex + 1 : n;
+    return this.showSingleModule(this.curPagingSequence[this.curPagingIndex]);
+  }
+
+  async showPreviousInSequence() {
+    // If not paging, treat as standard prev/next
+    if (this.curPagingSequence.length == 0) {
+      return this.showPreviousModule();
+    }
+
+    this.curPagingIndex = (this.curPagingIndex > 0) ? this.curPagingIndex - 1 : 0;
+    return this.showSingleModule(this.curPagingSequence[this.curPagingIndex]);
+  }
+
+  async showFirstInSequence() {
+    if (this.curPagingSequence.length == 0) {
+      return this.showSingleModule(1);
+    }
+
+    this.curPagingIndex = 0;
+    return this.showSingleModule(this.curPagingSequence[0]);
+  }
+
+  async showLastInSequence() {
+    if (this.curPagingSequence.length == 0) {
+      return this.showSingleModule(N_MODULES);
+    }
+
+    this.curPagingIndex = this.curPagingSequence[this.curPagingSequence.length - 1];
+    return this.showSingleModule(this.curPagingSequence[this.curPagingIndex]);
   }
 
   async handleSpacebar(event: KeyboardEvent) {
@@ -333,6 +414,18 @@ class App {
       } else if (event.key == "End") {
         event.preventDefault();
         await this.showSingleModule(N_MODULES);
+      } else if (event.key == "p") {
+        event.preventDefault();
+        await this.showPreviousInSequence();
+      } else if (event.key == "n") {
+        event.preventDefault();
+        await this.showNextInSequence();
+      } else if (event.key == "f") {
+        event.preventDefault();
+        await this.showFirstInSequence();
+      } else if (event.key == "l") {
+        event.preventDefault();
+        await this.showLastInSequence();
       } else if (event.key == "g") {
         event.preventDefault();
         this.modals.goto.toggle();

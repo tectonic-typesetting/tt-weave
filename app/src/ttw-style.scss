@@ -424,14 +424,20 @@ a:visited {
   position: fixed;
   bottom: 0;
   right: 0;
-  width: calc(100% - var(--sidebar-width));
+
   /* bad hack */
-  display: flex;
+  width: calc(100% - var(--sidebar-width));
+
+  display: none;
   flex-wrap: wrap;
   background-color: var(--bg);
   border-top-color: var(--bg);
   border-top-width: 1px;
   border-top-style: solid;
+
+  &.visible {
+    display: flex;
+  }
 
   &.bordered {
     border-top-color: var(--table-border-color);
