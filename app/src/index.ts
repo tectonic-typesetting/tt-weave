@@ -1,10 +1,8 @@
 // Yay TypeScript!
 
-export { }
+import { N_MODULES } from "./ttwModuleCount";
 
 // Stuff set up on init
-
-const N_MODULES = 265;
 
 type ModuleId = number;
 

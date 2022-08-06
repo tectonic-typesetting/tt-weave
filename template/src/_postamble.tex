@@ -1,3 +1,10 @@
 \par
 \tduxEmit
+
+% Write out the module counter, needed by the chrome.
+\newwrite\modulecounterfile
+\openout\modulecounterfile=ttwModuleCount.ts
+\write\modulecounterfile{export const N_MODULES = \thenmodules;}
+\closeout\modulecounterfile
+
 \end{document}

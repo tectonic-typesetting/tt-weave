@@ -43,6 +43,8 @@
 \newwrite\modulehtmllisting
 \openout\modulehtmllisting=_modules.html
 
+\newcounter{nmodules}
+
 \newcommand{\WebMajorModule}[1]{%
   \newpage\par
   \iffirstmodule
@@ -52,6 +54,7 @@
   \fi
   \tduxSetupOutput{tdux-standalone.html}{module#1.html}
   \write\modulehtmllisting{<a href="module#1.html"></a>}
+  \stepcounter{nmodules}
   \textbf{#1.}
 }
 \let\WebMinorModule=\WebMajorModule

@@ -6,3 +6,4 @@ node_modules/
 /src/*.otf
 /src/tdux-fonts.css
 /src/ttw-*.js
+/src/ttw*.ts
