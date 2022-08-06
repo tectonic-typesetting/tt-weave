@@ -423,6 +423,32 @@ a>.hljs {
   color: var(--icons-hover);
 }
 
+/* Pager bar */
+
+#pager-bar {
+  z-index: 101;
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: calc(100% - var(--sidebar-width)); /* bad hack */
+  display: flex;
+  flex-wrap: wrap;
+  background-color: var(--bg);
+  border-top-color: var(--bg);
+  border-top-width: 1px;
+  border-top-style: solid;
+
+  &.bordered {
+    border-top-color: var(--table-border-color);
+  }
+
+  /* temporary hack */
+  p {
+    width: 100%;
+    text-align: center;
+  }
+}
+
 /* Inline code */
 
 :not(pre)>.hljs {

@@ -252,12 +252,14 @@ class App {
   modals: ModalManager;
   main: HTMLElement;
   curModule: ModuleId;
+  curPagingSequence: ModuleId[];
 
   constructor() {
     this.cache = new ModuleCache();
     this.modals = new ModalManager(this);
     this.main = document.getElementById("main")!;
     this.curModule = 1;
+    this.curPagingSequence = [];
   }
 
   async getModule(mid: ModuleId): Promise<HTMLElement> {
