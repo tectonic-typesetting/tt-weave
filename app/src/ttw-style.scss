@@ -66,7 +66,6 @@ body {
 code {
   font-family: "Source Code Pro", Consolas, "Ubuntu Mono", Menlo, "DejaVu Sans Mono", monospace, monospace !important;
   font-size: 0.875em;
-  /* please adjust the ace font size accordingly in editor.js */
 }
 
 /* Don't change font size in headers. */
@@ -240,21 +239,6 @@ blockquote {
   border-bottom: .1em solid var(--quote-border);
 }
 
-
-:not(.footnote-definition)+.footnote-definition,
-.footnote-definition+ :not(.footnote-definition) {
-  margin-top: 2em;
-}
-
-.footnote-definition {
-  font-size: 0.9em;
-  margin: 0.5em 0;
-}
-
-.footnote-definition p {
-  display: inline;
-}
-
 .tooltiptext {
   position: absolute;
   visibility: hidden;
@@ -299,8 +283,7 @@ html {
 
 #searchresults a,
 .content a:link,
-a:visited,
-a>.hljs {
+a:visited {
   color: var(--links);
 }
 
@@ -447,56 +430,6 @@ a>.hljs {
     width: 100%;
     text-align: center;
   }
-}
-
-/* Inline code */
-
-:not(pre)>.hljs {
-  display: inline;
-  padding: 0.1em 0.3em;
-  border-radius: 3px;
-}
-
-:not(pre):not(a)>.hljs {
-  color: var(--inline-code-color);
-  overflow-x: initial;
-}
-
-a:hover>.hljs {
-  text-decoration: underline;
-}
-
-pre {
-  position: relative;
-}
-
-pre>.buttons {
-  position: absolute;
-  z-index: 100;
-  right: 5px;
-  top: 5px;
-
-  color: var(--sidebar-fg);
-  cursor: pointer;
-}
-
-pre>.buttons :hover {
-  color: var(--sidebar-active);
-}
-
-pre>.buttons i {
-  margin-left: 8px;
-}
-
-pre>.buttons button {
-  color: inherit;
-  background: transparent;
-  border: none;
-  cursor: inherit;
-}
-
-pre>.result {
-  margin-top: 10px;
 }
 
 /* Sidebar */
