@@ -1,9 +1,4 @@
 .parcel-cache/
 node_modules/
 /dist/
-/src/_modules.html
-/src/module*.html
-/src/*.otf
-/src/tdux-fonts.css
-/src/ttw-*.js
-/src/ttw*.ts
+/src/ttw/

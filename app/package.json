@@ -1,15 +1,16 @@
 {
   "browserslist": "> 0.5%, last 2 versions, not dead",
   "devDependencies": {
-    "@parcel/transformer-sass": "2.6.2",
-    "parcel": "^2.6.2",
+    "@parcel/transformer-sass": "^2.7",
+    "@parcel/transformer-vue": "^2.7",
+    "parcel": "^2.7",
     "typescript": "^4.7.4"
   },
   "license": "MIT",
   "scripts": {
-    "build": "parcel build src/index.html src/_modules.html",
+    "build": "parcel build src/index.html src/ttw/_modules.html",
     "check": "tsc --noEmit",
-    "serve": "parcel serve src/index.html src/_modules.html"
+    "serve": "parcel serve src/index.html src/ttw/_modules.html"
   },
   "dependencies": {
     "vue": "^3.2.37"
