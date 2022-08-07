@@ -19,7 +19,7 @@
         v-show="active == ModalKind.Goto"
         class="modal-container page-wrapper"
       >
-        <GotoModal ref="goto"></GotoModal>
+        <GotoModal ref="goto" @goto="onGoto"></GotoModal>
       </div>
     </div>
   </div>
@@ -64,9 +64,13 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { ModalKind } from "./base";
+import { ModalKind, ModuleId } from "./base";
 import ContentsModal from "./ContentsModal.vue";
 import GotoModal from "./GotoModal.vue";
+
+const emit = defineEmits<{
+  (e: "gotoModule", mid: ModuleId): void;
+}>();
 
 const active = ref(ModalKind.None);
 const goto = ref();
@@ -78,6 +82,11 @@ function toggleGoto() {
     goto.value?.prepForShow();
     active.value = ModalKind.Goto;
   }
+}
+
+function onGoto(mid: ModuleId) {
+  emit("gotoModule", mid);
+  active.value = ModalKind.None;
 }
 
 defineExpose({

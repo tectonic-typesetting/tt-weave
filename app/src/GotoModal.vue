@@ -49,6 +49,7 @@ button {
 
 <script setup lang="ts">
 import { ref, nextTick } from "vue";
+import { ModuleId } from "./base";
 import { N_MODULES } from "./ttw/ttwModuleCount";
 
 const input = ref<HTMLInputElement | null>(null);
@@ -67,6 +68,10 @@ function prepForShow() {
   });
 }
 
+const emit = defineEmits<{
+  (e: "goto", mid: ModuleId): void;
+}>();
+
 function onSubmit() {
   const mid = parseInt(text.value, 10);
 
@@ -74,7 +79,7 @@ function onSubmit() {
     input.value?.blur();
     text.value = "";
     errorText.value = "";
-    console.log("do the goto and close!");
+    emit("goto", mid);
   } else {
     errorText.value = `“${text.value}” doesn’t look like a valid module number.`;
     text.value = "";

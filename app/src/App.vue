@@ -35,7 +35,7 @@
       </div>
     </div>
 
-    <ModalManager ref="modalManager"></ModalManager>
+    <ModalManager ref="modalManager" @gotoModule="onGotoModule"></ModalManager>
   </div>
 </template>
 
@@ -146,6 +146,12 @@ function mountKeybindings() {
 
 function unmountKeybindings() {
   window.removeEventListener("keydown", onKeydown);
+}
+
+// Subcomponent event handlers
+
+function onGotoModule(mid: ModuleId) {
+  desiredModule.value = mid;
 }
 
 // The hooks
