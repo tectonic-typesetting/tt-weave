@@ -35,60 +35,7 @@
       </div>
     </div>
 
-    <div class="modal-overlay" id="modal-overlay"></div>
-
-    <div class="modal-wrapper">
-      <div class="modal-container page-wrapper" id="contents-modal">
-        <div class="content-aligned">
-          <h1>Contents</h1>
-
-          <div id="contents-modal-contents">
-            <p><i>… contents loading …</i></p>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-container page-wrapper" id="goto-modal">
-        <div class="content-aligned">
-          <h1>Go To Module</h1>
-
-          <div id="goto-modal-contents">
-            <form id="goto-modal-form">
-              <!-- This is a numeric entry, but UX-wise I think it's better to code it as text -->
-              <div>
-                <label for="goto-modal-entry">Enter a module number:</label>
-              </div>
-              <div>
-                <input
-                  type="text"
-                  id="goto-modal-entry"
-                  name="goto-modal-entry"
-                />
-              </div>
-              <div>
-                <p id="goto-modal-error" class="goto-modal-error"></p>
-              </div>
-              <div>
-                <button>Go</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-container page-wrapper" id="modinfo-modal">
-        <div class="content-aligned">
-          <h1 id="modinfo-modal-title">Module Information</h1>
-
-          <div id="modinfo-modal-contents">
-            <p id="modinfo-modal-def-desc">This module is defined in...</p>
-            <ul id="modinfo-modal-def-list" class="modinfo-reflist"></ul>
-            <p id="modinfo-modal-ref-desc">This module is referenced in...</p>
-            <ul id="modinfo-modal-ref-list" class="modinfo-reflist"></ul>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ModalManager ref="modalManager"></ModalManager>
   </div>
 </template>
 
@@ -96,9 +43,12 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from "vue";
-import { ModuleId } from "./base";
+import { ModuleId, ModalKind } from "./base";
 import { ModuleCache } from "./module-cache";
 import { N_MODULES } from "./ttw/ttwModuleCount";
+import ModalManager from "./ModalManager.vue";
+
+const modalManager = ref();
 
 const cache = new ModuleCache();
 const desiredModule = ref(0);
@@ -170,6 +120,11 @@ const keydownHandlers = {
   Home: (event: KeyboardEvent) => {
     event.preventDefault();
     desiredModule.value = 1;
+  },
+
+  c: (event: KeyboardEvent) => {
+    event.preventDefault();
+    modalManager.value?.toggleModal(ModalKind.Contents);
   },
 };
 
