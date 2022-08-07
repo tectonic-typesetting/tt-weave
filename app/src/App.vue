@@ -124,7 +124,34 @@ function showPrev() {
 
 // Global keybindings
 
+function handleSpacebar(event: KeyboardEvent) {
+  if (event.shiftKey) {
+    // shift-spacebar: scroll up
+    if (window.scrollY <= 0) {
+      showPrev();
+      event.preventDefault();
+    }
+  } else {
+    // Scrolling down is harder to compute. Some examples online use
+    // `document.body` settings too, but those don't work here due to the way
+    // our disappearing title bar works.
+    const pageHeight = Math.max(
+      document.documentElement.scrollHeight,
+      document.documentElement.offsetHeight
+    );
+
+    const atBottom = window.innerHeight + window.scrollY >= pageHeight;
+
+    if (atBottom) {
+      showNext();
+      event.preventDefault();
+    }
+  }
+}
+
 const keydownHandlers = {
+  " ": handleSpacebar,
+
   ArrowLeft: (event: KeyboardEvent) => {
     event.preventDefault();
     showPrev();
@@ -133,6 +160,16 @@ const keydownHandlers = {
   ArrowRight: (event: KeyboardEvent) => {
     event.preventDefault();
     showNext();
+  },
+
+  End: (event: KeyboardEvent) => {
+    event.preventDefault();
+    desiredModule.value = N_MODULES;
+  },
+
+  Home: (event: KeyboardEvent) => {
+    event.preventDefault();
+    desiredModule.value = 1;
   },
 };
 
