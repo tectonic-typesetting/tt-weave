@@ -40,6 +40,7 @@
     <PagerBar
       ref="pagerBar"
       :items="pagerItems"
+      :current="currentModule"
       v-show="pagerItems.length > 0"
       @gotoModule="onGotoModule"
     ></PagerBar>
@@ -172,6 +173,7 @@ function onGotoModule(mid: ModuleId) {
 function onStartPaging(mids: ModuleId[]) {
   if (mids.length > 0) {
     pagerItems.value = mids;
+    desiredModule.value = mids[0];
   }
 }
 
