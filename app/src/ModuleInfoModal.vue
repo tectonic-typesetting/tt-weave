@@ -5,13 +5,23 @@
     <p>{{ defSummary }}</p>
 
     <ul class="reflist">
-      <li v-for="mid in defItems" :key="mid">{{ mid }}</li>
+      <li v-for="mid in defItems" :key="mid">
+        <a @click="onRefClick(mid)">{{ mid }}</a>
+      </li>
+      <li v-if="defItems.length > 1">
+        <a @click="onPageDefs">page</a>
+      </li>
     </ul>
 
     <p>{{ refSummary }}</p>
 
     <ul class="reflist">
-      <li v-for="mid in refItems" :key="mid">{{ mid }}</li>
+      <li v-for="mid in refItems" :key="mid">
+        <a @click="onRefClick(mid)">{{ mid }}</a>
+      </li>
+      <li v-if="defItems.length > 1">
+        <a @click="onPageRefs">page</a>
+      </li>
     </ul>
   </div>
 </template>
@@ -37,6 +47,7 @@
 
       &:hover {
         background: #eee;
+        cursor: pointer;
       }
     }
   }
@@ -55,6 +66,11 @@ import { getNamedModuleIndexEntry } from "./named-module-index";
 
 const props = defineProps<{
   module?: ModuleId;
+}>();
+
+const emit = defineEmits<{
+  (e: "goto", mid: ModuleId): void;
+  (e: "startPaging", mids: ModuleId[]): void;
 }>();
 
 const ninfo = computed(() => {
@@ -92,4 +108,16 @@ const refSummary = computed(() => {
     return `This named module is referenced in ${refItems.value.length} places:`;
   }
 });
+
+function onRefClick(mid: ModuleId) {
+  emit("goto", mid);
+}
+
+function onPageDefs() {
+  emit("startPaging", defItems.value);
+}
+
+function onPageRefs() {
+  emit("startPaging", refItems.value);
+}
 </script>

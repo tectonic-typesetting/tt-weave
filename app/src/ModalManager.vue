@@ -29,6 +29,8 @@
         <ModuleInfoModal
           ref="modinfo"
           :module="modinfoCurModule"
+          @goto="onGoto"
+          @startPaging="onStartPaging"
         ></ModuleInfoModal>
       </div>
     </div>
@@ -81,6 +83,7 @@ import ModuleInfoModal from "./ModuleInfoModal.vue";
 
 const emit = defineEmits<{
   (e: "gotoModule", mid: ModuleId): void;
+  (e: "startPaging", mids: ModuleId[]): void;
 }>();
 
 const active = ref(ModalKind.None);
@@ -104,6 +107,11 @@ function showModuleInfo(mid: ModuleId) {
 
 function onGoto(mid: ModuleId) {
   emit("gotoModule", mid);
+  active.value = ModalKind.None;
+}
+
+function onStartPaging(mids: ModuleId[]) {
+  emit("startPaging", mids);
   active.value = ModalKind.None;
 }
 

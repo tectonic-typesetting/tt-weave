@@ -29,13 +29,19 @@
           <main id="main" v-html="mainContent"></main>
         </div>
       </div>
-
-      <div id="pager-bar" class="pager-bar sticky bordered">
-        <p>paging happening here!</p>
-      </div>
     </div>
 
-    <ModalManager ref="modalManager" @gotoModule="onGotoModule"></ModalManager>
+    <ModalManager
+      ref="modalManager"
+      @gotoModule="onGotoModule"
+      @startPaging="onStartPaging"
+    ></ModalManager>
+
+    <PagerBar
+      ref="pagerBar"
+      :items="pagerItems"
+      v-show="pagerItems.length > 0"
+    ></PagerBar>
   </div>
 </template>
 
@@ -47,8 +53,12 @@ import { ModuleId, ModalKind } from "./base";
 import { ModuleCache } from "./module-cache";
 import { N_MODULES } from "./ttw/ttwModuleCount";
 import ModalManager from "./ModalManager.vue";
+import PagerBar from "./PagerBar.vue";
 
 const modalManager = ref();
+const pagerBar = ref();
+
+// Current module display
 
 const cache = new ModuleCache();
 const desiredModule = ref(0);
@@ -71,6 +81,10 @@ function showPrev() {
   const upd = cur > 1 ? cur - 1 : 1;
   desiredModule.value = upd;
 }
+
+// Pager bar management
+
+const pagerItems = ref<ModuleId[]>([]);
 
 // Global keybindings
 
@@ -152,6 +166,12 @@ function unmountKeybindings() {
 
 function onGotoModule(mid: ModuleId) {
   desiredModule.value = mid;
+}
+
+function onStartPaging(mids: ModuleId[]) {
+  if (mids.length > 0) {
+    pagerItems.value = mids;
+  }
 }
 
 // Quasi-hack -- globals invoked by the TeX-generated code.
