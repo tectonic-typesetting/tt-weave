@@ -571,35 +571,3 @@ a.modref {
     text-decoration: none;
   }
 }
-
-/* Module info modal */
-
-.modinfo-reflist {
-  display: flex;
-  flex-flow: row wrap;
-
-  li {
-    border: 1px solid #000;
-    width: 3rem;
-    height: 2rem;
-    margin: 0.2rem;
-    display: block;
-    line-height: 2rem;
-    text-align: center;
-
-    a {
-      display: block;
-      width: 100%;
-      height: 100%;
-
-      &:hover {
-        background: #eee;
-      }
-    }
-  }
-}
-
-.ttw-module {
-  margin-top: 0.2rem;
-  margin-bottom: 5rem;
-}

@@ -26,7 +26,10 @@
         v-show="active == ModalKind.ModuleInfo"
         class="modal-container page-wrapper"
       >
-        <ModuleInfoModal ref="modinfo"></ModuleInfoModal>
+        <ModuleInfoModal
+          ref="modinfo"
+          :module="modinfoCurModule"
+        ></ModuleInfoModal>
       </div>
     </div>
   </div>
@@ -83,6 +86,7 @@ const emit = defineEmits<{
 const active = ref(ModalKind.None);
 const goto = ref();
 const modinfo = ref();
+const modinfoCurModule = ref(0);
 
 function toggleGoto() {
   if (active.value == ModalKind.Goto) {
@@ -94,7 +98,7 @@ function toggleGoto() {
 }
 
 function showModuleInfo(mid: ModuleId) {
-  modinfo.value?.prepForShow(mid);
+  modinfoCurModule.value = mid;
   active.value = ModalKind.ModuleInfo;
 }
 
