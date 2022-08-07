@@ -26,9 +26,7 @@
         </div>
 
         <div id="content" class="content">
-          <main id="main">
-            {{ mainContent }}
-          </main>
+          <main id="main" v-html="mainContent"></main>
         </div>
       </div>
 
@@ -104,21 +102,15 @@ import { N_MODULES } from "./ttw/ttwModuleCount";
 
 const cache = new ModuleCache();
 
-async function getModule(mid: ModuleId): Promise<HTMLElement> {
-  const content = await cache.get(mid);
-  const wrapper = document.createElement("div");
-  wrapper.className = "ttw-module";
-  wrapper.appendChild(content);
-  return wrapper;
-}
-
 // reactive state
 
-const desiredModule = ref(1);
-const mainContent = ref(document.createElement("div") as HTMLElement);
+const desiredModule = ref(0);
+const currentModule = ref(0);
+const mainContent = ref("<div>Loading ...</div>");
 
-watch(desiredModule, async (mid) => {
-  mainContent.value = await getModule(mid);
+watch(desiredModule, async (mid: ModuleId) => {
+  mainContent.value = await cache.get(mid);
+  currentModule.value = mid;
 });
 
 // Managing the current view
@@ -142,6 +134,6 @@ async function showPreviousModule() {
 
 // lifecycle hooks
 onMounted(() => {
-  console.log("Mounted!");
+  desiredModule.value = 1;
 });
 </script>
