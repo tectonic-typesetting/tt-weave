@@ -572,48 +572,6 @@ a.modref {
   }
 }
 
-/* Modals
-*
-* Derived from https://rapaccinim.medium.com/how-to-create-a-custom-resizable-modal-with-scrollable-and-fixed-content-21adb2adda28
-*/
-
-.modal-overlay {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 200;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(255, 255, 255, 0.95);
-
-  &.modal-overlay-visible {
-    display: block;
-  }
-}
-
-.modal-wrapper {
-  position: fixed;
-  top: 0;
-  width: 100%;
-  z-index: 201;
-}
-
-.modal-container {
-  display: none;
-  background-color: #FFF;
-
-  &.modal-container-visible {
-    display: block;
-  }
-
-  .content-aligned {
-    margin-left: auto;
-    margin-right: auto;
-    max-width: var(--content-max-width);
-  }
-}
-
 /* Go To modal */
 
 #goto-modal-contents {

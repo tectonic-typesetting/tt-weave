@@ -1,9 +1,19 @@
 <template>
   <div>
-    <div class="modal-overlay" id="modal-overlay"></div>
+    <div
+      :class="{
+        'modal-overlay': true,
+        'modal-overlay-visible': active != ModalKind.None,
+      }"
+      id="modal-overlay"
+    ></div>
 
     <div class="modal-wrapper">
-      <div class="modal-container page-wrapper" id="contents-modal">
+      <div
+        v-show="active == ModalKind.Contents"
+        class="modal-container page-wrapper"
+        id="contents-modal"
+      >
         <div class="content-aligned">
           <h1>Contents</h1>
 
@@ -43,12 +53,7 @@
 }
 
 .modal-container {
-  display: none;
   background-color: #fff;
-
-  &.modal-container-visible {
-    display: block;
-  }
 
   .content-aligned {
     margin-left: auto;
@@ -59,13 +64,17 @@
 </style>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { ModalKind } from "./base";
 
-const desiredModal = ref(ModalKind.None);
+const active = ref(ModalKind.None);
 
 function toggleModal(kind: ModalKind) {
-  console.log("toggle: " + kind);
+  if (active.value == kind) {
+    active.value = ModalKind.None;
+  } else {
+    active.value = kind;
+  }
 }
 
 defineExpose({
