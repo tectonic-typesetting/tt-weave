@@ -143,9 +143,35 @@ const keydownHandlers = {
   //  modalManager.value?.toggleModal(ModalKind.Contents);
   //},
 
+  f: (event: KeyboardEvent) => {
+    event.preventDefault();
+
+    if (pagerItems.value.length > 0) {
+      desiredModule.value = pagerItems.value[0];
+    }
+  },
+
   g: (event: KeyboardEvent) => {
     event.preventDefault();
     modalManager.value?.toggleGoto();
+  },
+
+  l: (event: KeyboardEvent) => {
+    event.preventDefault();
+
+    if (pagerItems.value.length > 0) {
+      desiredModule.value = pagerItems.value[pagerItems.value.length - 1];
+    }
+  },
+
+  n: (event: KeyboardEvent) => {
+    event.preventDefault();
+    pagerBar.value?.onClickNext();
+  },
+
+  p: (event: KeyboardEvent) => {
+    event.preventDefault();
+    pagerBar.value?.onClickPrev();
   },
 };
 

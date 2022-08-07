@@ -217,4 +217,9 @@ function onClickNext() {
     emit("gotoModule", nextModuleId.value);
   }
 }
+
+defineExpose({
+  onClickPrev,
+  onClickNext,
+});
 </script>
