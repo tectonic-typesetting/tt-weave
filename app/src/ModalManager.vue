@@ -5,22 +5,21 @@
         'modal-overlay': true,
         'modal-overlay-visible': active != ModalKind.None,
       }"
-      id="modal-overlay"
     ></div>
 
     <div class="modal-wrapper">
       <div
         v-show="active == ModalKind.Contents"
         class="modal-container page-wrapper"
-        id="contents-modal"
       >
-        <div class="content-aligned">
-          <h1>Contents</h1>
+        <ContentsModal></ContentsModal>
+      </div>
 
-          <div id="contents-modal-contents">
-            <p><i>… contents loading …</i></p>
-          </div>
-        </div>
+      <div
+        v-show="active == ModalKind.Goto"
+        class="modal-container page-wrapper"
+      >
+        <GotoModal ref="goto"></GotoModal>
       </div>
     </div>
   </div>
@@ -66,18 +65,22 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { ModalKind } from "./base";
+import ContentsModal from "./ContentsModal.vue";
+import GotoModal from "./GotoModal.vue";
 
 const active = ref(ModalKind.None);
+const goto = ref();
 
-function toggleModal(kind: ModalKind) {
-  if (active.value == kind) {
+function toggleGoto() {
+  if (active.value == ModalKind.Goto) {
     active.value = ModalKind.None;
   } else {
-    active.value = kind;
+    goto.value?.prepForShow();
+    active.value = ModalKind.Goto;
   }
 }
 
 defineExpose({
-  toggleModal,
+  toggleGoto,
 });
 </script>

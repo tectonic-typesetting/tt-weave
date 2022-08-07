@@ -122,9 +122,14 @@ const keydownHandlers = {
     desiredModule.value = 1;
   },
 
-  c: (event: KeyboardEvent) => {
+  //c: (event: KeyboardEvent) => {
+  //  event.preventDefault();
+  //  modalManager.value?.toggleModal(ModalKind.Contents);
+  //},
+
+  g: (event: KeyboardEvent) => {
     event.preventDefault();
-    modalManager.value?.toggleModal(ModalKind.Contents);
+    modalManager.value?.toggleGoto();
   },
 };
 
