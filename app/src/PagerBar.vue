@@ -1,8 +1,8 @@
 <template>
   <div class="pager-bar sticky bordered">
-    <ul>
+    <ul class="items">
       <li v-for="mid in props.items" :key="mid">
-        {{ mid }}
+        <a @click="onClickModule(mid)">{{ mid }}</a>
       </li>
     </ul>
   </div>
@@ -31,6 +31,32 @@
     text-align: center;
   }
 }
+
+.items {
+  display: flex;
+  flex-flow: row wrap;
+
+  li {
+    border: 1px solid #000;
+    width: 3rem;
+    height: 2rem;
+    margin: 0.2rem;
+    display: block;
+    line-height: 2rem;
+    text-align: center;
+
+    a {
+      display: block;
+      width: 100%;
+      height: 100%;
+
+      &:hover {
+        background: #eee;
+        cursor: pointer;
+      }
+    }
+  }
+}
 </style>
 
 <script setup lang="ts">
@@ -44,4 +70,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "gotoModule", mid: ModuleId): void;
 }>();
+
+function onClickModule(mid: ModuleId) {
+  emit("gotoModule", mid);
+}
 </script>

@@ -52,11 +52,6 @@
     }
   }
 }
-
-.ttw-module {
-  margin-top: 0.2rem;
-  margin-bottom: 5rem;
-}
 </style>
 
 <script setup lang="ts">

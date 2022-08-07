@@ -41,6 +41,7 @@
       ref="pagerBar"
       :items="pagerItems"
       v-show="pagerItems.length > 0"
+      @gotoModule="onGotoModule"
     ></PagerBar>
   </div>
 </template>
