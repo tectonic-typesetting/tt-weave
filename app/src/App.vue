@@ -27,7 +27,7 @@
 
         <div id="content" class="content">
           <main id="main">
-            <!-- filled in dynamically! -->
+            {{ mainContent }}
           </main>
         </div>
       </div>
@@ -96,12 +96,52 @@
 
 <style src="./ttw-style.scss"></style>
 
-<script>
-export default {
-  data() {
-    return {
-      name: "Vue",
-    };
-  },
-};
+<script setup lang="ts">
+import { ref, watch, onMounted } from "vue";
+import { ModuleId } from "./base";
+import { ModuleCache } from "./module-cache";
+import { N_MODULES } from "./ttw/ttwModuleCount";
+
+const cache = new ModuleCache();
+
+async function getModule(mid: ModuleId): Promise<HTMLElement> {
+  const content = await cache.get(mid);
+  const wrapper = document.createElement("div");
+  wrapper.className = "ttw-module";
+  wrapper.appendChild(content);
+  return wrapper;
+}
+
+// reactive state
+
+const desiredModule = ref(1);
+const mainContent = ref(document.createElement("div") as HTMLElement);
+
+watch(desiredModule, async (mid) => {
+  mainContent.value = await getModule(mid);
+});
+
+// Managing the current view
+
+async function showSingleModule(mid: ModuleId) {
+  const div = await this.getModule(mid);
+  this.main.innerHTML = "";
+  this.main.appendChild(div);
+  this.curModule = mid;
+}
+
+async function showNextModule() {
+  const mid = this.curModule < N_MODULES ? this.curModule + 1 : N_MODULES;
+  return this.showSingleModule(mid);
+}
+
+async function showPreviousModule() {
+  const mid = this.curModule > 1 ? this.curModule - 1 : 1;
+  return this.showSingleModule(mid);
+}
+
+// lifecycle hooks
+onMounted(() => {
+  console.log("Mounted!");
+});
 </script>
