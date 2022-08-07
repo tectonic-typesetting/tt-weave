@@ -95,15 +95,12 @@
 <style src="./ttw-style.scss"></style>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, onUnmounted } from "vue";
 import { ModuleId } from "./base";
 import { ModuleCache } from "./module-cache";
 import { N_MODULES } from "./ttw/ttwModuleCount";
 
 const cache = new ModuleCache();
-
-// reactive state
-
 const desiredModule = ref(0);
 const currentModule = ref(0);
 const mainContent = ref("<div>Loading ...</div>");
@@ -113,27 +110,56 @@ watch(desiredModule, async (mid: ModuleId) => {
   currentModule.value = mid;
 });
 
-// Managing the current view
-
-async function showSingleModule(mid: ModuleId) {
-  const div = await this.getModule(mid);
-  this.main.innerHTML = "";
-  this.main.appendChild(div);
-  this.curModule = mid;
+function showNext() {
+  const cur = currentModule.value;
+  const upd = cur < N_MODULES ? cur + 1 : N_MODULES;
+  desiredModule.value = upd;
 }
 
-async function showNextModule() {
-  const mid = this.curModule < N_MODULES ? this.curModule + 1 : N_MODULES;
-  return this.showSingleModule(mid);
+function showPrev() {
+  const cur = currentModule.value;
+  const upd = cur > 1 ? cur - 1 : 1;
+  desiredModule.value = upd;
 }
 
-async function showPreviousModule() {
-  const mid = this.curModule > 1 ? this.curModule - 1 : 1;
-  return this.showSingleModule(mid);
+// Global keybindings
+
+const keydownHandlers = {
+  ArrowLeft: (event: KeyboardEvent) => {
+    event.preventDefault();
+    showPrev();
+  },
+
+  ArrowRight: (event: KeyboardEvent) => {
+    event.preventDefault();
+    showNext();
+  },
+};
+
+function onKeydown(event: KeyboardEvent) {
+  const handler = keydownHandlers[event.key];
+  if (handler !== undefined) {
+    handler(event);
+  }
 }
 
-// lifecycle hooks
+function mountKeybindings() {
+  window.addEventListener("keydown", onKeydown);
+}
+
+function unmountKeybindings() {
+  window.removeEventListener("keydown", onKeydown);
+}
+
+// The hooks
+
 onMounted(() => {
+  mountKeybindings();
+
   desiredModule.value = 1;
+});
+
+onUnmounted(() => {
+  unmountKeybindings();
 });
 </script>
