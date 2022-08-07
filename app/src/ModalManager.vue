@@ -21,6 +21,13 @@
       >
         <GotoModal ref="goto" @goto="onGoto"></GotoModal>
       </div>
+
+      <div
+        v-show="active == ModalKind.ModuleInfo"
+        class="modal-container page-wrapper"
+      >
+        <ModuleInfoModal ref="modinfo"></ModuleInfoModal>
+      </div>
     </div>
   </div>
 </template>
@@ -67,6 +74,7 @@ import { ref, computed } from "vue";
 import { ModalKind, ModuleId } from "./base";
 import ContentsModal from "./ContentsModal.vue";
 import GotoModal from "./GotoModal.vue";
+import ModuleInfoModal from "./ModuleInfoModal.vue";
 
 const emit = defineEmits<{
   (e: "gotoModule", mid: ModuleId): void;
@@ -74,6 +82,7 @@ const emit = defineEmits<{
 
 const active = ref(ModalKind.None);
 const goto = ref();
+const modinfo = ref();
 
 function toggleGoto() {
   if (active.value == ModalKind.Goto) {
@@ -84,12 +93,18 @@ function toggleGoto() {
   }
 }
 
+function showModuleInfo(mid: ModuleId) {
+  modinfo.value?.prepForShow(mid);
+  active.value = ModalKind.ModuleInfo;
+}
+
 function onGoto(mid: ModuleId) {
   emit("gotoModule", mid);
   active.value = ModalKind.None;
 }
 
 defineExpose({
+  showModuleInfo,
   toggleGoto,
 });
 </script>

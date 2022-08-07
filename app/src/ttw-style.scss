@@ -572,29 +572,6 @@ a.modref {
   }
 }
 
-/* Go To modal */
-
-#goto-modal-contents {
-  input {
-    font-size: larger;
-    margin-top: 1rem;
-  }
-
-  button {
-    margin-top: 1rem;
-  }
-}
-
-.goto-modal-error {
-  display: none;
-  color: #BD2020;
-
-  &.goto-modal-error-visible {
-    margin: 1rem 0 0 0;
-    display: block;
-  }
-}
-
 /* Module info modal */
 
 .modinfo-reflist {

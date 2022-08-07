@@ -154,6 +154,12 @@ function onGotoModule(mid: ModuleId) {
   desiredModule.value = mid;
 }
 
+// Quasi-hack -- globals invoked by the TeX-generated code.
+
+globalThis.ttWeaveModRefOnClick = function ttWeaveModRefOnClick(mid: number) {
+  modalManager.value?.showModuleInfo(mid);
+};
+
 // The hooks
 
 onMounted(() => {

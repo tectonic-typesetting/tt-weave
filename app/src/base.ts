@@ -4,4 +4,5 @@ export enum ModalKind {
   None,
   Contents,
   Goto,
+  ModuleInfo,
 }
