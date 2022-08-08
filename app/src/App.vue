@@ -106,7 +106,10 @@ function handleSpacebar(event: KeyboardEvent) {
       document.documentElement.offsetHeight
     );
 
-    const atBottom = window.innerHeight + window.scrollY >= pageHeight;
+    // Most parameters here are ints but scrollY is a float, and if we don't
+    // round the atBottom test can incorrectly fail.
+    const atBottom =
+      window.innerHeight + Math.round(window.scrollY) >= pageHeight;
 
     if (atBottom) {
       showNext();
@@ -128,12 +131,12 @@ const keydownHandlers = {
     showNext();
   },
 
-  End: (event: KeyboardEvent) => {
+  ">": (event: KeyboardEvent) => {
     event.preventDefault();
     desiredModule.value = N_MODULES;
   },
 
-  Home: (event: KeyboardEvent) => {
+  "<": (event: KeyboardEvent) => {
     event.preventDefault();
     desiredModule.value = 1;
   },

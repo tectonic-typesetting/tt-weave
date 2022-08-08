@@ -133,12 +133,11 @@ const subset = computed(() => {
   const i0 = currentSubsetStartIndex.value;
   const d = Math.max(1, n - 2);
   const i1 = Math.min(i0 + d, items.length);
-  console.log("SS:", barWidth.value, n, i0, d, i1);
   return items.slice(i0, i1);
 });
 
-// The index into `items` of `props.current`, the item that is currently being
-// viewed, or -1 if the currently viewed item is not in `items`.
+// The index into `items` corresponding to `props.current`, the item that is
+// currently being viewed, or -1 if the currently viewed item is not in `items`.
 const currentlyViewedIndex = computed(() => {
   for (const [idx, mid] of (props.items || []).entries()) {
     if (props.current == mid) {
