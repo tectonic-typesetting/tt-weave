@@ -23,6 +23,13 @@
       </div>
 
       <div
+        v-show="active == ModalKind.Index"
+        class="modal-container page-wrapper"
+      >
+        <IndexModal ref="index"></IndexModal>
+      </div>
+
+      <div
         v-show="active == ModalKind.ModuleInfo"
         class="modal-container page-wrapper"
       >
@@ -79,6 +86,7 @@ import { ref, computed } from "vue";
 import { ModalKind, ModuleId } from "./base";
 import ContentsModal from "./ContentsModal.vue";
 import GotoModal from "./GotoModal.vue";
+import IndexModal from "./IndexModal.vue";
 import ModuleInfoModal from "./ModuleInfoModal.vue";
 
 const emit = defineEmits<{
@@ -88,6 +96,7 @@ const emit = defineEmits<{
 
 const active = ref(ModalKind.None);
 const goto = ref();
+const index = ref();
 const modinfo = ref();
 const modinfoCurModule = ref(0);
 
@@ -97,6 +106,14 @@ function toggleGoto() {
   } else {
     goto.value?.prepForShow();
     active.value = ModalKind.Goto;
+  }
+}
+
+function toggleIndex() {
+  if (active.value == ModalKind.Index) {
+    active.value = ModalKind.None;
+  } else {
+    active.value = ModalKind.Index;
   }
 }
 
@@ -118,5 +135,6 @@ function onStartPaging(mids: ModuleId[]) {
 defineExpose({
   showModuleInfo,
   toggleGoto,
+  toggleIndex,
 });
 </script>

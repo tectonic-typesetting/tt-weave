@@ -160,6 +160,11 @@ const keydownHandlers = {
     modalManager.value?.toggleGoto();
   },
 
+  i: (event: KeyboardEvent) => {
+    event.preventDefault();
+    modalManager.value?.toggleIndex();
+  },
+
   l: (event: KeyboardEvent) => {
     event.preventDefault();
 
