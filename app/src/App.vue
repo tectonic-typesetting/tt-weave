@@ -113,6 +113,7 @@ function handleSpacebar(event: KeyboardEvent) {
 
     if (atBottom) {
       showNext();
+      window.scroll({ top: 0 });
       event.preventDefault();
     }
   }
