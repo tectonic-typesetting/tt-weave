@@ -5,11 +5,14 @@
     </div>
 
     <div class="modal-content-scrollbox">
-      <div class="content-aligned">
-        <ul class="index">
-          <li v-for="sym in getSymbols()" :key="sym">{{ sym }}</li>
-        </ul>
-      </div>
+      <nav class="content-aligned">
+        <IndexEntry
+          v-for="sym in getSymbols()"
+          :key="sym"
+          :name="sym"
+          @gotoModule="onGotoModule"
+        />
+      </nav>
     </div>
   </div>
 </template>
@@ -26,6 +29,16 @@
 </style>
 
 <script setup lang="ts">
-import { ref } from "vue";
-import { getSymbolIndexEntry, getSymbols } from "./symbol-index";
+//import { ref } from "vue";
+import { ModuleId } from "./base";
+import { getSymbols } from "./symbol-index";
+import IndexEntry from "./IndexEntry.vue";
+
+const emit = defineEmits<{
+  (e: "goto", mid: ModuleId): void;
+}>();
+
+function onGotoModule(mid: ModuleId) {
+  emit("goto", mid);
+}
 </script>

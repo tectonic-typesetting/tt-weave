@@ -26,7 +26,7 @@
         v-show="active == ModalKind.Index"
         class="modal-container page-wrapper"
       >
-        <IndexModal ref="index"></IndexModal>
+        <IndexModal ref="index" @goto="onGoto"></IndexModal>
       </div>
 
       <div
