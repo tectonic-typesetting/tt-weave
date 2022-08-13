@@ -67,11 +67,18 @@
   position: fixed;
   top: 0;
   width: 100%;
+  height: 100%;
   z-index: 201;
 }
 
 .modal-container {
   background-color: #fff;
+
+  // Standardize this for content scrollbox height computation.
+  h1 {
+    margin: 2rem 0;
+    line-height: 2rem;
+  }
 
   .content-aligned {
     margin-left: auto;
