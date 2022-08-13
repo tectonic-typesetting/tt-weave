@@ -11,6 +11,7 @@
           :key="sym"
           :name="sym"
           @gotoModule="onGotoModule"
+          @startPaging="onStartPaging"
         />
       </nav>
     </div>
@@ -36,9 +37,14 @@ import IndexEntry from "./IndexEntry.vue";
 
 const emit = defineEmits<{
   (e: "goto", mid: ModuleId): void;
+  (e: "startPaging", mids: ModuleId[]): void;
 }>();
 
 function onGotoModule(mid: ModuleId) {
   emit("goto", mid);
+}
+
+function onStartPaging(mids: ModuleId[]) {
+  emit("startPaging", mids);
 }
 </script>
