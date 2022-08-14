@@ -7,7 +7,12 @@
       }"
     ></div>
 
-    <div class="modal-wrapper">
+    <div
+      :class="{
+        'modal-wrapper': true,
+        'modal-wrapper-visible': active != ModalKind.None,
+      }"
+    >
       <div
         v-show="active == ModalKind.Contents"
         class="modal-container page-wrapper"
@@ -68,11 +73,16 @@
 }
 
 .modal-wrapper {
+  display: none;
   position: fixed;
   top: 0;
   width: 100%;
   height: 100%;
   z-index: 201;
+
+  &.modal-wrapper-visible {
+    display: block;
+  }
 }
 
 .modal-container {
