@@ -13,6 +13,9 @@
     "serve": "parcel serve src/index.html src/ttw/_modules.html"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^6.1.2",
+    "@fortawesome/free-solid-svg-icons": "^6.1.2",
+    "@fortawesome/vue-fontawesome": "^3.0.1",
     "vue": "^3.2.37",
     "vue-resize": "^2.0.0-alpha.1"
   }

@@ -18,7 +18,7 @@
               aria-label="Toggle Sidebar"
               aria-controls="sidebar"
             >
-              <i class="fa fa-bars"></i>
+              <FontAwesomeIcon icon="fa-solid fa-bars" />
             </button>
           </div>
 
