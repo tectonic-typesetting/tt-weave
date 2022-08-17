@@ -81,7 +81,7 @@
   % Register main-body font family. Needs to happen before we exit the
   % "initialization" stage of the spx2html processing.
   \special{tdux:startDefineFontFamily}
-  upright
+  family-name:tduxMain
   \textbf{bold}
   \textit{italic \textbf{bold-italic}}
   \special{tdux:endDefineFontFamily}
@@ -90,7 +90,7 @@
   % Mono font family.
   \special{tdux:startDefineFontFamily}
   \texttt{
-    upright
+    family-name:tduxMono
     \textbf{bold}
     \textit{italic \textbf{bold-italic}}
   }

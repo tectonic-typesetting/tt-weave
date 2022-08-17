@@ -1,5 +1,1 @@
 {{ tduxFontFaces }}
-
-html {
-  font-family: "{{ tduxMainBodyFontFamily }}";
-}

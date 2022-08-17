@@ -55,6 +55,7 @@
 html {
   color: var(--fg);
   background-color: var(--bg);
+  font-family: "tduxMain";
   text-size-adjust: none;
 }
 
@@ -66,7 +67,7 @@ body {
 /* Code styling */
 
 code {
-  font-family: "Source Code Pro", Consolas, "Ubuntu Mono", Menlo, "DejaVu Sans Mono", monospace, monospace !important;
+  font-family: "tduxMono";
   font-size: 0.875em;
 }
 
