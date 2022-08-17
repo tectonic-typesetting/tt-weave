@@ -20,6 +20,14 @@
   ItalicFont = *-italic,
   BoldItalicFont = *-bolditalic,
 ]
+\setmonofont{SourceCodePro}[%
+  Ligatures = TeX,
+  Extension = .otf,
+  UprightFont = *-Regular,
+  BoldFont = *-Bold,
+  ItalicFont = *-RegularIt,
+  BoldItalicFont = *-BoldIt,
+]
 %
 \RequirePackage{amsmath}
 \RequirePackage{unicode-math}
@@ -77,6 +85,23 @@
   \textbf{bold}
   \textit{italic \textbf{bold-italic}}
   \special{tdux:endDefineFontFamily}
+  \par
+
+  % Mono font family.
+  \special{tdux:startDefineFontFamily}
+  \texttt{
+    upright
+    \textbf{bold}
+    \textit{italic \textbf{bold-italic}}
+  }
+  \special{tdux:endDefineFontFamily}
+  \par
+
+  \special{tdux:startFontFamilyTagAssociations}
+  \texttt{
+    code
+  }
+  \special{tdux:endFontFamilyTagAssociations}
   \par
 }
 %
