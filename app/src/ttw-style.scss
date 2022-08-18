@@ -154,6 +154,13 @@ h6:target::before {
   box-sizing: border-box;
 }
 
+// spx2html must actually use <div>s for paragraphs, not <p> elements; they are
+// given this class:
+.tdux-p {
+  margin: 1em 0;
+  line-height: 1.45em;
+}
+
 .content {
   overflow-y: auto;
   padding: 0 15px;
