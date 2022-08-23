@@ -84,8 +84,8 @@
   family-name:tduxMain
   \textbf{bold}
   \textit{italic \textbf{bold-italic}}
-  \special{tdux:endDefineFontFamily}
   \par
+  \special{tdux:endDefineFontFamily}
 
   % Mono font family.
   \special{tdux:startDefineFontFamily}
@@ -94,15 +94,15 @@
     \textbf{bold}
     \textit{italic \textbf{bold-italic}}
   }
-  \special{tdux:endDefineFontFamily}
   \par
+  \special{tdux:endDefineFontFamily}
 
   \special{tdux:startFontFamilyTagAssociations}
   \texttt{
     code
   }
-  \special{tdux:endFontFamilyTagAssociations}
   \par
+  \special{tdux:endFontFamilyTagAssociations}
 }
 %
 \AtEndDocument{%
