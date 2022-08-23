@@ -121,6 +121,14 @@ const index = ref();
 const modinfo = ref();
 const modinfoCurModule = ref(0);
 
+function toggleContents() {
+  if (active.value == ModalKind.Contents) {
+    active.value = ModalKind.None;
+  } else {
+    active.value = ModalKind.Contents;
+  }
+}
+
 function toggleGoto() {
   if (active.value == ModalKind.Goto) {
     active.value = ModalKind.None;
@@ -155,6 +163,7 @@ function onStartPaging(mids: ModuleId[]) {
 
 defineExpose({
   showModuleInfo,
+  toggleContents,
   toggleGoto,
   toggleIndex,
 });

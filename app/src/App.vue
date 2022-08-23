@@ -3,8 +3,8 @@
     <nav ref="sidebar" id="sidebar" class="sidebar" aria-label="Sidebar">
       <div class="sidebar-scrollbox">
         <ul>
-          <li>Contents</li>
-          <li>Index</li>
+          <li><a @click="onClickSidebarContents">Contents</a></li>
+          <li><a @click="onClickSidebarIndex">Index</a></li>
         </ul>
       </div>
     </nav>
@@ -125,6 +125,14 @@ function toggleSidebar() {
   }
 }
 
+function onClickSidebarContents() {
+  modalManager.value?.toggleContents();
+}
+
+function onClickSidebarIndex() {
+  modalManager.value?.toggleIndex();
+}
+
 // Global keybindings
 
 function handleSpacebar(event: KeyboardEvent) {
@@ -179,10 +187,10 @@ const keydownHandlers = {
     desiredModule.value = 1;
   },
 
-  //c: (event: KeyboardEvent) => {
-  //  event.preventDefault();
-  //  modalManager.value?.toggleModal(ModalKind.Contents);
-  //},
+  c: (event: KeyboardEvent) => {
+    event.preventDefault();
+    modalManager.value?.toggleContents();
+  },
 
   f: (event: KeyboardEvent) => {
     event.preventDefault();
