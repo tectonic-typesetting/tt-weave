@@ -15,7 +15,7 @@
 
 % up-arrow allusion in WEAVE.WEB
 \catcode`\^^K=\active
-\def^^K{(up-arrow)}
+\def^^K{↑}
 
 % WEAVE.WEB: `\.^^Z\ `
 \catcode`\^^Z=\active
@@ -23,7 +23,31 @@
 
 \let\G=\ge
 
+% Octal constant
+\def\O#1{0#1}
+
 \makeatletter
+
+% \char in WEAVE.WEB. We very clumsily override it so that \char'13 (=11
+% decimal) produces an up-arrow as intended, and \char'174 (=124 decimal)
+% produces a `|`. Other usages delegate to the original \char primitive.
+\let\orig@char=\char
+\newcount\char@holder
+\def\handle@numeric@char{
+  \ifnum\char@holder=11%
+    ↑
+  \else\ifnum\char@holder=124%
+    |
+  \else
+    \orig@char\char@holder
+  \fi
+  \fi
+}
+\def\char@with@squote{%
+  \afterassignment\handle@numeric@char
+  \char@holder=}
+\def\char{\@ifnextchar'\char@with@squote\orig@char}
+
 \def\eqalign#1{\null\,\vcenter{\openup\jot\m@th
   \ialign{\strut\hfil$\displaystyle{##}$&$\displaystyle{{}##}$\hfil
       \crcr#1\crcr}}\,}

@@ -7,4 +7,10 @@
 \write\modulecounterfile{export const N_MODULES = \thenmodules;}
 \closeout\modulecounterfile
 
+% I have no idea why this is needed! But without it:
+% `error: failed to open input file "\orig@char"`
+\makeatletter
+\let\char\orig@char
+\makeatother
+
 \end{document}
