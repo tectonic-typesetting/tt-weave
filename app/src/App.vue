@@ -10,7 +10,7 @@
             </button>
           </div>
 
-          <h1 class="menu-title">The WEAVE Processor</h1>
+          <h1 class="menu-title" v-text="documentTitle"></h1>
         </div>
 
         <div id="content" class="content">
@@ -41,12 +41,17 @@
 import { ref, watch, onMounted, onUnmounted } from "vue";
 import { ModuleId, ModalKind } from "./base";
 import { ModuleCache } from "./module-cache";
-import { N_MODULES } from "./ttw/ttwModuleCount";
+import { DOCUMENT_TITLE, N_MODULES } from "./ttw/ttwMetadata";
 import ModalManager from "./ModalManager.vue";
 import PagerBar from "./PagerBar.vue";
 
 const modalManager = ref();
 const pagerBar = ref();
+
+// Quasi-hack to parametrize the document title.
+
+const documentTitle = ref();
+documentTitle.value = DOCUMENT_TITLE;
 
 // Current module display
 

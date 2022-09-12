@@ -1,11 +1,12 @@
 \par
 \tduxEmit
 
-% Write out the module counter, needed by the chrome.
-\newwrite\modulecounterfile
-\openout\modulecounterfile=ttwModuleCount.ts
-\write\modulecounterfile{export const N_MODULES = \thenmodules;}
-\closeout\modulecounterfile
+% Write out metadata used by the chrome.
+\newwrite\metadatafile
+\openout\metadatafile=ttwMetadata.ts
+\write\metadatafile{export const N_MODULES = \thenmodules;}
+\write\metadatafile{export const DOCUMENT_TITLE = "\ttwDocumentTitle";}
+\closeout\metadatafile
 
 % I have no idea why this is needed! But without it:
 % `error: failed to open input file "\orig@char"`

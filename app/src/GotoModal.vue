@@ -50,7 +50,7 @@ button {
 <script setup lang="ts">
 import { ref, nextTick } from "vue";
 import { ModuleId } from "./base";
-import { N_MODULES } from "./ttw/ttwModuleCount";
+import { N_MODULES } from "./ttw/ttwMetadata";
 
 const input = ref<HTMLInputElement | null>(null);
 const text = ref("");
