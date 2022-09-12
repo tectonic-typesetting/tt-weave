@@ -139,6 +139,13 @@ const keydownHandlers = {
     }
   },
 
+  Escape: (event: KeyboardEvent) => {
+    if (noModifiers(event)) {
+      event.preventDefault();
+      modalManager.value?.clear();
+    }
+  },
+
   ">": (event: KeyboardEvent) => {
     if (noModifiers(event)) {
       event.preventDefault();

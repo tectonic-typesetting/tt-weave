@@ -145,6 +145,10 @@ const index = ref();
 const modinfo = ref();
 const modinfoCurModule = ref(0);
 
+function clear() {
+  active.value = ModalKind.None;
+}
+
 function toggleContents() {
   if (active.value == ModalKind.Contents) {
     active.value = ModalKind.None;
@@ -206,6 +210,7 @@ function onDoModal(kind: ModalKind) {
 }
 
 defineExpose({
+  clear,
   showModuleInfo,
   toggleContents,
   toggleDispatch,

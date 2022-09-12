@@ -59,6 +59,10 @@
         <span class="d"><span>Show/hide this help</span></span
         ><span class="k">?</span>
       </li>
+      <li>
+        <span class="d"><span>Close any overlay</span></span
+        ><span class="k">Esc</span>
+      </li>
     </ul>
   </div>
 </template>
@@ -98,6 +102,7 @@
       height: 18px;
       font-family: "tduxMono";
       font-size: 0.875em;
+      text-align: center;
 
       span {
         display: inline-block;
