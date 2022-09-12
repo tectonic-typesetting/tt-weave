@@ -52,6 +52,7 @@
     border: 1px solid var(--searchbar-border-color);
     border-radius: 3px;
     padding: 2px 6px;
+    box-sizing: border-box;
 
     display: block;
 

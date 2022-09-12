@@ -75,6 +75,7 @@
     border: 1px solid var(--searchbar-border-color);
     border-radius: 3px;
     padding: 2px;
+    box-sizing: border-box;
 
     display: flex;
     align-items: center;
