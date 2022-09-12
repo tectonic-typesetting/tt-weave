@@ -52,7 +52,7 @@
         v-show="active == ModalKind.Keybindings"
         class="modal-container page-wrapper"
       >
-        <KeybindingsModal ref="keybindings"></KeybindingsModal>
+        <KeybindingsModal></KeybindingsModal>
       </div>
 
       <div
@@ -82,7 +82,8 @@
   z-index: 200;
   width: 100%;
   height: 100%;
-  background-color: rgba(255, 255, 255, 0.95);
+  background-color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(1px);
 
   &.modal-overlay-visible {
     display: block;
@@ -138,7 +139,6 @@ const emit = defineEmits<{
 const active = ref(ModalKind.None);
 const goto = ref();
 const index = ref();
-const keybindings = ref();
 const modinfo = ref();
 const modinfoCurModule = ref(0);
 

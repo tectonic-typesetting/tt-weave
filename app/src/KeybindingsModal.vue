@@ -66,6 +66,7 @@
 <style lang="scss" scoped>
 .keylist {
   width: 100%;
+  padding: 0;
   margin-top: 2rem;
 
   li {
@@ -94,6 +95,8 @@
     .k {
       flex: 0 30px;
       height: 18px;
+      font-family: "tduxMono";
+      font-size: 0.875em;
 
       span {
         display: inline-block;
