@@ -24,12 +24,11 @@
 
 .pager-bar {
   z-index: 101;
+
   position: fixed;
   bottom: 0;
   right: 0;
-
-  /* bad hack */
-  width: calc(100% - var(--sidebar-width));
+  left: 0;
 
   display: flex;
   flex-wrap: wrap;

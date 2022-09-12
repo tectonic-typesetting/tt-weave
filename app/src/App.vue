@@ -1,29 +1,11 @@
 <template>
   <div>
-    <nav ref="sidebar" id="sidebar" class="sidebar" aria-label="Sidebar">
-      <div class="sidebar-scrollbox">
-        <ul>
-          <li><a @click="onClickSidebarContents">Contents</a></li>
-          <li><a @click="onClickSidebarIndex">Index</a></li>
-        </ul>
-      </div>
-    </nav>
-
     <div id="page-wrapper" class="page-wrapper">
       <div class="page">
         <div id="menu-bar-hover-placeholder"></div>
         <div id="menu-bar" class="menu-bar sticky bordered">
           <div class="left-buttons">
-            <button
-              ref="sidebarToggleButton"
-              id="sidebar-toggle"
-              class="icon-button"
-              type="button"
-              title="Toggle Sidebar"
-              aria-label="Toggle Sidebar"
-              aria-controls="sidebar"
-              @click="toggleSidebar"
-            >
+            <button class="icon-button" type="button">
               <FontAwesomeIcon icon="fa-solid fa-bars" />
             </button>
           </div>
@@ -93,45 +75,6 @@ function showPrev() {
 // Pager bar management
 
 const pagerItems = ref<ModuleId[]>([]);
-
-// Sidebar
-
-const sidebar = ref<HTMLElement>(null);
-const sidebarToggleButton = ref<HTMLElement>(null);
-const sidebarVisible = ref(true);
-const htmlEl = document.querySelector("html");
-
-function showSidebar() {
-  htmlEl.classList.remove("sidebar-hidden");
-  htmlEl.classList.add("sidebar-visible");
-  sidebar.value.setAttribute("aria-hidden", "aria-hidden");
-  sidebarToggleButton.value.setAttribute("aria-expanded", "aria-expanded");
-  sidebarVisible.value = true;
-}
-
-function hideSidebar() {
-  htmlEl.classList.remove("sidebar-visible");
-  htmlEl.classList.add("sidebar-hidden");
-  sidebar.value.removeAttribute("aria-hidden");
-  sidebarToggleButton.value.removeAttribute("aria-expanded");
-  sidebarVisible.value = false;
-}
-
-function toggleSidebar() {
-  if (sidebarVisible.value) {
-    hideSidebar();
-  } else {
-    showSidebar();
-  }
-}
-
-function onClickSidebarContents() {
-  modalManager.value?.toggleContents();
-}
-
-function onClickSidebarIndex() {
-  modalManager.value?.toggleIndex();
-}
 
 // Global keybindings
 
