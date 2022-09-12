@@ -135,6 +135,11 @@ const keydownHandlers = {
     desiredModule.value = 1;
   },
 
+  "?": (event: KeyboardEvent) => {
+    event.preventDefault();
+    modalManager.value?.toggleKeybindings();
+  },
+
   c: (event: KeyboardEvent) => {
     event.preventDefault();
     modalManager.value?.toggleContents();

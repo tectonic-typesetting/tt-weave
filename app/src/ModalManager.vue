@@ -39,6 +39,13 @@
       </div>
 
       <div
+        v-show="active == ModalKind.Keybindings"
+        class="modal-container page-wrapper"
+      >
+        <KeybindingsModal ref="keybindings"></KeybindingsModal>
+      </div>
+
+      <div
         v-show="active == ModalKind.ModuleInfo"
         class="modal-container page-wrapper"
       >
@@ -108,6 +115,7 @@ import { ModalKind, ModuleId } from "./base";
 import ContentsModal from "./ContentsModal.vue";
 import GotoModal from "./GotoModal.vue";
 import IndexModal from "./IndexModal.vue";
+import KeybindingsModal from "./KeybindingsModal.vue";
 import ModuleInfoModal from "./ModuleInfoModal.vue";
 
 const emit = defineEmits<{
@@ -118,6 +126,7 @@ const emit = defineEmits<{
 const active = ref(ModalKind.None);
 const goto = ref();
 const index = ref();
+const keybindings = ref();
 const modinfo = ref();
 const modinfoCurModule = ref(0);
 
@@ -146,6 +155,14 @@ function toggleIndex() {
   }
 }
 
+function toggleKeybindings() {
+  if (active.value == ModalKind.Keybindings) {
+    active.value = ModalKind.None;
+  } else {
+    active.value = ModalKind.Keybindings;
+  }
+}
+
 function showModuleInfo(mid: ModuleId) {
   modinfoCurModule.value = mid;
   active.value = ModalKind.ModuleInfo;
@@ -166,5 +183,6 @@ defineExpose({
   toggleContents,
   toggleGoto,
   toggleIndex,
+  toggleKeybindings,
 });
 </script>

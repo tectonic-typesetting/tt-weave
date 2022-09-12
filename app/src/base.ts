@@ -4,6 +4,7 @@ export enum ModalKind {
   None,
   Contents,
   Goto,
+  Keybindings,
   Index,
   ModuleInfo,
 }
