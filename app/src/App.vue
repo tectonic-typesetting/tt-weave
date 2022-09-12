@@ -39,7 +39,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from "vue";
-import { ModuleId, ModalKind } from "./base";
+import { ModuleId } from "./base";
 import { ModuleCache } from "./module-cache";
 import { DOCUMENT_TITLE, N_MODULES } from "./ttw/ttwMetadata";
 import ModalManager from "./ModalManager.vue";
@@ -112,73 +112,102 @@ function handleSpacebar(event: KeyboardEvent) {
   }
 }
 
+function noModifiers(event: KeyboardEvent): boolean {
+  // NB, currently not checking shiftKey
+  return !(event.altKey || event.ctrlKey || event.metaKey);
+}
+
 const keydownHandlers = {
   " ": handleSpacebar,
 
   ArrowLeft: (event: KeyboardEvent) => {
-    event.preventDefault();
-    showPrev();
+    if (noModifiers(event)) {
+      event.preventDefault();
+      showPrev();
+    }
   },
 
   ArrowRight: (event: KeyboardEvent) => {
-    event.preventDefault();
-    showNext();
+    if (noModifiers(event)) {
+      event.preventDefault();
+      showNext();
+    }
   },
 
   ">": (event: KeyboardEvent) => {
-    event.preventDefault();
-    desiredModule.value = N_MODULES;
+    if (noModifiers(event)) {
+      event.preventDefault();
+      desiredModule.value = N_MODULES;
+    }
   },
 
   "<": (event: KeyboardEvent) => {
-    event.preventDefault();
-    desiredModule.value = 1;
+    if (noModifiers(event)) {
+      event.preventDefault();
+      desiredModule.value = 1;
+    }
   },
 
   "?": (event: KeyboardEvent) => {
-    event.preventDefault();
-    modalManager.value?.toggleKeybindings();
+    if (noModifiers(event)) {
+      event.preventDefault();
+      modalManager.value?.toggleKeybindings();
+    }
   },
 
   c: (event: KeyboardEvent) => {
-    event.preventDefault();
-    modalManager.value?.toggleContents();
+    if (noModifiers(event)) {
+      event.preventDefault();
+      modalManager.value?.toggleContents();
+    }
   },
 
   f: (event: KeyboardEvent) => {
-    event.preventDefault();
+    if (noModifiers(event)) {
+      event.preventDefault();
 
-    if (pagerItems.value.length > 0) {
-      desiredModule.value = pagerItems.value[0];
+      if (pagerItems.value.length > 0) {
+        desiredModule.value = pagerItems.value[0];
+      }
     }
   },
 
   g: (event: KeyboardEvent) => {
-    event.preventDefault();
-    modalManager.value?.toggleGoto();
+    if (noModifiers(event)) {
+      event.preventDefault();
+      modalManager.value?.toggleGoto();
+    }
   },
 
   i: (event: KeyboardEvent) => {
-    event.preventDefault();
-    modalManager.value?.toggleIndex();
+    if (noModifiers(event)) {
+      event.preventDefault();
+      modalManager.value?.toggleIndex();
+    }
   },
 
   l: (event: KeyboardEvent) => {
-    event.preventDefault();
+    if (noModifiers(event)) {
+      event.preventDefault();
 
-    if (pagerItems.value.length > 0) {
-      desiredModule.value = pagerItems.value[pagerItems.value.length - 1];
+      if (pagerItems.value.length > 0) {
+        desiredModule.value = pagerItems.value[pagerItems.value.length - 1];
+      }
     }
   },
 
   n: (event: KeyboardEvent) => {
-    event.preventDefault();
-    pagerBar.value?.onClickNext();
+    if (noModifiers(event)) {
+      event.preventDefault();
+      pagerBar.value?.onClickNext();
+    }
   },
 
   p: (event: KeyboardEvent) => {
-    event.preventDefault();
-    pagerBar.value?.onClickPrev();
+    if (noModifiers(event)) {
+      event.preventDefault();
+      pagerBar.value?.onClickPrev();
+    }
   },
 };
 
