@@ -5,7 +5,11 @@
         <div id="menu-bar-hover-placeholder"></div>
         <div id="menu-bar" class="menu-bar sticky bordered">
           <div class="left-buttons">
-            <button class="icon-button" type="button">
+            <button
+              class="icon-button"
+              type="button"
+              @click="onDispatchClicked"
+            >
               <FontAwesomeIcon icon="fa-solid fa-bars" />
             </button>
           </div>
@@ -23,6 +27,7 @@
       ref="modalManager"
       @gotoModule="onGotoModule"
       @startPaging="onStartPaging"
+      @showCurrentModInfo="onShowCurrentModInfo"
     ></ModalManager>
 
     <PagerBar
@@ -226,6 +231,12 @@ function unmountKeybindings() {
   window.removeEventListener("keydown", onKeydown);
 }
 
+// Local event handles
+
+function onDispatchClicked() {
+  modalManager.value?.toggleDispatch();
+}
+
 // Subcomponent event handlers
 
 function onGotoModule(mid: ModuleId) {
@@ -237,6 +248,10 @@ function onStartPaging(mids: ModuleId[]) {
     pagerItems.value = mids;
     desiredModule.value = mids[0];
   }
+}
+
+function onShowCurrentModInfo() {
+  modalManager.value?.showModuleInfo(currentModule.value);
 }
 
 // Quasi-hack -- globals invoked by the TeX-generated code.

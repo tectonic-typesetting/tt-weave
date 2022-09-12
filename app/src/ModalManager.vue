@@ -21,6 +21,16 @@
       </div>
 
       <div
+        v-show="active == ModalKind.Dispatch"
+        class="modal-container page-wrapper"
+      >
+        <DispatchModal
+          @doModal="onDoModal"
+          @showCurrentModInfo="emit('showCurrentModInfo')"
+        ></DispatchModal>
+      </div>
+
+      <div
         v-show="active == ModalKind.Goto"
         class="modal-container page-wrapper"
       >
@@ -113,6 +123,7 @@
 import { ref, computed } from "vue";
 import { ModalKind, ModuleId } from "./base";
 import ContentsModal from "./ContentsModal.vue";
+import DispatchModal from "./DispatchModal.vue";
 import GotoModal from "./GotoModal.vue";
 import IndexModal from "./IndexModal.vue";
 import KeybindingsModal from "./KeybindingsModal.vue";
@@ -120,6 +131,7 @@ import ModuleInfoModal from "./ModuleInfoModal.vue";
 
 const emit = defineEmits<{
   (e: "gotoModule", mid: ModuleId): void;
+  (e: "showCurrentModInfo"): void;
   (e: "startPaging", mids: ModuleId[]): void;
 }>();
 
@@ -135,6 +147,14 @@ function toggleContents() {
     active.value = ModalKind.None;
   } else {
     active.value = ModalKind.Contents;
+  }
+}
+
+function toggleDispatch() {
+  if (active.value == ModalKind.Dispatch) {
+    active.value = ModalKind.None;
+  } else {
+    active.value = ModalKind.Dispatch;
   }
 }
 
@@ -178,9 +198,14 @@ function onStartPaging(mids: ModuleId[]) {
   active.value = ModalKind.None;
 }
 
+function onDoModal(kind: ModalKind) {
+  active.value = kind;
+}
+
 defineExpose({
   showModuleInfo,
   toggleContents,
+  toggleDispatch,
   toggleGoto,
   toggleIndex,
   toggleKeybindings,
