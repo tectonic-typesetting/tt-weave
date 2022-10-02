@@ -10,5 +10,11 @@ Current workflow:
 
 1. Obtain `xetex.web` or `weave.web`, place in directory containing this file
 2. `./weave.sh`
-3. `./tectonic.sh` (requires unpublished branch and @pkgw's laptop!!)
+3. `./tectonic.sh`
 4. `./yarn.sh serve` or `./yarn.sh build`
+
+## Outline
+
+## Legalities
+
+tt-weave is licensed under the MIT License.
