@@ -9,6 +9,7 @@ resources:
 
 variables:
   srcversion: '2022.0'
+  storage: 'ttassets'
 
 jobs:
 - job: Build
@@ -98,12 +99,17 @@ jobs:
   # Deploy, maybe
 
   - ${{ if and(eq(variables['Build.SourceBranchName'], 'main'), ne(variables['build.reason'], 'PullRequest')) }}:
-    - task: AzureFileCopy@4
+    # Derived from https://www.ipannila.net/upload-to-blob-storage-from-azure-devops/
+    - task: AzureCLI@2
       displayName: Deploy weave
       inputs:
         azureSubscription: "pkgw@AzureRM"
-        SourcePath: "dist-weave/*"
-        Destination: AzureBlob
-        storage: ttassets
-        ContainerName: "$web"
-        BlobPrefix: _stacks/weave/$(srcversion)/
+        scriptType: bash
+        scriptLocation: inlineScript
+        addSpnToEnvironment: true
+        inlineScript: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+          accountkey=$(az storage account keys list -n $(storage) --query="[0].value" -o tsv)
+          uploadtokenexpiry=$(date -u -d "30 minutes" '+%Y-%m-%dT%H:%MZ')
+          uploadsas=$(az storage container generate-sas -n '$web' --https-only --permissions rwl --expiry $uploadtokenexpiry -o tsv --account-name $(storage) --account-key $accountkey)
+          az storage azcopy blob upload --account-name $(storage) --sas-token $uploadsas -c '$web' -s 'dist-weave/*' -r -d _stacks/weave/$(srcversion)/
