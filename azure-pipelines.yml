@@ -97,7 +97,7 @@ jobs:
 
   # Deploy, maybe
 
-  ${{ if and(eq(variables['Build.SourceBranchName'], 'main'), ne(variables['build.reason'], 'PullRequest')) }}:
+  - ${{ if and(eq(variables['Build.SourceBranchName'], 'main'), ne(variables['build.reason'], 'PullRequest')) }}:
     - task: AzureFileCopy@4
       displayName: Deploy weave
       inputs:
