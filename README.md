@@ -1,9 +1,12 @@
 # tt-weave
 
-This repository contains an experimental-ish tool for Knuth’s [WEB] language
-similar to [weave], which converts WEB programs into readable documentation. The
-code in this repo turns a WEB program into an interactive web application, using
-[Tectonic] to process intermediate TeX code into HTML.
+This repository contains an experimental-ish tool that converts programs in
+Knuth’s [WEB] language into high-quality HTML. Traditionally, the program that
+turns WEB into documentation is called [weave]. The TeX code emitted by
+`tt-weave` can be processed into HTML by [Tectonic] and then bundled into an
+interactive web application using [yarn]. The only fully supported use case is
+creating an HTML version of *XeTeX: The Program*.
+
 
 [WEB]: https://www.ctan.org/pkg/web
 [weave]: https://www.ctan.org/pkg/weave
@@ -24,8 +27,8 @@ Prerequisites:
 Steps:
 
 1. Set up an input WEB file. There are two supported options:
-  - Download [weave.web] and place it in the directory containing this file
-  - Download `xetex.web` as described below.
+   - Download [weave.web] and place it in the directory containing this file
+   - Download `xetex.web` as described below.
 2. `./yarn.sh install`
 3. `./weave.sh $inputfilename`
 4. `./tectonic.sh`
