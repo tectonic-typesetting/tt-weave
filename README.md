@@ -4,13 +4,15 @@ This repository contains an experimental-ish tool that converts programs in
 Knuth’s [WEB] language into high-quality HTML. Traditionally, the program that
 turns WEB into documentation is called [weave]. The TeX code emitted by
 `tt-weave` can be processed into HTML by [Tectonic] and then bundled into an
-interactive web application using [yarn]. The only fully supported use case is
+interactive web application using [yarn] and [Parcel]. The only fully supported use case is
 creating an HTML version of *XeTeX: The Program*.
 
 
 [WEB]: https://www.ctan.org/pkg/web
 [weave]: https://www.ctan.org/pkg/weave
 [Tectonic]: https://tectonic-typesetting.github.io/
+[yarn]: https://yarnpkg.com/
+[Parcel]: https://parceljs.org/
 
 
 ## Quickstart
@@ -22,7 +24,6 @@ Prerequisites:
 - [yarn]
 
 [Rust]: https://rust-lang.org/
-[yarn]: https://yarnpkg.com/
 
 Steps:
 
