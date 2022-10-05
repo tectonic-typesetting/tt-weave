@@ -65,7 +65,7 @@ jobs:
   - bash: ./tectonic.sh
     displayName: tectonic (weave)
 
-  - bash: ./yarn.sh
+  - bash: ./yarn.sh build
     displayName: yarn build (weave)
 
   - bash: |
@@ -84,7 +84,7 @@ jobs:
   - bash: ./tectonic.sh
     displayName: tectonic (xetex)
 
-  - bash: ./yarn.sh
+  - bash: ./yarn.sh build
     displayName: yarn build (xetex)
 
   - bash: |
