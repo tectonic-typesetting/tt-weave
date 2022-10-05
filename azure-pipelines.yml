@@ -1,0 +1,109 @@
+# Copyright 2022 the Tectonic Project
+# Licensed under the MIT License
+
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+  srcversion: '2022.0'
+
+jobs:
+- job: Build
+  displayName: Build
+  pool:
+    vmImage: 'ubuntu-latest'
+
+  steps:
+  - checkout: self
+
+  - bash: |
+      set -xeuo pipefail
+      rustup set profile minimal
+      rustup component remove rust-docs || echo "already removed"
+      rustup update stable
+      rustup default stable
+      # Helpful versions
+      rustup -V
+      rustc -Vv
+      cargo -V
+    displayName: Set up Rust
+
+  - bash: cargo build --release
+    displayName: cargo build
+
+  - bash: |
+      set -xeuo pipefail
+      wget https://ctan.org/tex-archive/systems/knuth/dist/web/weave.web
+    displayName: Download weave source
+
+  - bash: |
+      set -xeuo pipefail
+      url="https://github.com/tectonic-typesetting/tectonic-staging/releases"
+      url="$url/download/texlive-${SRCVERSION}/tectonic-book-tl${SRCVERSION}.web"
+      wget -O xetex.web "$url"
+    displayName: Download xetex source
+
+  - bash: |
+      set -euo pipefail  # note: `set -x` breaks ##vso echoes
+      d="$(mktemp -d /tmp/tectonic.XXXXXX)"
+      cd "$d"
+      curl --proto '=https' --tlsv1.2 -fsSL https://drop-sh.fullyjustified.net |sh
+      echo "##vso[task.prependpath]$d"
+    displayName: Install Tectonic
+
+  - bash: ./yarn.sh install
+    displayName: yarn install
+
+  # Build WEAVE
+
+  - bash: ./weave.sh weave.web
+    displayName: tt-weave (weave)
+
+  - bash: ./tectonic.sh
+    displayName: tectonic (weave)
+
+  - bash: ./yarn.sh
+    displayName: yarn build (weave)
+
+  - bash: |
+      mv app/dist dist-weave
+    displayName: Move away output (weave)
+
+  - bash: |
+      rm -rf template/src/index.tex template/build app/src/ttw app/dist
+    displayName: Clean up (weave)
+
+  # Build XeTeX The Program
+
+  - bash: ./weave.sh xetex.web
+    displayName: tt-weave (xetex)
+
+  - bash: ./tectonic.sh
+    displayName: tectonic (xetex)
+
+  - bash: ./yarn.sh
+    displayName: yarn build (xetex)
+
+  - bash: |
+      mv app/dist dist-xetex
+    displayName: Move away output (xetex)
+
+  - bash: |
+      rm -rf template/src/index.tex template/build app/src/ttw app/dist
+    displayName: Clean up (xetex)
+
+  # Deploy, maybe
+
+  ${{ if and(eq(variables['Build.SourceBranchName'], 'main'), ne(variables['build.reason'], 'PullRequest')) }}:
+    - task: AzureFileCopy@4
+      displayName: Deploy weave
+      inputs:
+        azureSubscription: "pkgw@AzureRM"
+        SourcePath: "dist-weave/*"
+        Destination: AzureBlob
+        storage: ttassets
+        ContainerName: "$web"
+        BlobPrefix: _stacks/weave/$(srcversion)/
