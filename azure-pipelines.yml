@@ -66,7 +66,7 @@ jobs:
   - bash: ./tectonic.sh
     displayName: tectonic (weave)
 
-  - bash: ./yarn.sh build
+  - bash: ./yarn.sh build --public-url /weave/$(srcversion)/
     displayName: yarn build (weave)
 
   - bash: |
@@ -85,7 +85,7 @@ jobs:
   - bash: ./tectonic.sh
     displayName: tectonic (xetex)
 
-  - bash: ./yarn.sh build
+  - bash: ./yarn.sh build --public-url /xtp/$(srcversion)/
     displayName: yarn build (xetex)
 
   - bash: |
