@@ -73,7 +73,9 @@ const ninfo = computed(() => {
 });
 
 const heading = computed(() => {
-  if (ninfo.value === undefined) {
+  if (props.module === 0) {
+    return "Preamble";
+  } else if (ninfo.value === undefined) {
     return `Module ${props.module}`;
   } else {
     return `§${props.module}: ${ninfo.value.n}`;

@@ -11,3 +11,53 @@
 \def\XeTeX{XƎ\TeX}
 
 \def\ttwDocumentTitle{XeTeX The Program}
+
+% Custom preamble material:
+
+\tduxSetupOutput{tdux-standalone.html}{module0.html}
+\write\modulehtmllisting{<a href="module0.html"></a>}
+
+\textbf{Preamble.} This digital book describes the \XeTeX\ typesetting engine,
+which converts input \TeX\ source code to the XDV binary format.
+
+\XeTeX\ is a modified version of Donald Knuth’s \TeX\ program, consisting of a
+core implemented in the WEB language and extensions written in C and C++. WEB is
+a literate programming language, combining code and documentation. This book
+expresses both aspects. It was generated from the \XeTeX-modified WEB code using
+a program called
+\special{tdux:mfs a^^J%
+Dtarget _blank^^J%
+Dhref https://github.com/tectonic-typesetting/tt-weave/}tt-weave\special{tdux:me a},
+which typesets the associated documentation and rewrites the WEB source into a
+new syntax resembling the C and Rust languages. As such this book should be taken
+as informative, but not definitive, regarding the workings of the \XeTeX\ program.
+
+The original \TeX\ WEB code written by Donald Knuth is comprehensively
+documented. The modified \XeTeX\ code is not always as thorough, and its
+components written in C and C++ are not captured in this book at all. Nor are
+the other programs and resources that \XeTeX\ needs to be combined with to
+compile real-world documents.
+
+This digital book is a product of the
+\special{tdux:mfs a^^J%
+Dtarget _blank^^J%
+Dhref https://tectonic-typesetting.github.io/}Tectonic project\special{tdux:me a},
+a \TeX\ typesetting system that is based on the \XeTeX\ engine implementation.
+The book was generated from the \XeTeX\ source tree maintained by the
+\special{tdux:mfs a^^J%
+Dtarget _blank^^J%
+Dhref https://www.tug.org/texlive/}\TeX\ Live\special{tdux:me a}
+project by scripts from the
+\special{tdux:mfs a^^J%
+Dtarget _blank^^J%
+Dhref https://github.com/tectonic-typesetting/tectonic-staging/}\textsf{tectonic-staging}\special{tdux:me a}
+repository. While a minimal patch is applied to the \TeX\ Live code in
+order to create a WEB document that can be compiled to PDF using the
+stock WEAVE program and Tectonic, no other modifications to the source are made.
+Any discrepancies between this book and the original sources are the
+responsibility of the Tectonic project.
+
+WEB programs are defined as a series of numbered modules. Use the left and right
+arrow keys to navigate between them.
+
+\tduxEmit

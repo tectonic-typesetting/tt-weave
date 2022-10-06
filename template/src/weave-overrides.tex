@@ -1,5 +1,25 @@
 \def\mc{}
 \def\AT!{@}
 
-%\tduxSetTemplateVariable{tduxDocumentTitle}{The WEAVE Processor}
 \def\ttwDocumentTitle{The WEAVE Processor}
+
+% Custom preamble material:
+
+\tduxSetupOutput{tdux-standalone.html}{module0.html}
+\write\modulehtmllisting{<a href="module0.html"></a>}
+
+\textbf{Preamble.} This digital book describes the WEAVE program, which converts
+a WEB program to \TeX\ code.
+
+This book was generated using a WEAVE-like program called
+\special{tdux:mfs a^^J%
+Dtarget _blank^^J%
+Dhref https://github.com/tectonic-typesetting/tt-weave/}tt-weave\special{tdux:me a},
+which rewrites the WEB source into a new syntax resembling the C and Rust languages.
+As such its contents should be taken as purely informational and not as defining
+the actual WEAVE program.
+
+WEB programs are defined as a series of numbered modules. Use the left and right
+arrow keys to navigate between them.
+
+\tduxEmit

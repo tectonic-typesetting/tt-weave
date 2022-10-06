@@ -61,14 +61,14 @@ documentTitle.value = DOCUMENT_TITLE;
 // Current module display
 
 const cache = new ModuleCache();
-const desiredModule = ref(0);
-const currentModule = ref(0);
+const desiredModule = ref(-1);
+const currentModule = ref(-1);
 const mainContent = ref("<div>Loading ...</div>");
 
 watch(desiredModule, async (mid: ModuleId) => {
   mainContent.value = await cache.get(mid);
   currentModule.value = mid;
-  location.hash = `#${mid}`;
+  location.hash = mid == 0 ? "" : `#${mid}`;
 });
 
 function showNext() {
@@ -79,7 +79,7 @@ function showNext() {
 
 function showPrev() {
   const cur = currentModule.value;
-  const upd = cur > 1 ? cur - 1 : 1;
+  const upd = cur > 0 ? cur - 1 : 0;
   desiredModule.value = upd;
 }
 
@@ -242,10 +242,14 @@ function unmountKeybindings() {
 // URL hash monitoring
 
 function onHashChanged() {
-  const mid = parseInt(location.hash.substring(1), 10);
+  if (location.hash == "") {
+    desiredModule.value = 0;
+  } else {
+    const mid = parseInt(location.hash.substring(1), 10);
 
-  if (mid >= 1 && mid <= N_MODULES) {
-    desiredModule.value = mid;
+    if (mid >= 1 && mid <= N_MODULES) {
+      desiredModule.value = mid;
+    }
   }
 }
 
@@ -292,8 +296,8 @@ onMounted(() => {
   mountKeybindings();
   mountHashWatcher();
 
-  // Default to 1, but honor initial hash setting:
-  desiredModule.value = 1;
+  // Default to 0 (preamble), but honor initial hash setting:
+  desiredModule.value = 0;
   onHashChanged();
 });
 
