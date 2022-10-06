@@ -68,6 +68,7 @@ const mainContent = ref("<div>Loading ...</div>");
 watch(desiredModule, async (mid: ModuleId) => {
   mainContent.value = await cache.get(mid);
   currentModule.value = mid;
+  location.hash = `#${mid}`;
 });
 
 function showNext() {
@@ -238,7 +239,25 @@ function unmountKeybindings() {
   window.removeEventListener("keydown", onKeydown);
 }
 
-// Local event handles
+// URL hash monitoring
+
+function onHashChanged() {
+  const mid = parseInt(location.hash.substring(1), 10);
+
+  if (mid >= 1 && mid <= N_MODULES) {
+    desiredModule.value = mid;
+  }
+}
+
+function mountHashWatcher() {
+  window.addEventListener("hashchange", onHashChanged);
+}
+
+function unmountHashWatcher() {
+  window.removeEventListener("hashchange", onHashChanged);
+}
+
+// Local event handlers
 
 function onDispatchClicked() {
   modalManager.value?.toggleDispatch();
@@ -271,11 +290,15 @@ globalThis.ttWeaveModRefOnClick = function ttWeaveModRefOnClick(mid: number) {
 
 onMounted(() => {
   mountKeybindings();
+  mountHashWatcher();
 
+  // Default to 1, but honor initial hash setting:
   desiredModule.value = 1;
+  onHashChanged();
 });
 
 onUnmounted(() => {
+  unmountHashWatcher();
   unmountKeybindings();
 });
 </script>
