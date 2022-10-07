@@ -385,21 +385,88 @@ a:visited {
 
 .menu-bar,
 .menu-bar:visited,
-.nav-chapters,
-.nav-chapters:visited,
-.mobile-nav-chapters,
-.mobile-nav-chapters:visited,
 .menu-bar .icon-button,
 .menu-bar a i {
   color: var(--icons);
 }
 
 .menu-bar i:hover,
-.menu-bar .icon-button:hover,
-.nav-chapters:hover,
-.mobile-nav-chapters i:hover {
+.menu-bar .icon-button:hover {
   color: var(--icons-hover);
 }
+
+// Chrome: navigation buttons
+//
+// There are two versions of these: "wide" on ~desktops, and "narrow" on mobile
+// devices. The former are vertical on the left and right edges of the screen,
+// while the latter show up at the bottom of the page content. A @media query
+// ensures that only one or the other is shown (defaulting to "wide").
+
+.nav-wrapper-wide {
+  .nav-modules {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    margin: 0;
+    max-width: 150px;
+    min-width: 90px;
+    display: flex;
+    justify-content: center;
+    align-content: center;
+    flex-direction: column;
+    font-size: 2.5em;
+  }
+}
+
+.nav-wrapper-narrow {
+  display: none; // overridden by @media query on narrow screens
+  margin-top: 3rem;
+
+  .nav-modules {
+    width: 90px;
+    text-align: center;
+    font-size: 2em;
+    border-radius: 5px;
+  }
+}
+
+.nav-modules {
+  transition: color 0.5s, background-color 0.5s;
+
+  &:hover {
+    background: #f4f4f4;
+    cursor: pointer;
+  }
+
+  i,
+  svg {
+    color: var(--icons);
+
+    &:hover {
+      color: var(--icons-hover);
+    }
+  }
+}
+
+.previous {
+  float: left;
+}
+
+.next {
+  float: right;
+  right: 0;
+}
+
+@media only screen and (max-width: 1080px) {
+  .nav-wrapper-wide {
+    display: none;
+  }
+
+  .nav-wrapper-narrow {
+    display: block;
+  }
+}
+
 
 /* Tectonic "canvas" for math, etc. */
 

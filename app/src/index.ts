@@ -5,11 +5,13 @@ import { DOCUMENT_TITLE } from "./ttw/ttwMetadata";
 
 import { library } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { faBars } from "@fortawesome/free-solid-svg-icons";
+import { faAngleLeft, faAngleRight, faBars } from "@fortawesome/free-solid-svg-icons";
 
 document.title = DOCUMENT_TITLE;
 
-library.add(faBars)
+library.add(faAngleLeft);
+library.add(faAngleRight);
+library.add(faBars);
 
 const app = createApp(App);
 app.component("ResizeObserver", ResizeObserver);

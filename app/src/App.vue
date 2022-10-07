@@ -19,9 +19,61 @@
 
         <div id="content" class="content">
           <main id="main" v-html="mainContent"></main>
+
+          <nav class="nav-wrapper-narrow" aria-label="Page navigation">
+            <button
+              type="button"
+              @click="showPrev"
+              v-show="currentModule > 0"
+              class="nav-modules previous icon-button"
+              title="Previous module"
+              aria-label="Previous module"
+            >
+              <FontAwesomeIcon icon="fa-solid fa-angle-left" />
+            </button>
+
+            <button
+              type="button"
+              @click="showNext"
+              v-show="currentModule < N_MODULES"
+              class="nav-modules next icon-button"
+              title="Next module"
+              aria-label="Next module"
+            >
+              <FontAwesomeIcon icon="fa-solid fa-angle-right" />
+            </button>
+
+            <div style="clear: both"></div>
+          </nav>
         </div>
       </div>
     </div>
+
+    <nav class="nav-wrapper-wide" aria-label="Page navigation">
+      <button
+        type="button"
+        @click="showPrev"
+        v-show="currentModule > 0"
+        class="nav-modules previous icon-button"
+        title="Previous module"
+        aria-label="Previous module"
+      >
+        <FontAwesomeIcon icon="fa-solid fa-angle-left" />
+      </button>
+
+      <button
+        type="button"
+        @click="showNext"
+        v-show="currentModule < N_MODULES"
+        class="nav-modules next icon-button"
+        title="Next module"
+        aria-label="Next module"
+      >
+        <FontAwesomeIcon icon="fa-solid fa-angle-right" />
+      </button>
+
+      <div style="clear: both"></div>
+    </nav>
 
     <ModalManager
       ref="modalManager"
