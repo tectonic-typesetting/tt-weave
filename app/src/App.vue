@@ -88,6 +88,7 @@
       :current="currentModule"
       v-show="pagerItems.length > 0"
       @gotoModule="onGotoModule"
+      @stopPaging="onStopPaging"
     ></PagerBar>
   </div>
 </template>
@@ -330,6 +331,10 @@ function onStartPaging(mids: ModuleId[]) {
     pagerItems.value = mids;
     desiredModule.value = mids[0];
   }
+}
+
+function onStopPaging() {
+  pagerItems.value = [];
 }
 
 function onShowCurrentModInfo() {

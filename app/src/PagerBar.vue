@@ -16,6 +16,16 @@
       </li>
       <ResizeObserver @notify="onResize" />
     </ul>
+
+    <button
+      type="button"
+      @click="emit('stopPaging')"
+      class="close-button"
+      title="Close overlay"
+      aria-label="Close overlay"
+    >
+      ×
+    </button>
   </div>
 </template>
 
@@ -82,6 +92,25 @@
     }
   }
 }
+
+.close-button {
+  position: absolute;
+  top: 2px;
+  right: 16px;
+  width: 18px;
+  height: 18px;
+  font-size: 24px;
+  line-height: 18px;
+  border: none;
+
+  background-color: #fff;
+  color: var(--icons);
+
+  &:hover {
+    cursor: pointer;
+    color: var(--icons-hover);
+  }
+}
 </style>
 
 <script setup lang="ts">
@@ -95,6 +124,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "gotoModule", mid: ModuleId): void;
+  (e: "stopPaging"): void;
 }>();
 
 const barWidth = ref(300);
