@@ -66,6 +66,16 @@
           @startPaging="onStartPaging"
         ></ModuleInfoModal>
       </div>
+
+      <button
+        type="button"
+        @click="clear"
+        class="close-button"
+        title="Close overlay"
+        aria-label="Close overlay"
+      >
+        ×
+      </button>
     </div>
   </div>
 </template>
@@ -119,6 +129,25 @@
     margin-left: auto;
     margin-right: auto;
     max-width: var(--content-max-width);
+  }
+}
+
+.close-button {
+  position: fixed;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 2em;
+  width: 3rem;
+  height: 3rem;
+  border: none;
+  border-radius: 5px;
+
+  background-color: #fff;
+  color: var(--icons);
+
+  &:hover {
+    cursor: pointer;
+    color: var(--icons-hover);
   }
 }
 </style>
