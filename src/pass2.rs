@@ -32,6 +32,8 @@ impl OutputState {
             }
             self.col = 0;
             self.saw_phantom = false;
+        } else if c == ' ' && self.saw_phantom {
+            // Nothing. In xetex.web, some "phantom" index entries are followed by whitespace.
         } else {
             print!("{}", c);
             self.col += 1
@@ -74,9 +76,6 @@ fn copy_limbo<'a>(output: &mut OutputState, mut span: Span<'a>) -> ParseResult<'
 }
 
 /// WEAVE:134, `copy_tex`
-///
-/// TODO: may need to monitor linebreaks as in WEAVE finish_line, etc.,
-/// to produce correct output with index entries.
 fn copy_tex<'a>(output: &mut OutputState, mut span: Span<'a>) -> ParseResult<'a, Token> {
     let mut tok;
 
