@@ -121,6 +121,7 @@ watch(desiredModule, async (mid: ModuleId) => {
   mainContent.value = await cache.get(mid);
   currentModule.value = mid;
   location.hash = mid == 0 ? "" : `#${mid}`;
+  window.scroll({ top: 0 });
 });
 
 function showNext() {
@@ -164,7 +165,6 @@ function handleSpacebar(event: KeyboardEvent) {
 
     if (atBottom) {
       showNext();
-      window.scroll({ top: 0 });
       event.preventDefault();
     }
   }
