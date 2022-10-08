@@ -253,6 +253,19 @@ Sbackground-color #2^^J%
 % allow TeX to think it's linebreaking.
 \newcommand{\WebNL}{\special{tdux:dt ^^J}\par}
 
+% Helpers for the preamble sections.
+
+% \href{URL}{TEXT}
+\renewcommand{\href}[2]{%
+\special{tdux:mfs a^^J%
+Dtarget _blank^^J%
+Dhref #1}#2\special{tdux:me a}%
+}
+
+% Super lame!
+\def\mysection#1{\special{tdux:mfs h1^^J%
+NAT}#1\special{tdux:me h1}}
+
 % Ready to go!
 
 \begin{document}

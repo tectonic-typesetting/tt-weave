@@ -1,11 +1,6 @@
 % from webmac
 
-\def\X#1:#2\X{%
-  \ifmmode\gdef\XX{\null$\null}\else\gdef\XX{}\fi % section name
-  \XX$\langle\,$#2 #1$\,\rangle$\XX}
-
 \def\mc{}
-\def\[{[}
 \def\AT!{@}
 \def\30{} % for named module 1009
 \def\XeTeX{XƎ\TeX}
@@ -17,47 +12,93 @@
 \tduxSetupOutput{tdux-standalone.html}{module0.html}
 \write\modulehtmllisting{<a href="module0.html"></a>}
 
-\textbf{Preamble.} This digital book describes the \XeTeX\ typesetting engine,
+\textbf{Preamble.} This digital book describes the \XeTeX\ typesetting program,
 which converts input \TeX\ source code to the XDV binary format.
 
-\XeTeX\ is a modified version of Donald Knuth’s \TeX\ program, consisting of a
-core implemented in the WEB language and extensions written in C and C++. WEB is
-a literate programming language, combining code and documentation. This book
-expresses both aspects. It was generated from the \XeTeX-modified WEB code using
-a program called
-\special{tdux:mfs a^^J%
-Dtarget _blank^^J%
-Dhref https://github.com/tectonic-typesetting/tt-weave/}tt-weave\special{tdux:me a},
-which typesets the associated documentation and rewrites the WEB source into a
-new syntax resembling the C and Rust languages. As such this book should be taken
-as informative, but not definitive, regarding the workings of the \XeTeX\ program.
+\mysection{About XeTeX} % \XeTeX canvas currently doesn't work here
 
-The original \TeX\ WEB code written by Donald Knuth is comprehensively
-documented. The modified \XeTeX\ code is not always as thorough, and its
-components written in C and C++ are not captured in this book at all. Nor are
-the other programs and resources that \XeTeX\ needs to be combined with to
-compile real-world documents.
+\XeTeX\ is a modified version of Donald E.\ Knuth’s \TeX\ program that adds
+support for Unicode text and OpenType fonts, among other changes. It is the
+foundation of the \href{https://tectonic-typesetting.github.io/}{Tectonic
+project}, a modernized \TeX\ typesetting system, which is built around a
+modified clone of the \XeTeX\ engine.
 
-This digital book is a product of the
-\special{tdux:mfs a^^J%
-Dtarget _blank^^J%
-Dhref https://tectonic-typesetting.github.io/}Tectonic project\special{tdux:me a},
-a \TeX\ typesetting system that is based on the \XeTeX\ engine implementation.
-The book was generated from the \XeTeX\ source tree maintained by the
-\special{tdux:mfs a^^J%
-Dtarget _blank^^J%
-Dhref https://www.tug.org/texlive/}\TeX\ Live\special{tdux:me a}
-project by scripts from the
-\special{tdux:mfs a^^J%
-Dtarget _blank^^J%
-Dhref https://github.com/tectonic-typesetting/tectonic-staging/}\textsf{tectonic-staging}\special{tdux:me a}
-repository. While a minimal patch is applied to the \TeX\ Live code in
-order to create a WEB document that can be compiled to PDF using the
-stock WEAVE program and Tectonic, no other modifications to the source are made.
-Any discrepancies between this book and the original sources are the
-responsibility of the Tectonic project.
+\mysection{About this book}
 
-WEB programs are defined as a series of numbered modules. Use the left and right
-arrow keys to navigate between them.
+The original \TeX\ system is written in WEB, a literate programming language —
+one that combines code and documentation. WEB code can be turned into either an
+executable program (a process called “tangling”) or into a book combining the
+formatted source code and extensive documentation (“weaving”). The \TeX\ program
+— viewed holistically as both code and documentation — is the exclusive work of
+Donald E.\ Knuth, and is renowned for its staggering attention to detail,
+comprehensiveness, and polish. The associated book is published in hardcopy as
+\href{https://www.worldcat.org/title/876762639}{Computers \& Typesetting, Volume
+B — \TeX: The Program}.
+
+\textit{This} book is “woven” from the WEB code underlying \XeTeX, which is is
+expressed as a series of patches to Knuth’s \TeX\ file. It is the work of many
+authors building atop Knuth’s foundation. Unlike \TeX\ it is not the product of
+a singular vision, and even the best of us struggle to match the standard of
+exactitude set by Knuth. Abrupt changes in style will be apparent if you read
+this book linearly. While much of the book's text will say that it is describing
+\TeX, it is always and only describing \XeTeX.
+
+The full \XeTeX\ program consists of not only WEB code, but also extensions
+written in C and C++. Those extensions are not included in this book.
+Furthermore, \XeTeX\ itself must be combined with other programs and data files
+to do anything useful with a modern \TeX\ document. Those ecosystem-level
+aspects are not addressed here either.
+
+The specific provenance of the WEB code used to create this book is the \XeTeX\
+source tree maintained by the \href{https://www.tug.org/texlive/}{\TeX\ Live}
+project. Files from that tree are processed using scripts from the
+\href{https://github.com/tectonic-typesetting/tectonic-staging/}{\textsf{tectonic-staging}}
+code repository, with a minimal patch applied in order to create a WEB document
+that can be woven. No other modifications are made.
+
+A program called
+\href{https://github.com/tectonic-typesetting/tt-weave/}{tt-weave} processes the
+WEB file into \TeX\ code that is then compiled into HTML using
+\href{https://tectonic-typesetting.github.io/}{Tectonic}. The tt-weave program
+emits the code component of the WEB language after reformatting it into a new
+syntax resembling the C and Rust languages. Between this rewriting and the fact
+that the original typesetting targets the printed page, not the screen, this
+digital book should be taken as informative \textit{but not definitive}
+regarding the workings of \XeTeX.
+
+\mysection{About the code in this book}
+
+The WEB language is essentially a sophisticated preprocessor for Pascal.
+“Tangling” a WEB program produces a Pascal file. WEB is described in the
+Stanford Computer Science report CS-TR-83-980,
+\href{http://i.stanford.edu/TR/CS-TR-83-980.html}{The WEB system of structured
+documentation}, by Donald E.\ Knuth.
+
+WEB programs consist of a numbered sequence of modules. Each module may contain
+descriptive documentation, macro definitions, and/or Pascal code. The tangled
+output consists of the concatenation of the Pascal code pieces, with two layers
+of processing applied. First, macro definitions are expanded in the code text as
+they appear. Second, some modules are “named modules” whose entire text can be
+included within other modules. The same name can be defined in multiple modules,
+in which case the text of the named module is the concatenation of the text of
+all of its constituents. Both layers of processing are applied at the textual
+level, and constructs such as imbalanced parentheses occur frequently.
+
+The code as rendered in this book has been parsed and transformed from a
+Pascal-like syntax to a pseudocode syntax resembling C and Rust. This rewriting
+is superficial and does not attempt to alter aspects of the Pascal language that
+appear quirky by present standards, such as the lack of a built-in
+\texttt{return} statement. Rust macro syntax (\texttt{macro!}) is used to
+indicate forms with non-intuitive meaning. For instance, \texttt{ord!("s")}
+indicates the integer ASCII code of the character \texttt{s}, a construct used
+instead of classic WEB's distinction between double- and single-quoted strings.
 
 \tduxEmit
+
+% Put these last since they mess up VS Code's syntax highlighting
+
+\def\X#1:#2\X{%
+  \ifmmode\gdef\XX{\null$\null}\else\gdef\XX{}\fi % section name
+  \XX$\langle\,$#2 #1$\,\rangle$\XX}
+
+\def\[{[}
