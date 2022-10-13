@@ -94,7 +94,8 @@ Converting WEB code to an interactive web app is a multi-step process:
    create the final product. This is done using Yarn, wrapped with the `yarn.sh`
    script. The `app/` subdirectory of this repo contains the bulk of this
    app implementation, with a hierarchy of [Vue.js] components defined in the
-   `app/src/` subdirectory.
+   `app/src/` subdirectory. The HTML/CSS structure was largely inspired by that
+   of the [mdBook](https://rust-lang.github.io/mdBook/) tool.
 
 [Vue.js]: https://vuejs.org/
 
