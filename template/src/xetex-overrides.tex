@@ -17,11 +17,11 @@ which converts input \TeX\ source code to the XDV binary format.
 
 \mysection{About XeTeX} % \XeTeX canvas currently doesn't work here
 
-\XeTeX\ is a modified version of Donald E.\ Knuth’s \TeX\ program that adds
-support for Unicode text and OpenType fonts, among other changes. It is the
-foundation of the \href{https://tectonic-typesetting.github.io/}{Tectonic
-project}, a modernized \TeX\ typesetting system, which is built around a
-modified clone of the \XeTeX\ engine.
+\XeTeX\ is a modified version of Donald E.\ Knuth’s \TeX\ typesetting program
+that adds support for Unicode text and OpenType fonts, among other changes. It
+is the foundation of the \href{https://tectonic-typesetting.github.io/}{Tectonic
+project}, a modernized \TeX\ system, which is built around a modified clone of
+the \XeTeX\ engine.
 
 \mysection{About this book}
 
@@ -29,7 +29,7 @@ The original \TeX\ system is written in WEB, a literate programming language —
 one that combines code and documentation. WEB code can be turned into either an
 executable program (a process called “tangling”) or into a book combining the
 formatted source code and extensive documentation (“weaving”). The \TeX\ program
-— viewed holistically as both code and documentation — is the exclusive work of
+— viewed holistically as both code and documentation — is the work of
 Donald E.\ Knuth, and is renowned for its staggering attention to detail,
 comprehensiveness, and polish. The associated book is published in hardcopy as
 \href{https://www.worldcat.org/title/876762639}{Computers \& Typesetting, Volume
@@ -96,6 +96,25 @@ appear quirky by present standards, such as the lack of a built-in
 indicate forms with non-intuitive meaning. For instance, \texttt{ord!("s")}
 indicates the integer ASCII code of the character \texttt{s}, a construct used
 instead of classic WEB's distinction between double- and single-quoted strings.
+
+\mysection{Credits}
+
+The original \TeX\ program is by Donald E.\ Knuth. \TeX\ is a trademark of the
+American Mathematical Society.
+
+\XeTeX\ was developed by SIL International, Jonathan Kew, Han The Thanh, and
+Khaled Hosny.
+
+\XeTeX\ builds upon \eTeX, developed by P.\ Breitenlohner. \eTeX\ is a trademark
+of the NTS Group. It also includes the \TeX\ extensions TeX–XeT and Sync\TeX.
+The code further includes the changes introduced in ML\TeX, by Michael J.\
+Ferguson and B.\ Raichle, but they are not activated in \XeTeX.
+
+% Here, our \href is dumb and needs handholding:
+\catcode`~=11
+tt-weave and its templates were originally developed by
+\href{https://newton.cx/~peter/}{Peter K.\ G.\ Williams}.
+\catcode`~=\active
 
 \tduxEmit
 
