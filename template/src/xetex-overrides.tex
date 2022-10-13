@@ -5,7 +5,7 @@
 \def\30{} % for named module 1009
 \def\XeTeX{XƎ\TeX}
 
-\def\ttwDocumentTitle{XeTeX The Program}
+\def\ttwDocumentTitle{XeTeX: A Pseudoprogram}
 
 % Custom preamble material:
 
@@ -43,11 +43,25 @@ exactitude set by Knuth. Abrupt changes in style will be apparent if you read
 this book linearly. While much of the book's text will say that it is describing
 \TeX, it is always and only describing \XeTeX.
 
-The full \XeTeX\ program consists of not only WEB code, but also extensions
-written in C and C++. Those extensions are not included in this book.
-Furthermore, \XeTeX\ itself must be combined with other programs and data files
-to do anything useful with a modern \TeX\ document. Those ecosystem-level
-aspects are not addressed here either.
+However, the full \XeTeX\ program consists of not only WEB code, but also
+extensions written in C and C++. Those extensions are not included in this book.
+Some of the WEB code can only be understood in the context of its interaction
+with the absent extension code. Furthermore, \XeTeX\ itself must be combined
+with other programs and data files to do anything useful with a modern \TeX\
+document. Those ecosystem-level aspects are not addressed here either.
+
+Furthermore, this book is derived from the WEB code through a program called
+\href{https://github.com/tectonic-typesetting/tt-weave/}{tt-weave}, which
+transforms the WEB file into \TeX\ code that is then compiled into a
+\href{https://vuejs.org}{Vue.js} web application using
+\href{https://tectonic-typesetting.github.io/}{Tectonic} and
+\href{https://parceljs.org/}{Parcel}. The tt-weave program emits the code
+component of the WEB file after reformatting it into a new syntax resembling the
+C and Rust languages. Between this rewriting, the absent extension code, and the
+fact that the original typesetting targets the printed page, not the screen,
+this digital book should be taken as informative \textit{but not definitive}
+regarding the workings of \XeTeX. That is why this book's title refers to
+\textit{a pseudoprogram}, not \textit{the program}.
 
 The specific provenance of the WEB code used to create this book is the \XeTeX\
 source tree maintained by the \href{https://www.tug.org/texlive/}{\TeX\ Live}
@@ -55,16 +69,6 @@ project. Files from that tree are processed using scripts from the
 \href{https://github.com/tectonic-typesetting/tectonic-staging/}{\textsf{tectonic-staging}}
 code repository, with a minimal patch applied in order to create a WEB document
 that can be woven. No other modifications are made.
-
-A program called
-\href{https://github.com/tectonic-typesetting/tt-weave/}{tt-weave} processes the
-WEB file into \TeX\ code that is then compiled into HTML using
-\href{https://tectonic-typesetting.github.io/}{Tectonic}. The tt-weave program
-emits the code component of the WEB language after reformatting it into a new
-syntax resembling the C and Rust languages. Between this rewriting and the fact
-that the original typesetting targets the printed page, not the screen, this
-digital book should be taken as informative \textit{but not definitive}
-regarding the workings of \XeTeX.
 
 \mysection{About the code in this book}
 

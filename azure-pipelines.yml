@@ -77,24 +77,24 @@ jobs:
       rm -rf template/src/index.tex template/build app/src/ttw app/dist
     displayName: Clean up (weave)
 
-  # Build XeTeX The Program
+  # Build XeTeX: A Pseudoprogram
 
   - bash: ./weave.sh xetex.web
-    displayName: tt-weave (xtp)
+    displayName: tt-weave (xap)
 
   - bash: ./tectonic.sh
-    displayName: tectonic (xtp)
+    displayName: tectonic (xap)
 
-  - bash: ./yarn.sh build --public-url /xtp/$(srcversion)/
-    displayName: yarn build (xtp)
+  - bash: ./yarn.sh build --public-url /xap/$(srcversion)/
+    displayName: yarn build (xap)
 
   - bash: |
-      mv app/dist dist-xtp
-    displayName: Move away output (xtp)
+      mv app/dist dist-xap
+    displayName: Move away output (xap)
 
   - bash: |
       rm -rf template/src/index.tex template/build app/src/ttw app/dist
-    displayName: Clean up (xtp)
+    displayName: Clean up (xap)
 
   # Deploy, maybe
 
@@ -115,7 +115,7 @@ jobs:
           az storage azcopy blob upload --account-name $(storage) --sas-token $uploadsas -c '$web' -s 'dist-weave/*' -r -d _stacks/weave/$(srcversion)/
 
     - task: AzureCLI@2
-      displayName: Deploy xtp
+      displayName: Deploy xap
       inputs:
         azureSubscription: "pkgw@AzureRM"
         scriptType: bash
@@ -126,4 +126,4 @@ jobs:
           accountkey=$(az storage account keys list -n $(storage) --query="[0].value" -o tsv)
           uploadtokenexpiry=$(date -u -d "30 minutes" '+%Y-%m-%dT%H:%MZ')
           uploadsas=$(az storage container generate-sas -n '$web' --https-only --permissions rwl --expiry $uploadtokenexpiry -o tsv --account-name $(storage) --account-key $accountkey)
-          az storage azcopy blob upload --account-name $(storage) --sas-token $uploadsas -c '$web' -s 'dist-xtp/*' -r -d _stacks/xtp/$(srcversion)/
+          az storage azcopy blob upload --account-name $(storage) --sas-token $uploadsas -c '$web' -s 'dist-xap/*' -r -d _stacks/xap/$(srcversion)/

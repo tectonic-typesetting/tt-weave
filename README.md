@@ -4,20 +4,23 @@ This repository contains an experimental-ish tool that converts programs in
 Knuth’s [WEB] language into high-quality HTML. Traditionally, the program that
 turns WEB into documentation is called [weave]. The TeX code emitted by
 `tt-weave` can be processed into HTML by [Tectonic] and then bundled into an
-interactive web application using [yarn] and [Parcel]. The only fully supported use case is
-creating an HTML version of *XeTeX: The Program*.
-
+interactive web application using [yarn] and [Parcel]. The only fully supported
+use case is creating an HTML book called [*XeTeX: A Pseudoprogram*]. The
+`tt-weave` program can also process a smaller test case, a book about [weave]
+itself called [*The WEAVE Processor*].
 
 [WEB]: https://www.ctan.org/pkg/web
 [weave]: https://www.ctan.org/pkg/weave
 [Tectonic]: https://tectonic-typesetting.github.io/
 [yarn]: https://yarnpkg.com/
 [Parcel]: https://parceljs.org/
+[*XeTeX: A Pseudoprogram*]: https://stacks.fullyjustified.net/xap/2022.0/
+[*The WEAVE Processor*]: https://stacks.fullyjustified.net/weave/2022.0/
 
 
-## Quickstart
+## Building the books
 
-Prerequisites:
+To build a book you need:
 
 - [Rust]
 - [Tectonic] >= 0.11.0
@@ -25,7 +28,11 @@ Prerequisites:
 
 [Rust]: https://rust-lang.org/
 
-Steps:
+The full build process involves transforming WEB source to TeX, then the TeX to
+HTML precursors. Finally the HTML precursors are bundled with a [Vue.js] web
+application framework to create the final book.
+
+[Vue.js]: https://vuejs.org/
 
 1. Set up an input WEB file. There are two supported options:
    - Download [weave.web] and place it in the directory containing this file
