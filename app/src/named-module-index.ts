@@ -9,7 +9,9 @@ export interface NamedModuleIndexEntry {
 // This is added to the toplevel globals by the toplevel script tag that loads
 // ttw/ttw-named-module-index.js. We should probably move this to a more
 // component-y implementation.
-declare var ttWeaveNamedModuleIndex: { [id: ModuleId]: NamedModuleIndexEntry } | undefined;
+declare global {
+  var ttWeaveNamedModuleIndex: { [id: ModuleId]: NamedModuleIndexEntry } | undefined;
+}
 
 /// Returns `undefined` if either the index hasn't been loaded yet, or the
 /// module isn't in it. The latter could happen if the module ID is invalid or
@@ -17,8 +19,8 @@ declare var ttWeaveNamedModuleIndex: { [id: ModuleId]: NamedModuleIndexEntry } |
 export function getNamedModuleIndexEntry(mid: ModuleId): NamedModuleIndexEntry | undefined {
   var rec = undefined;
 
-  if (ttWeaveNamedModuleIndex !== undefined) {
-    rec = ttWeaveNamedModuleIndex[mid];
+  if (globalThis.ttWeaveNamedModuleIndex !== undefined) {
+    rec = globalThis.ttWeaveNamedModuleIndex[mid];
   }
 
   return rec;
