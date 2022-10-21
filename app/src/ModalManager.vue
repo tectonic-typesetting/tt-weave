@@ -207,6 +207,7 @@ function toggleIndex() {
   if (active.value == ModalKind.Index) {
     active.value = ModalKind.None;
   } else {
+    index.value?.prepForShow();
     active.value = ModalKind.Index;
   }
 }
